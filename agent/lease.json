@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 6,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-13T13:13:45.895Z",
-  "lastHeartbeat": "2026-11-13T13:15:05.273Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-13T13:15:05.273Z"
+  "status": "active",
+  "owner": "agent-be002-2026-11-13T14:21:15.634Z-r6",
+  "fence": 7,
+  "task": "BE-002 supervisor process-tree integration",
+  "workBranch": "feature/be-002-windows-tree-shutdown",
+  "acquiredAt": "2026-11-13T14:21:15.634Z",
+  "lastHeartbeat": "2026-11-13T14:21:15.634Z",
+  "expiresAt": "2026-11-13T15:51:15.634Z",
+  "releasedAt": null
 }
