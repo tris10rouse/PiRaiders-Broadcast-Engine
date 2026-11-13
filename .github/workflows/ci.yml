@@ -37,6 +37,8 @@ jobs:
         run: node --test tests/spx-runtime.test.cjs
       - name: Windows launcher process supervision tests
         run: node --test tests/process-supervisor.test.cjs
+      - name: Windows process tree termination tests
+        run: node --test tests/windows-process-tree.test.cjs
       - name: NDI production-window policy tests
         run: node --test tests/production-window.test.cjs
       - name: Static baseline and project contract checks
