@@ -1,0 +1,23 @@
+{
+  "productionWindow": {
+    "start": "REPLACE_WITH_ISO_TIMESTAMP_AND_OFFSET",
+    "end": "REPLACE_WITH_ISO_TIMESTAMP_AND_OFFSET",
+    "prewarmMinutes": 15
+  },
+  "services": [
+    {
+      "name": "spx",
+      "executable": "../runtime/node.exe",
+      "args": ["server.js"],
+      "cwd": ".",
+      "health": { "protocol": "spx-http", "port": 5656 }
+    },
+    {
+      "name": "casparcg",
+      "executable": "C:/CasparCG/Server/casparcg.exe",
+      "args": [],
+      "cwd": "C:/CasparCG/Server",
+      "health": { "protocol": "casparcg-amcp", "port": 5250 }
+    }
+  ]
+}

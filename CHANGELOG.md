@@ -14,4 +14,6 @@
 
 - PR #9 service health diagnostics: bounded loopback SPX identity and CasparCG VERSION diagnostics, explicit startup/degraded/recovery states, and generation-safe cancellation independent of window shutdown. Real SPX startup is now exercised with isolated temporary settings; CasparCG health uses a socket simulator. [Windows/Ubuntu CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43467648825) passed; Windows ran all 87 tests without skips, including real SPX startup through the native host. No endpoint response proves NDI or receiver state.
 
+- Portable Windows development packaging: tracked SPX runtime/assets/locales, fresh production dependencies, bundled Node/license and native host, one fixed launcher, strict SHA-256 inventory and ZIP checksum. Extracted-ZIP CI exercises actual SPX pages and simulated AMCP window shutdown without global Node. This is a development artifact; CasparCG/NDI binaries and unfinished product workflows are not represented as ready.
+
 No user-testable Windows release or stadium hardware compatibility has been established. Upstream SPX release history remains in RELEASE_NOTES.md.
