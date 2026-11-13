@@ -6,7 +6,7 @@
   "task": "Resume BE-002/008 Windows development bundle after expired fence 11",
   "workBranch": "feature/windows-development-bundle",
   "acquiredAt": "2026-11-13T19:40:19.170Z",
-  "lastHeartbeat": "2026-11-13T19:58:22.298Z",
-  "expiresAt": "2026-11-13T21:28:22.298Z",
+  "lastHeartbeat": "2026-11-13T20:02:52.119Z",
+  "expiresAt": "2026-11-13T21:32:52.119Z",
   "releasedAt": null
 }
