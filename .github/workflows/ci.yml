@@ -35,5 +35,7 @@ jobs:
         run: node --test tests/agent-lease.test.mjs
       - name: Original SPX HTML, OGraf and AMCP runtime regressions
         run: node --test tests/spx-runtime.test.cjs
+      - name: Windows launcher process supervision tests
+        run: node --test tests/process-supervisor.test.cjs
       - name: Static baseline and project contract checks
         run: node --test tests/baseline.test.cjs
