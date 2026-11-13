@@ -36,6 +36,7 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
 - [ ] **BE-003 · RossTalk control bridge** (Stage 1)
   - Configurable TCP listener, command validation and source allowlist. Map Launch/Next/Previous/Auto/Reload/Stop with deterministic acknowledgements.
   - Done: socket simulator covers framing, malformed packets, rapid presses and reconnects; real Display Studio commands tested off-air.
+  - Current transport acceptance: explicit literal-IP source allowlist, bounded CRLF GPI framing and exact command map, bounded connections/queue/reply buffers, globally serialized handlers, handler timeout that fails closed without overlapping a late callback, accepted commands retained after fire-and-forget disconnect, and bounded close independent of a stuck handler. Optional PiRaiders diagnostic replies are silent by default and never claim rendering/NDI success. Real loopback TCP tests cover malformed/flood/rapid/repeated/reconnect/timeout/failure paths on both OSes. The transport requires a caller-supplied playback handler; it is not enabled by the launcher until real presentation wiring is implemented.
 
 - [ ] **BE-004 · Generic nested JPG/PNG slideshow template** (Stage 2)
   - Deterministic slide order, Start-at-1, Next/Previous wrap, Auto 10s configurable, manual-navigation timer reset, cut default / fade ~1s default.

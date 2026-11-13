@@ -16,4 +16,6 @@
 
 - PR #10 portable Windows development packaging: tracked SPX runtime/assets/locales, fresh production dependencies, bundled Node/license and native host, one fixed launcher, strict SHA-256 inventory and ZIP checksum. Extracted-ZIP CI exercises actual SPX pages and simulated AMCP window shutdown without global Node. [Windows/Ubuntu CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43497290240) passed all 91 Windows tests and the complete extracted-archive smoke with bundled Node v22.23.4. This is a development artifact; CasparCG/NDI binaries and unfinished product workflows are not represented as ready.
 
+- BE-003 transport foundation: explicit numeric sender allowlist and GPI/action mapping, bounded CR/LF decoder and serialized dispatch, disconnect-safe accepted commands, terminal handler-timeout cancellation, fixed diagnostics and an off-air loopback bench. The Windows launcher does not enable a listener; presentation integration and hardware verification remain open.
+
 No user-testable Windows release or stadium hardware compatibility has been established. Upstream SPX release history remains in RELEASE_NOTES.md.

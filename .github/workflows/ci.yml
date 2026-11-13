@@ -32,6 +32,8 @@ jobs:
           cache: npm
       - name: Install dependencies and run baseline validation
         run: npm run setup
+      - name: Exercise off-air loopback RossTalk transport bench
+        run: npm run bench:rosstalk
       - name: Upload verified Windows containment helper (component only)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
