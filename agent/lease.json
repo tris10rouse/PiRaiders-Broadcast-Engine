@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 8,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-13T14:41:54Z",
-  "lastHeartbeat": "2026-11-13T15:00:28.266Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-13T15:00:28.266Z"
+  "status": "active",
+  "owner": "codex-engineering-2026-11-13T15:39:47.070Z-ba9ff9e7093148",
+  "fence": 9,
+  "task": "BE-002 Windows process containment",
+  "workBranch": "feature/be-002-windows-job-containment",
+  "acquiredAt": "2026-11-13T15:39:47.070Z",
+  "lastHeartbeat": "2026-11-13T15:39:47.070Z",
+  "expiresAt": "2026-11-13T17:09:47.070Z",
+  "releasedAt": null
 }
