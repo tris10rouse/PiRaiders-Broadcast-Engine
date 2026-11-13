@@ -6,7 +6,7 @@
   "task": "BE-002 Windows process containment",
   "workBranch": "feature/be-002-windows-job-containment",
   "acquiredAt": "2026-11-13T15:39:47.070Z",
-  "lastHeartbeat": "2026-11-13T15:46:43.800Z",
-  "expiresAt": "2026-11-13T17:16:43.800Z",
+  "lastHeartbeat": "2026-11-13T15:48:24.672Z",
+  "expiresAt": "2026-11-13T17:18:24.672Z",
   "releasedAt": null
 }
