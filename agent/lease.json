@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 3,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-13T10:13:06.592Z",
-  "lastHeartbeat": "2026-11-13T10:14:58.452Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-13T10:14:58.452Z"
+  "status": "active",
+  "owner": "agent-run3-2026-11-13T11:08:37.062Z-c3d7",
+  "fence": 4,
+  "task": "BE-002 review PR4 CI and merge safe supervisor foundation",
+  "workBranch": "feature/be-002-windows-launcher",
+  "acquiredAt": "2026-11-13T11:08:37.062Z",
+  "lastHeartbeat": "2026-11-13T11:08:37.062Z",
+  "expiresAt": "2026-11-13T12:38:37.062Z",
+  "releasedAt": null
 }
