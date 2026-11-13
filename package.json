@@ -12,14 +12,16 @@
     ]
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node scripts/validate.cjs test",
     "devORG": "nodemon server.js -i config.json -i DATAROOT/",
     "dev": "nodemon server.js -i DATAROOT/* -i ASSETS/* -i config.json -i DATAROOT_VIDEO/*",
     "devdemo": "nodemon server.js config_demodataroot.json -i DATAROOT_DEMO/* -i config_demodataroot.json",
     "dev2": "nodemon server.js config2.json -i DATAROOT/* -i config2.json",
     "start": "pm2 start server.js --name GC",
     "stop": "pm2 stop server.js",
-    "build": "BUILD_PACKAGES.BAT"
+    "build": "BUILD_PACKAGES.BAT",
+    "check": "node scripts/validate.cjs check",
+    "setup": "node scripts/validate.cjs setup"
   },
   "keywords": [],
   "author": "Tuomo Kulomaa <tuomo@spxgraphics.com> (https://spxgraphics.com)",

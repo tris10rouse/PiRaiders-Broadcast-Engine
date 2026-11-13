@@ -1,3 +1,8 @@
+# PiRaiders Broadcast Engine
+
+A maintained SPX Solo fork for a Windows stadium graphics workstation. Development is in progress; there is no user-testable PiRaiders Windows release yet. SPX native HTML/CSS/JS, EBU OGraf, projects, rundowns and CasparCG remain the foundation.
+
+Developers: use Node 22 and run `npm run setup` for locked dependency installation and baseline validation. See [development setup](docs/operations/DEVELOPMENT.md), [roadmap](ROADMAP.md), [implementation backlog](docs/planning/IMPLEMENTATION_BACKLOG.md), [engineering changelog](CHANGELOG.md) and [launcher instructions](docs/operations/WINDOWS_LAUNCHER.md). Existing upstream SPX documentation follows.
 
 # SPX Graphics Controller
 

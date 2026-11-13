@@ -1,0 +1,15 @@
+# Reproducible development setup
+
+Use Node 22 (the CI runtime; `.nvmrc`) and its included npm. The cloud takeover also installed and validated with Node 24.22.1/npm 11.9.0 on Linux; this does not establish Windows Node 24 support. No extra global npm tools are required.
+
+From the repository root run `npm run setup`. This runs `npm ci --ignore-scripts --no-audit --no-fund`, syntax checks, and every `*.test.cjs`/`*.test.mjs` suite under `tests/`. Failed commands stop validation. Installation requires npm registry access and `cdn.sheetjs.com` for the locked upstream spreadsheet dependency. Do not disable TLS verification.
+
+Use `npm run check` for syntax validation and `npm test` for the automated suite after installation. The test runner enumerates paths itself to work on Windows without shell glob expansion. Windows CI executes the real process-tree test; other platforms explicitly skip it. No CasparCG installation, NDI SDK, or stadium connectivity is needed for these tests. Mocked graphics/socket tests do not establish hardware compatibility.
+
+For a Codex cloud environment, select this repository and Node 22, and configure the setup command as `npm run setup`. Permit the package registry, `cdn.sheetjs.com`, GitHub repository access and (if using a CLI token) `api.github.com`. Use the environment credential UI for any token; never place a token in chat, setup scripts or committed configuration. Reusable cloud settings must be saved/published through the environment settings UI if desired; the repository script does not alter those settings.
+
+During takeover, GitHub connector login and repository admin/push permissions were verified, including successful atomic lease acquisition and PR publication/merge. The cloud shell's inherited GH_TOKEN failed `gh auth status`; do not use that failure as a reason to replace or disclose credentials. The connected GitHub tools support the exact locking protocol and remain the publishing route. CLI GitHub REST access is optional, not an initialization blocker. Git fetch works. The connector cannot read the legacy branch-protection endpoint (HTTP 403); rulesets returned an empty list. Required-check configuration was not verified. Every merge still requires all workflow jobs passing at the exact final head, and the merge request pins that SHA.
+
+Every session must read AGENTS.md and the locking protocol from master and acquire the exclusive coordination lease before writes. If authenticated CLI access is available, use `scripts/agent-lease.mjs`. Otherwise use the documented connector sequence, pinning lease reads to the observed commit and using sole-parent, non-force, expected-head ref updates. Do not introduce a competing lock implementation.
+
+Recurring Codex continuation was configured in the ownership chat, hourly, replacing the paused ChatGPT task. Future runs must inspect current state and obey the lease. This is scheduled execution, not a continuously running engineering process. Pause it when the first honest user-testable Windows build is ready.
