@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "agent-20261113-1208-4f9c2b0d8e5a41c79d31",
+  "status": "idle",
+  "owner": null,
   "fence": 5,
-  "task": "BE-002 production window lifecycle",
-  "workBranch": "feature/be-002-production-window",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-13T12:08:12.331Z",
-  "lastHeartbeat": "2026-11-13T12:08:12.331Z",
-  "expiresAt": "2026-11-13T13:38:12.331Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-13T12:10:00.354Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-13T12:10:00.354Z"
 }
