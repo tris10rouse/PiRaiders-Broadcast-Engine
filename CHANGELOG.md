@@ -18,4 +18,6 @@
 
 - [PR #11](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/11) BE-003 transport foundation: explicit numeric sender allowlist and GPI/action mapping, bounded CR/LF decoder and serialized dispatch, disconnect-safe accepted commands, terminal handler-timeout cancellation, fixed diagnostics and an off-air loopback bench. The Windows launcher does not enable a listener; presentation integration and hardware verification remain open. [Windows/Ubuntu CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43506761902) passed all 114 Windows tests, loopback bench and extracted ZIP smoke on the implementation head.
 
+- BE-004 slideshow state/timer foundation: immutable ordered deck, Launch-at-1, wrapping, Auto/10-second monotonic timing and reset, explicit cut/fade rendering intent, failure suspension and bounded Stop preemption with retained watchdogs. Real TCP integration exercises command ordering and cancellation using simulated rendering. Native template output, staging and overlays remain open.
+
 No user-testable Windows release or stadium hardware compatibility has been established. Upstream SPX release history remains in RELEASE_NOTES.md.

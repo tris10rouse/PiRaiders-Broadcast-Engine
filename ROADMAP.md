@@ -67,4 +67,4 @@ Backlog task / issue → small branch → tests and docs → draft PR → automa
 
 ## Current engineering increment
 
-BE-003 now has an explicit RossTalk GPI transport boundary, source allowlist, bounded FIFO and loopback bench. It is not enabled in the launcher or connected to playback yet. See [transport scope and recovery](docs/operations/ROSSTALK.md). Next: slideshow state/timers and staged media, then a presentation adapter and authorized off-air sender verification.
+BE-003 now has an explicit RossTalk GPI transport boundary, source allowlist, bounded FIFO and loopback bench. It is not enabled in the launcher or connected to playback yet. See [transport scope and recovery](docs/operations/ROSSTALK.md). BE-004 adds a Node-authoritative slideshow state/timer controller with explicit simulated adapter tests and bounded Stop preemption; [controller scope](docs/operations/SLIDESHOW_CONTROLLER.md). Next: staged media and an actual native SPX slideshow template/render captures, then presentation/window wiring and authorized off-air sender verification.

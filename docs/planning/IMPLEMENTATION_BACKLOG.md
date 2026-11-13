@@ -43,6 +43,7 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
 - [ ] **BE-004 · Generic nested JPG/PNG slideshow template** (Stage 2)
   - Deterministic slide order, Start-at-1, Next/Previous wrap, Auto 10s configurable, manual-navigation timer reset, cut default / fade ~1s default.
   - Audience-visible AUTO/MANUAL indicator lower right: white thin border, rise/fade to max 75% opacity, ~1s hold, fade out. Reload spinner overlays the actual output.
+  - Current controller acceptance: immutable ordered deck, Launch-at-1 and wrapping navigation; stopped navigation cannot restart output; default Auto/10 seconds and cut, configurable fade defaults to one second; one monotonic fenced timer with no catch-up bursts; manual navigation resets from successful commit; bounded serial queue, explicit adapter completion, last committed state retained on failure with Auto suspended; Stop preempts pending transition and requests black without touching sender lifetime. Repeated Stop must share bounded work; canceled adapters retain watchdogs and block normal successors until settlement or terminal timeout. Unit failure tests and a real TCP RossTalk-to-controller integration run on Windows/Ubuntu; adapters remain simulated. Native slideshow rendering, overlays and render captures remain separate acceptance work.
   - Done: state/timer/transition tests and render captures; Stop displays black, NDI stays present until end of production window.
 
 - [ ] **BE-005 · Local synced-folder staging and reload** (Stage 3)
