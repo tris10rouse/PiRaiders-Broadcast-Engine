@@ -17,8 +17,11 @@ Read this document and `ROADMAP.md` before editing. This is a maintained SPX Sol
 - `ASSETS/plugins/`: frontend plug-ins; plugins do not automatically supply persistent OS/TCP services.
 - `DATAROOT/`: projects/rundowns; avoid committing operator content/secrets; use sanitized fixtures.
 
+## Mandatory exclusive agent lock (BE-000)
+Before **any** GitHub mutation (branch creation, commits, PRs, merges, issue writes, workflows), the agent MUST follow docs/agent/LOCKING_PROTOCOL.md and acquire the exclusive coordination/agent-lease Git ref lease with non-force fast-forward compare-and-swap. An active unexpired lease owned by someone else means STOP writes. Renew every 15 minutes (or before each mutating batch), verify owner and fencing token, and release at end. If the coordination branch is missing, inaccessible or corrupt, fail closed and stop mutations. Multiple agents may perform read-only research in parallel; only the elected writer publishes changes.
+
 ## Before code changes
-1. Inspect touched code, neighbor files, format and tests. Write short success criteria tied to `ROADMAP.md` and relevant task in `docs/planning/IMPLEMENTATION_BACKLOG.md` or GitHub Issue.
+1. Acquire and verify the exclusive agent lease, then inspect touched code, neighbor files, format and tests. Write short success criteria tied to `ROADMAP.md` and relevant task in `docs/planning/IMPLEMENTATION_BACKLOG.md` or GitHub Issue.
 2. Create a focused branch. Never modify `master` directly. Keep upstream changes easily mergeable.
 3. Prefer small, testable modules for PiRaiders-only functionality, and minimal adapters from SPX to those modules.
 4. Treat sender running, discovered source, receiver connected, board input selected and on-air as **distinct states**. Do not mislabel evidence.
