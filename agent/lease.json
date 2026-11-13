@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-13T08:17:23.599Z",
-  "lastHeartbeat": "2026-11-13T08:23:12.916Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-13T08:23:12.916Z",
-  "fence": 1
+  "status": "active",
+  "owner": "agent-hourly-20261113-01-cp0m8fdwh5",
+  "fence": 2,
+  "task": "BE-001 HTML OGraf regression",
+  "workBranch": "feature/be-001-html-ograf-runtime-regression",
+  "acquiredAt": "2026-11-13T09:09:05.890Z",
+  "lastHeartbeat": "2026-11-13T09:09:05.890Z",
+  "expiresAt": "2026-11-13T10:39:05.890Z",
+  "releasedAt": null
 }
