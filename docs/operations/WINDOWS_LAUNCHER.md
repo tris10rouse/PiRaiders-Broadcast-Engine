@@ -14,8 +14,8 @@ Create an untracked file at `config/piraiders-launcher.json`:
     "prewarmMinutes": 15
   },
   "services": [
-    { "name": "spx", "executable": "C:/Program Files/nodejs/node.exe", "args": ["server.js"], "cwd": "." },
-    { "name": "casparcg", "executable": "C:/CasparCG/Server/casparcg.exe", "args": [], "cwd": "." }
+    { "name": "spx", "executable": "C:/Program Files/nodejs/node.exe", "args": ["server.js"], "cwd": ".", "health": { "protocol": "spx-http", "port": 5656 } },
+    { "name": "casparcg", "executable": "C:/CasparCG/Server/casparcg.exe", "args": [], "cwd": ".", "health": { "protocol": "casparcg-amcp", "port": 5250 } }
   ]
 }
 ```
@@ -47,3 +47,17 @@ On Windows, logged `starting`/`started` PIDs identify the **native containment h
 Build just the helper with `npm run build:windows-host`. Windows CI uploads `windows-job-host` after all tests pass. This is a development component artifact, not an application installer or user-testable PiRaiders release. The unsigned helper requires installed .NET Framework v4. The build script removes old output before compiling and publishes the binary only after compilation succeeds; build output is ignored by Git.
 
 The host permits nested Windows jobs (needed by CI and potentially CasparCG), but never requests breakaway. Assignment failure leaves the root suspended, terminates it and fails rather than running it outside containment. Successful cleanup waits for the job's active-process count to reach zero; the supervisor cannot restart a service before that normal host exit. Forced host death uses the kernel kill-on-close fallback; termination completion remains subject to Windows scheduling. See ADR 0002.
+
+## Endpoint health diagnostics
+
+The optional per-service `health` settings in the example enable loopback endpoint checks. Existing configurations without them still launch, but emit `not-configured` after process spawn; they never claim endpoint readiness. Set ports to the actual SPX HTTP and CasparCG AMCP ports. Protocols are service-specific: `spx-http` and `casparcg-amcp`. Only literal `127.0.0.1` (default) or `::1` hosts are accepted; no URLs, DNS names, credentials, redirects or remote addresses. `timeoutMs` defaults to 1000 and is bounded to 50–5000 milliseconds. An invalid configured probe fails validation before any process starts.
+
+The SPX check performs only GET `/api/v1/version`, validates HTTP 200 and SPX vendor/product/version identity, and discards hostname/id/rootFolder metadata. The CasparCG check sends only `VERSION\r\n` and validates its two-line AMCP reply; it never sends playback or output commands. Both cap response sizes at 16 KiB (HTTP headers and body separately), impose an absolute deadline despite dribbling responses, and close their own connections. No stadium equipment is contacted.
+
+Structured `service-health` log events have `scope: loopback-endpoint` and one of these statuses: `starting`, `ready`, `degraded`, `unhealthy`, `not-configured`, `stopping`, `stopped`. Default checks run every 2 seconds after the previous probe settles, with a 10 second startup grace and three-failure threshold. The first failure after readiness reports degraded immediately; threshold failure reports unhealthy. A successful later check restores ready. Only state changes are logged, using fixed failure codes rather than response bodies or raw connection errors.
+
+A ready **endpoint** proves that a matching service answered locally. It does not prove that the listening endpoint belongs to the logged PID (which on Windows identifies the containment host), that templates rendered, that NDI is sending/discoverable, or that a receiver/board is connected or on air. Readiness is diagnostic only: it never kills/restarts a service or changes the production window.
+
+Probing begins only after an OS process-spawn event. Every process generation and window stop invalidates/aborts prior probes, including late results and delayed events from replaced supervisors. Health polling never shares the production-window reconciliation queue and shutdown never awaits a stuck probe. Failed process termination reports unhealthy/SHUTDOWN_FAILED until a confirmed retry, rather than stopped on request alone.
+
+Automated verification includes real local HTTP/TCP simulators for protocol, framing, malformed/oversized replies, connection refusal, absolute timeout and cancellation; mocked OS/clock lifecycle races; and actual SPX startup under isolated temporary settings. These tests do not start CasparCG or an NDI sender. [Implementation CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43467648825) passed on Windows and Ubuntu; all 87 Windows tests ran without skips, including actual SPX startup under JobHost. Every final PR head must still pass CI before merge.
