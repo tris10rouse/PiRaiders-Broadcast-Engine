@@ -6,7 +6,7 @@
   "task": "BE-003 bounded RossTalk transport and command dispatch",
   "workBranch": "feature/be-003-rosstalk-transport",
   "acquiredAt": "2026-11-13T20:45:15.474Z",
-  "lastHeartbeat": "2026-11-13T20:57:33.121Z",
-  "expiresAt": "2026-11-13T22:27:33.121Z",
+  "lastHeartbeat": "2026-11-13T20:58:54.130Z",
+  "expiresAt": "2026-11-13T22:28:54.130Z",
   "releasedAt": null
 }
