@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 12,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-13T19:40:19.170Z",
-  "lastHeartbeat": "2026-11-13T20:09:42.201Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-13T20:09:42.201Z"
+  "status": "active",
+  "owner": "codex-engineering-2026-11-13T20:45:15.474Z-6485215935f23",
+  "fence": 13,
+  "task": "BE-003 bounded RossTalk transport and command dispatch",
+  "workBranch": "feature/be-003-rosstalk-transport",
+  "acquiredAt": "2026-11-13T20:45:15.474Z",
+  "lastHeartbeat": "2026-11-13T20:45:15.474Z",
+  "expiresAt": "2026-11-13T22:15:15.474Z",
+  "releasedAt": null
 }
