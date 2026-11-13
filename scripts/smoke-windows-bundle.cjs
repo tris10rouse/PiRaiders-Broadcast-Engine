@@ -76,6 +76,44 @@ async function smokeWindowsBundle(archive) {
     for (const key of Object.keys(env)) if (/^path$/i.test(key) || /^node_(?:options|path)$/i.test(key) || /^npm_/i.test(key)) delete env[key];
     env.Path = [path.join(process.env.SystemRoot, 'System32'), process.env.SystemRoot].join(';');
     env.PIRAIDERS_SMOKE_ENTRY = path.join(root, 'Launch-PiRaiders.cmd');
+    for (const notice of ['PNGJS-LICENSE.txt', 'JPEG-JS-LICENSE.txt']) {
+      assert.ok(fs.statSync(path.join(root, 'licenses', notice)).size > 500);
+    }
+    // Exercise workers and production-only decoder resolution from the actual
+    // archive, with no global Node or NODE_PATH and no repository dependency.
+    const mediaBench = path.join(work, 'bundled-media-bench.cjs');
+    fs.writeFileSync(mediaBench, String.raw`
+'use strict';
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
+const app = process.argv[2], work = process.argv[3];
+const bundledRequire = require('node:module').createRequire(path.join(app, 'package.json'));
+const { PNG } = bundledRequire('pngjs'), jpeg = bundledRequire('jpeg-js');
+assert.equal(bundledRequire('pngjs/package.json').version, '7.0.0');
+assert.equal(bundledRequire('jpeg-js/package.json').version, '0.4.4');
+const { stageSnapshot, loadSnapshot } = bundledRequire('./scripts/lib/media-snapshot.cjs');
+async function main() {
+  const sourceDir = path.join(work, 'Simulated synced media'), cacheDir = path.join(work, 'Immutable media cache');
+  fs.mkdirSync(sourceDir);
+  const image = { width: 2, height: 2, data: Buffer.from([255,0,0,255, 0,255,0,255, 0,0,255,255, 255,255,255,128]) };
+  fs.writeFileSync(path.join(sourceDir, '01.png'), PNG.sync.write(image));
+  fs.writeFileSync(path.join(sourceDir, '02.jpg'), jpeg.encode(image, 90).data);
+  const prepared = await stageSnapshot({ sourceDir, cacheDir, quietMs: 0 });
+  assert.equal(prepared.deck.slides.length, 2);
+  assert.deepEqual(prepared.manifest.files.map(file => [file.format, file.width, file.height]), [['png',2,2],['jpeg',2,2]]);
+  fs.rmSync(sourceDir, { recursive: true });
+  const offline = await loadSnapshot(prepared.snapshotDir);
+  assert.deepEqual(offline.deck, prepared.deck);
+  assert.equal(offline.manifest.contentHash, prepared.manifest.contentHash);
+  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true }));
+}
+main().catch(() => { console.error('Bundled media validation failed'); process.exitCode = 1; });
+`);
+    const mediaOutput = execFileSync(path.join(root, 'runtime', 'node.exe'), [mediaBench, app, work], {
+      cwd: work, env, windowsHide: true, shell: false, timeout: 30000, encoding: 'utf8', maxBuffer: 65536
+    });
+    assert.match(mediaOutput, /media-snapshot-smoke-passed/);
+    process.stdout.write(mediaOutput);
+
     const start = () => {
       const events = [], errors = [];
       const child = spawn(path.join(app, 'build', 'windows', 'PiRaiders.JobHost.exe'), [powershell,
@@ -165,7 +203,7 @@ setTimeout(()=>process.exit(2),45000);
     await assert.rejects(get(spxPort, '/api/v1/version'));
     console.log(JSON.stringify({ event: 'windows-bundle-smoke-passed', sourceCommit: manifest.commitSHA,
       node: manifest.node.version, actualBundledSPX: true, casparcg: 'AMCP simulator only',
-      pathSpacesAndUnicode: true, noSystemNode: true, manifestVerified: true, senderWindowEnd: true }));
+      pathSpacesAndUnicode: true, noSystemNode: true, manifestVerified: true, senderWindowEnd: true, bundledMediaSnapshots: true }));
     return manifest;
   } finally {
     try { await stopOuter(outer); }

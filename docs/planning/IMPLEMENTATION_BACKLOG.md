@@ -49,6 +49,7 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
 
 - [ ] **BE-005 · Local synced-folder staging and reload** (Stage 3)
   - Watch configurable Drive Desktop folder, debounce incomplete writes, stage validated snapshots, never replace live files silently.
+  - Current snapshot-preparation acceptance: deterministic bounded recursive local JPG/PNG inventory, quiet-period stability and per-handle identity checks, full pixel decoding off the main thread with byte/dimension/deadline/cancellation bounds, rejection of corrupt/unsupported candidates, generated filenames and hashes, same-volume atomic publish into a fresh immutable snapshot, no active-deck writes, isolated temporary cleanup and source-independent hash/decode-verified offline load. Reject symlinks/junctions, path overlap and ambiguous names; test ordinary sync races on real Windows/Ubuntu filesystems without claiming an adversarial filesystem sandbox. Pure-JS pngjs 7.0.0 (MIT) and jpeg-js 0.4.4 (BSD-3-Clause) are pinned for actual decoding; preserve licenses in Windows bundles. Watcher/debounce integration, live Reload activation and renderer last-frame hold remain separate acceptance work.
   - Done: partial-write/corrupt package/offline tests; Reload holds the last valid frame until atomic activation, with rollback.
 
 - [ ] **BE-006 · Event schedule adapter and production window** (Stage 4)
