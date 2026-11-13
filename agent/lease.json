@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "codex-engineering-2026-11-13T16:42:47.188Z-08b51eb69c4b6",
+  "status": "idle",
+  "owner": null,
   "fence": 10,
-  "task": "BE-002 service readiness and health diagnostics",
-  "workBranch": "feature/be-002-service-health",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-13T16:42:47.188Z",
-  "lastHeartbeat": "2026-11-13T17:00:46.632Z",
-  "expiresAt": "2026-11-13T18:30:46.632Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-13T17:01:55.587Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-13T17:01:55.587Z"
 }
