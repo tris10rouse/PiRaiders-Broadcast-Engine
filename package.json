@@ -24,7 +24,8 @@
     "setup": "node scripts/validate.cjs setup",
     "build:windows-host": "node scripts/build-windows-job-host.cjs",
     "package:windows": "node scripts/build-windows-bundle.cjs",
-    "smoke:windows-package": "node scripts/smoke-windows-bundle.cjs"
+    "smoke:windows-package": "node scripts/smoke-windows-bundle.cjs",
+    "bench:rosstalk": "node scripts/rosstalk-bench.cjs"
   },
   "keywords": [],
   "author": "Tuomo Kulomaa <tuomo@spxgraphics.com> (https://spxgraphics.com)",
