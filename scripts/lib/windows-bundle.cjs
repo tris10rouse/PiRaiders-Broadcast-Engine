@@ -193,10 +193,10 @@ function buildWindowsBundle() {
     // -File arguments are data, not interpolated PowerShell code. Compress only
     // the application directory, producing one named top-level ZIP directory.
     const script = path.join(temporary, 'archive.ps1');
-    fs.writeFileSync(script, "param([string]$Source, [string]$Destination)\r\n$ErrorActionPreference = 'Stop'\r\nCompress-Archive -LiteralPath $Source -DestinationPath $Destination -CompressionLevel Optimal -Force\r\n");
+    fs.writeFileSync(script, "param([string]$Source, [string]$Destination)\r\n$ErrorActionPreference = 'Stop'\r\nAdd-Type -AssemblyName System.IO.Compression.FileSystem\r\n[System.IO.Compression.ZipFile]::CreateFromDirectory($Source, $Destination, [System.IO.Compression.CompressionLevel]::Optimal, $true)\r\n");
     fs.rmSync(temporaryArchive, { force: true });
     execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-File', script, bundle, temporaryArchive], {
-      cwd: root, stdio: 'inherit', shell: false, windowsHide: true, timeout: 180000
+      cwd: root, stdio: 'inherit', shell: false, windowsHide: true, timeout: 300000
     });
     fs.rmSync(script, { force: true });
     if (!fs.statSync(temporaryArchive).isFile() || fs.statSync(temporaryArchive).size === 0) throw Error('No ZIP archive produced');

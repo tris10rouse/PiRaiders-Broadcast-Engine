@@ -45,23 +45,24 @@ function get(port, urlPath) {
 async function smokeWindowsBundle(archive) {
   if (process.platform !== 'win32' || process.arch !== 'x64') throw Error('Windows x64 is required for artifact smoke validation');
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'PiRaiders smoke 鷹 ! '));
-  const extraction = path.join(work, 'Extracted package'); fs.mkdirSync(extraction);
+  const extraction = path.join(work, 'Extracted package');
   const powershell = path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-  // Paths enter PowerShell only as environment data, never executable source.
-  execFileSync(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
-    'Expand-Archive -LiteralPath $env:PIRAIDERS_SMOKE_ARCHIVE -DestinationPath $env:PIRAIDERS_SMOKE_EXTRACT -Force'], {
-    env: { ...process.env, PIRAIDERS_SMOKE_ARCHIVE: path.resolve(archive), PIRAIDERS_SMOKE_EXTRACT: extraction },
-    stdio: 'inherit', windowsHide: true, timeout: 120000
-  });
   const root = path.join(extraction, 'PiRaiders-Development'), app = path.join(root, 'app');
   const hosts = new Set(); let outer;
   const stopOuter = async child => {
-    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    if (!child || !Number.isSafeInteger(child.pid) || child.exitCode !== null || child.signalCode !== null) return;
     child.stdin.end();
     try { await waitUntil(() => child.exitCode !== null || child.signalCode !== null, 'outer job cleanup', 10000); }
     catch (error) { child.kill('SIGKILL'); await waitUntil(() => !alive(child.pid), 'forced outer job cleanup', 10000); throw error; }
   };
   try {
+    fs.mkdirSync(extraction);
+  // Paths enter PowerShell only as environment data, never executable source.
+  execFileSync(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+    'Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:PIRAIDERS_SMOKE_ARCHIVE, $env:PIRAIDERS_SMOKE_EXTRACT)'], {
+    env: { ...process.env, PIRAIDERS_SMOKE_ARCHIVE: path.resolve(archive), PIRAIDERS_SMOKE_EXTRACT: extraction },
+    stdio: 'inherit', windowsHide: true, timeout: 300000
+  });
     const manifest = verifyManifest(root);
     assert.equal(manifest.developmentOnly, true);
     assert.ok(fs.existsSync(path.join(app, 'locales', 'english.json')));
@@ -82,6 +83,7 @@ async function smokeWindowsBundle(archive) {
         cwd: work, env, windowsHide: true, shell: false, stdio: ['pipe', 'pipe', 'pipe']
       });
       let text = '', buffered = '';
+      child.stdin.on('error', () => {}); // Host exit races with deliberate EOF.
       child.on('error', error => errors.push(error));
       const exited = once(child, 'exit'); exited.catch(() => {});
       child.stdout.on('data', data => {
