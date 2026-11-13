@@ -20,9 +20,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -35,5 +38,21 @@ jobs:
         with:
           name: windows-job-host
           path: build/windows/PiRaiders.JobHost.exe
+          if-no-files-found: error
+          retention-days: 14
+      - name: Build portable Windows development bundle
+        if: runner.os == 'Windows'
+        run: npm run package:windows
+      - name: Verify extracted archive and actual launcher
+        if: runner.os == 'Windows'
+        run: npm run smoke:windows-package
+      - name: Upload Windows development ZIP (not a user-testable release)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: piraiders-windows-development
+          path: |
+            build/windows/PiRaiders-Development-win-x64.zip
+            build/windows/PiRaiders-Development-win-x64.zip.sha256
           if-no-files-found: error
           retention-days: 14

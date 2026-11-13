@@ -1,0 +1,13 @@
+# ADR 0003: Build and verify a portable Windows development bundle
+
+Status: Implemented for Windows CI verification; production release remains gated.
+
+The existing Node launcher and native process host need a repeatable distributable layout before a user-testable application can be built. Use a portable Windows x64 ZIP with one fixed `.cmd` launcher, a bundled installed Node runtime/license, tracked SPX runtime/views/static assets/templates/locales, fresh locked production dependencies, and a freshly compiled JobHost. The user does not need global Node/npm/PM2 or a repository checkout to invoke it. Existing SPX source and graphics formats are preserved.
+
+The builder accepts only committed packaged/build inputs and copies only tracked allowlisted source. It excludes operator DATAROOT/logs/config, credentials and untracked assets, rejects symlinks/traversal/case collisions, retains SPX/Node/dependency license files, and supplies a sorted per-file SHA-256 inventory plus ZIP checksum. The manifest is unsigned drift detection, not authenticity or code signing. Rebuilding repeats the recipe and records exact source/Node versions; compiled executable and ZIP timestamps do not promise byte-for-byte identical archives.
+
+The original archive contains only invalid timestamp placeholders as an example, never an active configuration or schedule. Missing/invalid launcher configuration fails before service startup. CasparCG/NDI binaries are deliberately outside this artifact until their selected versions, licensing and output behavior are verified. The empty project library is intentional; operator content is not bundled. Installation/upgrade/auto-start/log rotation and full Game Day/slideshow/control/staging remain release work.
+
+Windows CI must test the extracted archive, rather than its staging directory: a path with spaces/Unicode, exact inventory and tamper detection, missing-configuration failure, fixed launcher from an unrelated cwd with Node removed from PATH, actual SPX endpoint/controller/renderer/template assets, and a clearly labeled local Node AMCP stand-in. The stand-in proves process/window orchestration, not CasparCG, graphics output, NDI or receiver compatibility. Stop at the real window end must leave SPX running; cleanup must remove owned processes. No remote/stadium equipment is contacted.
+
+The workflow retains the ZIP/checksum as a development artifact after successful checks. This does not authorize production deployment, signed release publication, stadium changes or an announcement of user-testable readiness. Roll back by reverting packaging changes and removing a stopped development extraction while preserving any operator-created files; never overwrite an existing installation.
