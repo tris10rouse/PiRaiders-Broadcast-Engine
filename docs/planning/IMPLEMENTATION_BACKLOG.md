@@ -14,12 +14,16 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
   - Protect native HTML Play/Continue/Update/Stop, projects/rundowns, layer routing, preview, original OGraf import/definition.
   - Use actual fixtures and runtime calls, not only source-level regex checks.
   - Done: automated CI exercises at least one native HTML and one OGraf fixture; genuine failures are reported.
+  - Progress: PR #3 merged and fixture CI passed for HTML lifecycle, OGraf lifecycle and AMCP layer routing. Full browser, project/rundown and import coverage remains before this broader task is complete.
 
 - [ ] **BE-002 · Windows launcher and CasparCG NDI proof** (Stage 1)
   - Start/supervise SPX and CasparCG through one Windows launch entry point; maintain native NDI at 1920×1080p30. Avoid OBS/vMix dependencies.
   - No off-event NDI transmission; pre-roll timing configurable. Record benchmark and logs.
   - Done: safe local NDI monitor sees moving pattern, lifecycle tests pass, licenses and packaging documented.
   - Hardware gate: direct D8VIDEO-P ingest needs explicit off-air validation on the actual installation.
+  - Progress: PR #4 supervisor and PR #5 isolated production-window policy merged. PR #6 adds shell-free Windows tree shutdown; acceptance requires safe mocked fixtures on both OSes and a real Windows runner proving test-created parent/descendant exit.
+  - Next: integrate window eligibility into every CasparCG start/restart, retry failed shutdown, add startup health checks and reproduce the Windows build.
+  - Known limitation: unexpected parent exit may leave descendants untracked; evaluate Windows Job Objects before release. Non-Windows shutdown currently confirms signal dispatch only.
 
 - [ ] **BE-003 · RossTalk control bridge** (Stage 1)
   - Configurable TCP listener, command validation and source allowlist. Map Launch/Next/Previous/Auto/Reload/Stop with deterministic acknowledgements.

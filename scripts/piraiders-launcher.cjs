@@ -19,7 +19,7 @@ function main() {
   const file = path.resolve(process.argv[2] || path.join(__dirname, '..', 'config', 'piraiders-launcher.json'));
   const supervisor = new ProcessSupervisor(loadSettings(file));
   for (const event of ['started', 'exited', 'restarting', 'fault']) supervisor.on(event, data => console.log(JSON.stringify({ event, ...data, at: new Date().toISOString() })));
-  const shutdown = () => supervisor.stop();
+  const shutdown = () => supervisor.stop().catch(error => { console.error('PiRaiders shutdown:', error.message); process.exitCode = 1; });
   process.once('SIGINT', shutdown); process.once('SIGTERM', shutdown);
   supervisor.start();
 }
