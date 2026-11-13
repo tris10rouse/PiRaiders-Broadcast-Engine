@@ -6,7 +6,7 @@
   "task": "BE-005 fully decoded immutable local media snapshots",
   "workBranch": "feature/be-005-media-snapshots",
   "acquiredAt": "2026-11-13T20:45:15.474Z",
-  "lastHeartbeat": "2026-11-13T21:23:12.278Z",
-  "expiresAt": "2026-11-13T22:53:12.278Z",
+  "lastHeartbeat": "2026-11-13T21:35:48.095Z",
+  "expiresAt": "2026-11-13T23:05:48.095Z",
   "releasedAt": null
 }
