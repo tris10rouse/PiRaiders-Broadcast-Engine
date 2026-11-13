@@ -12,6 +12,16 @@ function parseInstant(value, label) {
   if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(value)) {
     throw new Error(label + ' requires an ISO timestamp with explicit timezone');
   }
+  // Date.parse normalizes impossible days (e.g. February 30), so validate
+  // calendar and clock fields independently before interpreting the offset.
+  const parts = value.match(/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)(?::(\d\d))?/);
+  const [, year, month, day, hour, minute, second = '00'] = parts.map((v, i) => i === 0 ? v : Number(v));
+  const monthDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (month < 1 || month > 12 || day < 1 || day > monthDays || hour > 23 || minute > 59 || second > 59) {
+    throw Error(label + ' is not a valid calendar instant');
+  }
+  const offset = value.match(/[+-](\d\d):(\d\d)$/);
+  if (offset && (Number(offset[1]) > 23 || Number(offset[2]) > 59)) throw Error(label + ' has an invalid offset');
   const ms = Date.parse(value);
   if (!Number.isFinite(ms)) throw new Error(label + ' is not a valid instant');
   return ms;
@@ -27,7 +37,9 @@ function normalizeWindow(config) {
 }
 function senderAllowed(window, nowMs) {
   if (!window || !Number.isFinite(window.startMs) || !Number.isFinite(window.endMs) ||
-      !Number.isFinite(window.prewarmMs) || !Number.isFinite(nowMs)) return false;
+      !Number.isFinite(window.prewarmMs) || !Number.isFinite(nowMs) ||
+      window.endMs <= window.startMs || window.endMs - window.startMs > MAX_WINDOW_MS ||
+      window.prewarmMs < 0 || window.prewarmMs > MAX_PREWARM_MS) return false;
   return nowMs >= window.startMs - window.prewarmMs && nowMs < window.endMs;
 }
 function nextBoundary(window, nowMs) {

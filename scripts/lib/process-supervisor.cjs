@@ -3,20 +3,26 @@ const { EventEmitter } = require('node:events');
 const { spawn, execFile } = require('node:child_process');
 const { terminateProcessTree } = require('./windows-process-tree.cjs');
 class ProcessSupervisor extends EventEmitter {
-  constructor(specs, { spawnProcess = spawn, schedule = setTimeout, cancel = clearTimeout, restartDelayMs = 1500, maxRestarts = 3, windowMs = 60000, platform = process.platform, execFileProcess = execFile } = {}) {
+  constructor(specs, { spawnProcess = spawn, schedule = setTimeout, cancel = clearTimeout, restartDelayMs = 1500, maxRestarts = 3, windowMs = 60000, platform = process.platform, execFileProcess = execFile, canStart = () => true } = {}) {
     super();
     if (!Array.isArray(specs) || !specs.length || new Set(specs.map(s => s.name)).size !== specs.length) throw Error('Invalid/duplicate services');
     for (const s of specs) if (!s.name || !s.command || !Array.isArray(s.args) || !s.args.every(a => typeof a === 'string')) throw Error('Invalid service specification');
-    Object.assign(this, { specs, spawnProcess, schedule, cancel, restartDelayMs, maxRestarts, windowMs, platform, execFileProcess });
-    this.children = new Map(); this.timers = new Map(); this.failures = new Map(); this.stopping = false;
+    Object.assign(this, { specs, spawnProcess, schedule, cancel, restartDelayMs, maxRestarts, windowMs, platform, execFileProcess, canStart });
+    this.children = new Map(); this.timers = new Map(); this.failures = new Map(); this.stopping = false; this.inhibited = new Set();
   }
   start() { if (this.stopping) throw Error('Stopping'); for (const spec of this.specs) this.launch(spec); }
   launch(spec) {
     if (this.stopping || this.children.has(spec.name)) return;
+    // Re-evaluate the actual clock at every initial/restart launch.
+    let permitted = false;
+    try { permitted = this.canStart(spec) === true; }
+    catch (error) { this.emit('fault', { name: spec.name, error: 'Eligibility failed: ' + error.message }); }
+    if (!permitted) { this.inhibited.add(spec.name); this.emit('inhibited', { name: spec.name }); return; }
+    this.inhibited.delete(spec.name);
     let child;
     try { child = this.spawnProcess(spec.command, spec.args, { cwd: spec.cwd, windowsHide: true, stdio: 'inherit', shell: false }); }
     catch (error) { this.emit('fault', { name: spec.name, error: error.message }); this.restart(spec); return; }
-    this.children.set(spec.name, child); this.emit('started', { name: spec.name, pid: child.pid });
+    this.children.set(spec.name, child); this.emit('starting', { name: spec.name, pid: child.pid });
     let handled = false;
     const ended = (code, signal, error) => {
       if (handled) return; handled = true;
@@ -24,8 +30,18 @@ class ProcessSupervisor extends EventEmitter {
       this.emit('exited', { name: spec.name, code, signal, error: error?.message });
       if (!this.stopping) this.restart(spec);
     };
+    child.once('spawn', () => {
+      let allowed = false;
+      try { allowed = this.canStart(spec) === true; } catch {}
+      // A delayed OS spawn can complete after the window boundary.
+      if (!allowed || this.stopping) this.stop().catch(() => {});
+      else this.emit('started', { name: spec.name, pid: child.pid });
+    });
     child.once('exit', (code, signal) => ended(code, signal));
     child.once('error', error => ended(null, null, error));
+  }
+  resumeEligible() {
+    for (const spec of this.specs) if (this.inhibited.has(spec.name)) this.launch(spec);
   }
   restart(spec) {
     if (this.stopping) return;
@@ -44,6 +60,7 @@ class ProcessSupervisor extends EventEmitter {
     const pending = [...this.children.entries()].map(async ([name, child]) => {
       try {
         await terminateProcessTree(child, { platform: this.platform, execFileProcess: this.execFileProcess });
+        if (this.children.get(name) === child) this.children.delete(name);
       } catch (error) {
         this.emit('fault', { name, error: 'Shutdown failed: ' + error.message });
         throw error;
@@ -51,7 +68,11 @@ class ProcessSupervisor extends EventEmitter {
     });
     this.stopPromise = Promise.allSettled(pending).then(results => {
       const failures = results.filter(result => result.status === 'rejected');
-      if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'One or more services failed to stop');
+      if (failures.length) {
+        // Keep unconfirmed children tracked and permit a later retry.
+        this.stopPromise = null;
+        throw new AggregateError(failures.map(result => result.reason), 'One or more services failed to stop');
+      }
     });
     return this.stopPromise;
   }

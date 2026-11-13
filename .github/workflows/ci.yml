@@ -27,25 +27,5 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Install locked dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-      - name: Syntax checks for SPX entry points
-        run: |
-          node --check server.js
-          node --check routes/routes-api-v1.js
-          node --check static/js/spx_gc.js
-          node --check static/js/ograf_functions.js
-      - name: Exclusive agent lease state machine tests
-        run: node --test tests/agent-lease.test.mjs
-      - name: Original SPX HTML, OGraf and AMCP runtime regressions
-        run: node --test tests/spx-runtime.test.cjs
-      - name: Windows launcher process supervision tests
-        run: node --test tests/process-supervisor.test.cjs
-      - name: Windows process tree termination tests
-        run: node --test tests/windows-process-tree.test.cjs
-      - name: Real Windows parent and descendant shutdown
-        run: node --test tests/windows-process-tree.integration.test.cjs
-      - name: NDI production-window policy tests
-        run: node --test tests/production-window.test.cjs
-      - name: Static baseline and project contract checks
-        run: node --test tests/baseline.test.cjs
+      - name: Install dependencies and run baseline validation
+        run: npm run setup

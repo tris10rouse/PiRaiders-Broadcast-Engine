@@ -21,8 +21,9 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
   - No off-event NDI transmission; pre-roll timing configurable. Record benchmark and logs.
   - Done: safe local NDI monitor sees moving pattern, lifecycle tests pass, licenses and packaging documented.
   - Hardware gate: direct D8VIDEO-P ingest needs explicit off-air validation on the actual installation.
-  - Progress: PR #4 supervisor and PR #5 isolated production-window policy merged. PR #6 adds shell-free Windows tree shutdown; acceptance requires safe mocked fixtures on both OSes and a real Windows runner proving test-created parent/descendant exit.
-  - Next: integrate window eligibility into every CasparCG start/restart, retry failed shutdown, add startup health checks and reproduce the Windows build.
+  - Progress: PR #4 supervisor and PR #5 isolated production-window policy merged. PR #6 merged after Windows/Ubuntu CI passed, including real test-created Windows parent/descendant shutdown.
+  - Current increment acceptance: required valid schedule before startup; separate persistent SPX and gated CasparCG; 15-minute default prewarm and exclusive end; eligibility rechecked on every launch/restart/late spawn; bounded polling recovers from clock changes; failed shutdown remains retryable and blocks replacement sender; automated failure tests and both OS CI.
+  - Next: startup health checks, crash-descendant containment and reproducible Windows packaging; configure and prove CasparCG/NDI output.
   - Known limitation: unexpected parent exit may leave descendants untracked; evaluate Windows Job Objects before release. Non-Windows shutdown currently confirms signal dispatch only.
 
 - [ ] **BE-003 · RossTalk control bridge** (Stage 1)
