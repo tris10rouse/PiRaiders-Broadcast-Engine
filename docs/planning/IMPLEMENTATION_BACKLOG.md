@@ -22,7 +22,8 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
   - Done: safe local NDI monitor sees moving pattern, lifecycle tests pass, licenses and packaging documented.
   - Hardware gate: direct D8VIDEO-P ingest needs explicit off-air validation on the actual installation.
   - Progress: PR #4 supervisor and PR #5 isolated production-window policy merged. PR #6 merged after Windows/Ubuntu CI passed, including real test-created Windows parent/descendant shutdown.
-  - Current increment acceptance: required valid schedule before startup; separate persistent SPX and gated CasparCG; 15-minute default prewarm and exclusive end; eligibility rechecked on every launch/restart/late spawn; bounded polling recovers from clock changes; failed shutdown remains retryable and blocks replacement sender; automated failure tests and both OS CI.
+  - PR #7 implements software acceptance: required valid schedule before startup; separate persistent SPX and gated CasparCG; 15-minute default prewarm and exclusive end; eligibility rechecked on every launch/restart/late spawn; bounded polling recovers from clock changes; failed shutdown remains retryable and blocks replacement sender; automated failure tests and both OS CI.
+  - Evidence: [Windows/Ubuntu CI on implementation commit 6a17ed1](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43447462284); Windows passed all 47 tests, including real launcher window-boundary and tree-shutdown tests using harmless Node stand-ins. Final PR checks must still pass after documentation updates.
   - Next: startup health checks, crash-descendant containment and reproducible Windows packaging; configure and prove CasparCG/NDI output.
   - Known limitation: unexpected parent exit may leave descendants untracked; evaluate Windows Job Objects before release. Non-Windows shutdown currently confirms signal dispatch only.
 
