@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 2,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-13T09:09:05.890Z",
-  "lastHeartbeat": "2026-11-13T09:10:56.139Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-13T09:10:56.139Z"
+  "status": "active",
+  "owner": "agent-be002-20261113T1013Z-nb8mblmzmm7",
+  "fence": 3,
+  "task": "BE-002 Windows launcher foundation",
+  "workBranch": "feature/be-002-windows-launcher",
+  "acquiredAt": "2026-11-13T10:13:06.592Z",
+  "lastHeartbeat": "2026-11-13T10:13:06.592Z",
+  "expiresAt": "2026-11-13T11:43:06.592Z",
+  "releasedAt": null
 }
