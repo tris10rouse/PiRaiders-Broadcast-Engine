@@ -147,16 +147,17 @@ setTimeout(()=>process.exit(2),45000);
     }, 'both real process endpoints ready');
     const simulatorPid = JSON.parse(fs.readFileSync(stateFile)).pid;
     assert.equal(alive(simulatorPid), true);
-    const admin = await get(spxPort, '/admin'); assert.equal(admin.status, 200); assert.match(admin.body, /<title>[^<]*Admin/); assert.doesNotMatch(admin.body, /missing from english/);
-    const controller = await get(spxPort, '/gc/SmokeProject/SmokeRundown'); assert.equal(controller.status, 200); assert.match(controller.body, /SPX/); assert.doesNotMatch(controller.body, /missing from english/);
-    const renderer = await get(spxPort, '/renderer'); assert.equal(renderer.status, 200); assert.match(renderer.body, /<html/i);
-    const html = await get(spxPort, '/templates/softpix/html/Template_Pack_1.4.0/INFO_LEFT.html'); assert.equal(html.status, 200); assert.match(html.body, /SPXGCTemplateDefinition/);
-    const ograf = await get(spxPort, '/templates/softpix/ograf/Template_Pack_1.4.0/INFO_LEFT.ograf.json'); assert.equal(ograf.status, 200); assert.equal(typeof JSON.parse(ograf.body), 'object');
-    await waitUntil(() => running.events.some(e => e.event === 'service-health' && e.name === 'casparcg' && e.status === 'stopped') && Date.now() >= windowEnd,
+    const admin = await get(spxPort, '/admin'); assert.equal(admin.status, 200, 'bundled admin route'); assert.match(admin.body, /<title>[^<]*Admin/); assert.doesNotMatch(admin.body, /missing from english/);
+    const controller = await get(spxPort, '/gc/SmokeProject/SmokeRundown'); assert.equal(controller.status, 200, 'bundled controller route'); assert.match(controller.body, /SPX/); assert.doesNotMatch(controller.body, /missing from english/);
+    const renderer = await get(spxPort, '/renderer/index.html'); assert.equal(renderer.status, 200, 'bundled renderer route'); assert.match(renderer.body, /<html/i);
+    const html = await get(spxPort, '/templates/softpix/html/Template_Pack_1.4.0/INFO_LEFT.html'); assert.equal(html.status, 200, 'bundled HTML template route'); assert.match(html.body, /SPXGCTemplateDefinition/);
+    const ograf = await get(spxPort, '/templates/softpix/ograf/Template_Pack_1.4.0/INFO_LEFT.ograf.json'); assert.equal(ograf.status, 200, 'bundled OGraf manifest route'); assert.equal(typeof JSON.parse(ograf.body), 'object');
+    await waitUntil(() => running.events.some(e => e.event === 'service-health' && e.name === 'casparcg' && e.status === 'stopped' && Date.parse(e.at) >= windowEnd),
       'production end stops simulated sender', 30000);
     await waitUntil(() => !alive(simulatorPid), 'simulated sender process exit');
     assert.equal((await get(spxPort, '/api/v1/version')).status, 200, 'SPX must persist after sender window ends');
     const commands = JSON.parse(fs.readFileSync(commandsFile)); assert.ok(commands.length > 0); assert.ok(commands.every(c => c === 'VERSION\r\n'));
+    assert.equal(running.events.filter(e => e.event === 'fault' || e.event === 'restarting').length, 0, 'smoke services must remain stable until the window end');
     await stopOuter(outer);
     for (const pid of hosts) await waitUntil(() => !alive(pid), 'contained service host exit');
     await assert.rejects(get(spxPort, '/api/v1/version'));

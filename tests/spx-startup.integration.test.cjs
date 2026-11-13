@@ -80,6 +80,8 @@ test('real SPX starts with isolated settings and passes its version health probe
   } while (performance.now() < deadline);
   assert.equal(result?.healthy, true, 'Actual SPX version endpoint did not become healthy: ' + result?.code + '\n' + captured);
   assert.equal(result.version, packageVersion);
+  const renderer = await fetch('http://127.0.0.1:' + port + '/renderer/index.html', { redirect: 'error', signal: AbortSignal.timeout(3000) });
+  assert.equal(renderer.status, 200); assert.match(await renderer.text(), /<html/i);
   assert.equal(fs.existsSync(path.join(dir, 'config.json')), true);
   // This proves an actual SPX endpoint responds, not ownership of a listening
   // port by a PID, HTML/OGraf rendering, CasparCG, NDI or receiver operation.
