@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "agent-20261113-0713-merge-be002-5c73e4",
+  "status": "idle",
+  "owner": null,
   "fence": 6,
-  "task": "BE-002 review PR5 and continue integration",
-  "workBranch": "feature/be-002-ndi-window-integration",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-13T13:13:45.895Z",
-  "lastHeartbeat": "2026-11-13T13:13:45.895Z",
-  "expiresAt": "2026-11-13T14:43:45.895Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-13T13:15:05.273Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-13T13:15:05.273Z"
 }
