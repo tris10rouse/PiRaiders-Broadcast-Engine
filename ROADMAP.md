@@ -1,6 +1,6 @@
 # PiRaiders Broadcast Engine: Roadmap
 
-Updated: 2026-11-13 · Status: SPX regression and launcher foundations merged; Windows shutdown verified in CI; launcher window integration implemented; packaging/output proof pending · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
+Updated: 2026-11-13 · Status: SPX regression and launcher foundations merged; Windows shutdown verified in CI; launcher window integration implemented; Windows job containment under CI verification; packaging/output proof pending · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
 
 ## Product contract
 
@@ -11,7 +11,7 @@ PiRaiders is a Windows broadcast-graphics application built as a maintained fork
 | Stage | Goal | Definition of done | Status |
 |---|---|---|---|
 | 0. Foundation | Record architecture, design, agent policies, CI, upstream baseline | Docs and check checks committed; CI verified on PR | Merged; executable fixture CI passing |
-| 1. Engine proof | Windows launcher, SPX + CasparCG output, 1080p30 NDI, RossTalk bridge | Bench-tested on target PC; direct NDI reception demonstrated off-air; no vMix/OBS | In progress: supervisor and scheduling policy merged; Windows tree shutdown verified in PR #6; PR #7 integrates window enforcement; packaging/output proof pending |
+| 1. Engine proof | Windows launcher, SPX + CasparCG output, 1080p30 NDI, RossTalk bridge | Bench-tested on target PC; direct NDI reception demonstrated off-air; no vMix/OBS | In progress: supervisor and scheduling policy merged; Windows tree shutdown verified in PR #6; PR #7 integrates window enforcement; job containment under CI verification; packaging/output proof pending |
 | 2. Slideshow | Local nested PNG/JPG decks, deterministic order, cut/fade, commands | Auto 10s configurable; timer resets on manual navigation; bidirectional wrap; overlay indicators | Planned |
 | 3. Event preparation | Watched local Google Drive sync folder, staged updates, manual reload | Cache/version validation; hold last frame on reload; rollback; offline operation | Planned |
 | 4. Scheduled lifecycle | Read event metadata, prepare in advance, transmit in production window | No NDI off-window, pre-roll configurable, manual overrides, recovery after reboot | Planned |

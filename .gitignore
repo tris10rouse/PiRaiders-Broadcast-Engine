@@ -61,6 +61,7 @@ pkg-builds/
 zip_builds/
 kubernetes/
 node_modules/
+build/
 .VSCodeCounter/
 .Spotlight-V100
 static/templateviewer/

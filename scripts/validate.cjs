@@ -34,6 +34,7 @@ try {
     // npm supplies its own CLI path on both Windows and Linux. No token required.
     if (!process.env.npm_execpath) throw Error('Run setup using npm run setup');
     run([process.env.npm_execpath, 'ci', '--ignore-scripts', '--no-audit', '--no-fund']);
+    if (process.platform === 'win32') run(['scripts/build-windows-job-host.cjs']);
     check(); test();
   } else if (mode === 'check') check();
   else if (mode === 'test') test();

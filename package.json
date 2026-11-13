@@ -21,7 +21,8 @@
     "stop": "pm2 stop server.js",
     "build": "BUILD_PACKAGES.BAT",
     "check": "node scripts/validate.cjs check",
-    "setup": "node scripts/validate.cjs setup"
+    "setup": "node scripts/validate.cjs setup",
+    "build:windows-host": "node scripts/build-windows-job-host.cjs"
   },
   "keywords": [],
   "author": "Tuomo Kulomaa <tuomo@spxgraphics.com> (https://spxgraphics.com)",
