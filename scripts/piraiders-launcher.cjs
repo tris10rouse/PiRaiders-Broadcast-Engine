@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { LauncherRuntime } = require('./lib/launcher-runtime.cjs');
 const { normalizeWindow } = require('./lib/production-window.cjs');
+const { assertJobHostAvailable } = require('./lib/windows-job-process.cjs');
 function loadSettings(file) {
   const settings = JSON.parse(fs.readFileSync(file, 'utf8'));
   normalizeWindow(settings.productionWindow);
@@ -20,6 +21,7 @@ function loadSettings(file) {
     return { name: service.name, command, args: service.args, cwd };
   });
   if (services.length !== 2 || new Set(services.map(s => s.name)).size !== 2) throw Error('Exactly one spx and one casparcg service required');
+  assertJobHostAvailable();
   return { services, productionWindow: settings.productionWindow };
 }
 async function main() {

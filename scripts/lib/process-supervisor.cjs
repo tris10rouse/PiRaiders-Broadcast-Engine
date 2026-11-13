@@ -1,13 +1,15 @@
 'use strict';
 const { EventEmitter } = require('node:events');
-const { spawn, execFile } = require('node:child_process');
+const { execFile } = require('node:child_process');
+const { spawnSupervisedProcess } = require('./windows-job-process.cjs');
 const { terminateProcessTree } = require('./windows-process-tree.cjs');
 class ProcessSupervisor extends EventEmitter {
-  constructor(specs, { spawnProcess = spawn, schedule = setTimeout, cancel = clearTimeout, restartDelayMs = 1500, maxRestarts = 3, windowMs = 60000, platform = process.platform, execFileProcess = execFile, canStart = () => true } = {}) {
+  constructor(specs, { spawnProcess, schedule = setTimeout, cancel = clearTimeout, restartDelayMs = 1500, maxRestarts = 3, windowMs = 60000, platform = process.platform, execFileProcess = execFile, canStart = () => true } = {}) {
     super();
     if (!Array.isArray(specs) || !specs.length || new Set(specs.map(s => s.name)).size !== specs.length) throw Error('Invalid/duplicate services');
     for (const s of specs) if (!s.name || !s.command || !Array.isArray(s.args) || !s.args.every(a => typeof a === 'string')) throw Error('Invalid service specification');
-    Object.assign(this, { specs, spawnProcess, schedule, cancel, restartDelayMs, maxRestarts, windowMs, platform, execFileProcess, canStart });
+    const spawnService = spawnProcess || ((command, args, options) => spawnSupervisedProcess(command, args, options, { platform }));
+    Object.assign(this, { specs, spawnProcess: spawnService, schedule, cancel, restartDelayMs, maxRestarts, windowMs, platform, execFileProcess, canStart });
     this.children = new Map(); this.timers = new Map(); this.failures = new Map(); this.stopping = false; this.inhibited = new Set();
   }
   start() { if (this.stopping) throw Error('Stopping'); for (const spec of this.specs) this.launch(spec); }
