@@ -18,7 +18,7 @@ Read this document and `ROADMAP.md` before editing. This is a maintained SPX Sol
 - `DATAROOT/`: projects/rundowns; avoid committing operator content/secrets; use sanitized fixtures.
 
 ## Before code changes
-1. Inspect touched code, neighbor files, format and tests. Write short success criteria tied to `ROADMAP.md` and relevant issue.
+1. Inspect touched code, neighbor files, format and tests. Write short success criteria tied to `ROADMAP.md` and relevant task in `docs/planning/IMPLEMENTATION_BACKLOG.md` or GitHub Issue.
 2. Create a focused branch. Never modify `master` directly. Keep upstream changes easily mergeable.
 3. Prefer small, testable modules for PiRaiders-only functionality, and minimal adapters from SPX to those modules.
 4. Treat sender running, discovered source, receiver connected, board input selected and on-air as **distinct states**. Do not mislabel evidence.
