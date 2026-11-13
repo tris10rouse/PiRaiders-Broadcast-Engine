@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-engineering-2026-11-13T20:45:15.474Z-6485215935f23",
   "fence": 13,
-  "task": "BE-004 slideshow state, timer and cancellation controller",
-  "workBranch": "feature/be-004-slideshow-state",
+  "task": "BE-005 fully decoded immutable local media snapshots",
+  "workBranch": "feature/be-005-media-snapshots",
   "acquiredAt": "2026-11-13T20:45:15.474Z",
-  "lastHeartbeat": "2026-11-13T21:21:51.602Z",
-  "expiresAt": "2026-11-13T22:51:51.602Z",
+  "lastHeartbeat": "2026-11-13T21:23:12.278Z",
+  "expiresAt": "2026-11-13T22:53:12.278Z",
   "releasedAt": null
 }
