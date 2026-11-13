@@ -1,6 +1,6 @@
 # ADR 0002: Contain Windows services in kill-on-close Job Objects
 
-Status: Implemented for Windows CI verification; selected CasparCG and Windows 10 deployment validation remain release gates.
+Status: Implemented and verified in Windows CI (PR #8, 57 tests passed); selected CasparCG and Windows 10 deployment validation remain release gates.
 
 ## Problem
 
