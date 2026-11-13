@@ -37,5 +37,5 @@ jobs:
         run: node --test tests/spx-runtime.test.cjs
       - name: Windows launcher process supervision tests
         run: node --test tests/process-supervisor.test.cjs
-      - name: Static baseline and project contract checks
+      - name: NDI production-window policy tests\n        run: node --test tests/production-window.test.cjs\n      - name: Static baseline and project contract checks
         run: node --test tests/baseline.test.cjs
