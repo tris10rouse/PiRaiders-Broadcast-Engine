@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 10,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-13T16:42:47.188Z",
-  "lastHeartbeat": "2026-11-13T17:01:55.587Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-13T17:01:55.587Z"
+  "status": "active",
+  "owner": "codex-engineering-2026-11-13T17:46:34.046Z-9f629abe40273",
+  "fence": 11,
+  "task": "BE-002/008 reproducible Windows development bundle",
+  "workBranch": "feature/windows-development-bundle",
+  "acquiredAt": "2026-11-13T17:46:34.046Z",
+  "lastHeartbeat": "2026-11-13T17:46:34.046Z",
+  "expiresAt": "2026-11-13T19:16:34.046Z",
+  "releasedAt": null
 }
