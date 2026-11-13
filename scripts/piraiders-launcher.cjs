@@ -5,6 +5,7 @@ const path = require('node:path');
 const { LauncherRuntime } = require('./lib/launcher-runtime.cjs');
 const { normalizeWindow } = require('./lib/production-window.cjs');
 const { assertJobHostAvailable } = require('./lib/windows-job-process.cjs');
+const { normalizeHealthConfig } = require('./lib/service-health-probes.cjs');
 function loadSettings(file) {
   const settings = JSON.parse(fs.readFileSync(file, 'utf8'));
   normalizeWindow(settings.productionWindow);
@@ -18,7 +19,8 @@ function loadSettings(file) {
     if (service.cwd !== undefined && typeof service.cwd !== 'string') throw Error('Invalid service cwd');
     const cwd = service.cwd ? path.resolve(root, service.cwd) : root;
     if (!fs.statSync(cwd).isDirectory()) throw Error('Service cwd is not a directory');
-    return { name: service.name, command, args: service.args, cwd };
+    const health = normalizeHealthConfig(service.name, service.health);
+    return { name: service.name, command, args: service.args, cwd, ...(health ? { health } : {}) };
   });
   if (services.length !== 2 || new Set(services.map(s => s.name)).size !== 2) throw Error('Exactly one spx and one casparcg service required');
   assertJobHostAvailable();
@@ -27,7 +29,7 @@ function loadSettings(file) {
 async function main() {
   const file = path.resolve(process.argv[2] || path.join(__dirname, '..', 'config', 'piraiders-launcher.json'));
   const runtime = new LauncherRuntime(loadSettings(file));
-  for (const event of ['starting', 'started', 'exited', 'restarting', 'inhibited', 'fault']) runtime.on(event, data => console.log(JSON.stringify({ event, ...data, at: new Date().toISOString() })));
+  for (const event of ['starting', 'started', 'exited', 'restarting', 'inhibited', 'fault', 'service-health']) runtime.on(event, data => console.log(JSON.stringify({ event, ...data, at: new Date().toISOString() })));
   let shutdownPromise;
   const shutdown = () => {
     if (!shutdownPromise) shutdownPromise = shutdownWithRetries(runtime)

@@ -2,11 +2,12 @@
 const { EventEmitter } = require('node:events');
 const { ProcessSupervisor } = require('./process-supervisor.cjs');
 const { normalizeWindow, senderAllowed, nextBoundary } = require('./production-window.cjs');
+const { ServiceHealthMonitor } = require('./service-health-monitor.cjs');
 
 /** Owns local processes, not NDI discovery, receiver state or board routing. */
 class LauncherRuntime extends EventEmitter {
   constructor(settings, { clock = Date.now, schedule = setTimeout, cancel = clearTimeout,
-    pollMs = 1000, supervisorOptions = {} } = {}) {
+    pollMs = 1000, supervisorOptions = {}, healthOptions = {} } = {}) {
     super();
     this.window = normalizeWindow(settings?.productionWindow);
     if (!Array.isArray(settings.services) || settings.services.length !== 2 ||
@@ -19,6 +20,8 @@ class LauncherRuntime extends EventEmitter {
     }
     if (!Number.isInteger(pollMs) || pollMs < 1 || pollMs > 1000) throw Error('pollMs must be 1 through 1000');
     Object.assign(this, { clock, schedule, cancel, pollMs, supervisorOptions });
+    this.health = new ServiceHealthMonitor(settings.services, healthOptions);
+    this.health.on('status', data => this.emit('service-health', data));
     this.senderSpec = settings.services.find(s => s.name === 'casparcg');
     this.spx = this.supervise([settings.services.find(s => s.name === 'spx')]);
     this.sender = null;
@@ -32,7 +35,18 @@ class LauncherRuntime extends EventEmitter {
   supervise(specs, canStart = () => !this.closed) {
     const supervisor = new ProcessSupervisor(specs, { ...this.supervisorOptions, canStart });
     for (const event of ['starting', 'started', 'exited', 'restarting', 'inhibited', 'fault']) {
-      supervisor.on(event, data => this.emit(event, data));
+      supervisor.on(event, data => {
+        // A confirmed stop can precede the old host's JS exit callback. Old
+        // sender events must never invalidate a replacement's health generation.
+        const current = data.name === 'spx' ? this.spx : this.sender;
+        if (current === supervisor) {
+          if (event === 'starting') this.health.deactivate(data.name, 'starting');
+          if (event === 'started') this.health.activate(data.name, data.pid);
+          if (event === 'exited') this.health.deactivate(data.name, 'stopped', 'PROCESS_EXITED');
+          if (event === 'fault') this.health.deactivate(data.name, 'unhealthy', supervisor.stopping ? 'SHUTDOWN_FAILED' : 'PROCESS_FAULT');
+        }
+        this.emit(event, data);
+      });
     }
     return supervisor;
   }
@@ -48,8 +62,10 @@ class LauncherRuntime extends EventEmitter {
       if (this.closed) return;
       // A previous failed stop must complete before another sender may exist.
       if (this.sender && (!this.allowed() || this.sender.stopping)) {
+        this.health.deactivate('casparcg', 'stopping');
         await this.sender.stop();
         this.sender = null;
+        this.health.deactivate('casparcg', 'stopped');
       }
       if (this.allowed() && this.sender) this.sender.resumeEligible();
       if (this.allowed() && !this.sender) {
@@ -58,8 +74,10 @@ class LauncherRuntime extends EventEmitter {
         // Spawn itself may take time. Never wait for a later timer to notice
         // that the boundary crossed while submitting a process start.
         if (!this.allowed()) {
+          this.health.deactivate('casparcg', 'stopping');
           await this.sender.stop();
           this.sender = null;
+          this.health.deactivate('casparcg', 'stopped');
         }
       }
     };
@@ -81,10 +99,15 @@ class LauncherRuntime extends EventEmitter {
   close() {
     if (this.closePromise) return this.closePromise;
     this.closed = true;
+    this.health.close();
     if (this.timer !== null) this.cancel(this.timer);
     this.timer = null;
     this.closePromise = this.queue.catch(() => {}).then(async () => {
       const results = await Promise.allSettled([this.spx.stop(), this.sender?.stop()]);
+      for (const [index, name] of ['spx', 'casparcg'].entries()) {
+        this.health.deactivate(name, results[index].status === 'fulfilled' ? 'stopped' : 'unhealthy',
+          results[index].status === 'fulfilled' ? undefined : 'SHUTDOWN_FAILED');
+      }
       const failures = results.filter(result => result.status === 'rejected');
       if (failures.length) {
         this.closePromise = null;

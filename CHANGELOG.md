@@ -12,4 +12,6 @@
 
 - PR #8 Windows containment: service trees belong to native kill-on-close Job Objects, assigned before execution. Root/host/launcher failure paths and exact argument forwarding have dedicated Windows tests. The helper built from source and all 57 Windows tests passed in [CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43456474849). The artifact is a containment component only.
 
+- Service health increment: bounded loopback SPX identity and CasparCG VERSION diagnostics, explicit startup/degraded/recovery states, and generation-safe cancellation independent of window shutdown. Real SPX startup is now exercised with isolated temporary settings; CasparCG health uses a socket simulator. No endpoint response proves NDI or receiver state.
+
 No user-testable Windows release or stadium hardware compatibility has been established. Upstream SPX release history remains in RELEASE_NOTES.md.
