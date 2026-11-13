@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-engineering-2026-11-13T20:45:15.474Z-6485215935f23",
   "fence": 13,
-  "task": "BE-003 bounded RossTalk transport and command dispatch",
-  "workBranch": "feature/be-003-rosstalk-transport",
+  "task": "BE-004 slideshow state, timer and cancellation controller",
+  "workBranch": "feature/be-004-slideshow-state",
   "acquiredAt": "2026-11-13T20:45:15.474Z",
-  "lastHeartbeat": "2026-11-13T21:06:42.310Z",
-  "expiresAt": "2026-11-13T22:36:42.310Z",
+  "lastHeartbeat": "2026-11-13T21:07:28.127Z",
+  "expiresAt": "2026-11-13T22:37:28.127Z",
   "releasedAt": null
 }
