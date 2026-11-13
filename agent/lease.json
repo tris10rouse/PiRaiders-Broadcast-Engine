@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": null,
-  "lastHeartbeat": null,
-  "expiresAt": null,
+  "status": "active",
+  "owner": "chatgpt-lock-setup-2026-11-13T08:17:23.599Z-fder7mxrsw9",
+  "task": "BE-000 exclusive agent development lease",
+  "workBranch": "feature/be-000-agent-execution-lease",
+  "acquiredAt": "2026-11-13T08:17:23.599Z",
+  "lastHeartbeat": "2026-11-13T08:17:23.599Z",
+  "expiresAt": "2026-11-13T09:47:23.599Z",
   "releasedAt": null
 }
