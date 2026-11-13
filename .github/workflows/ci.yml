@@ -15,7 +15,11 @@ permissions:
 
 jobs:
   static-contracts:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +43,8 @@ jobs:
         run: node --test tests/process-supervisor.test.cjs
       - name: Windows process tree termination tests
         run: node --test tests/windows-process-tree.test.cjs
+      - name: Real Windows parent and descendant shutdown
+        run: node --test tests/windows-process-tree.integration.test.cjs
       - name: NDI production-window policy tests
         run: node --test tests/production-window.test.cjs
       - name: Static baseline and project contract checks
