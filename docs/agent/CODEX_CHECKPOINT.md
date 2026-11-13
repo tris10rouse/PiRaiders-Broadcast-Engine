@@ -26,7 +26,7 @@ Master at this increment's start: **73d5388ba95eeffc773cc8eca4d0687a30f0cdd7** (
 
 ## Active slideshow controller increment
 
-Branch: **feature/be-004-slideshow-state**, based on master 73d5388ba95eeffc773cc8eca4d0687a30f0cdd7. Verify the PR and final-head CI from GitHub before treating this as merged.
+Branch: **feature/be-004-slideshow-state**, based on master 73d5388ba95eeffc773cc8eca4d0687a30f0cdd7. PR #12: https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/12. Implementation head aae1f8c37ac120a044b48ba7d7074eaebbc4ff96 passed Windows/Ubuntu CI: https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43508893747. Windows passed all 134 tests without skips, loopback bench and extracted ZIP launcher smoke. Verify final documentation-head CI and merge from GitHub before treating this as merged.
 
 Adds scripts/lib/slideshow-controller.cjs, unit tests and actual TCP transport/controller integration. Node-authoritative immutable ordered deck; Launch-at-1, wrapping, default Auto/10-second monotonic timing, manual reset, cut/fade intent, explicit rendering adapter, bounded FIFO, cancellation and terminal timeout. Operational failures resolve fixed result objects; a transport adapter must reject ok:false. Stop never controls sender lifetime. Sources remain opaque; no file/image validation is claimed.
 
