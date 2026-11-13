@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "codex-engineering-2026-11-13T19:40:19.170Z-c8d368e5589ca8",
+  "status": "idle",
+  "owner": null,
   "fence": 12,
-  "task": "Resume BE-002/008 Windows development bundle after expired fence 11",
-  "workBranch": "feature/windows-development-bundle",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-13T19:40:19.170Z",
-  "lastHeartbeat": "2026-11-13T20:06:51.918Z",
-  "expiresAt": "2026-11-13T21:36:51.918Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-13T20:09:42.201Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-13T20:09:42.201Z"
 }
