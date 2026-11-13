@@ -33,5 +33,7 @@ jobs:
           node --check static/js/ograf_functions.js
       - name: Exclusive agent lease state machine tests
         run: node --test tests/agent-lease.test.mjs
+      - name: Original SPX HTML, OGraf and AMCP runtime regressions
+        run: node --test tests/spx-runtime.test.cjs
       - name: Static baseline and project contract checks
         run: node --test tests/baseline.test.cjs
