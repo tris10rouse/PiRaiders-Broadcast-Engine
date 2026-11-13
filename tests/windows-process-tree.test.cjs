@@ -24,7 +24,7 @@ test('Windows tree termination uses taskkill with no shell and descendants flag'
 });
 test('rejects invalid Windows PID without executing taskkill', async () => {
   let called = false;
-  await assert.rejects(terminateProcessTree(fakeChild(undefined), {
+  await assert.rejects(terminateProcessTree(fakeChild(0), {
     platform: 'win32', execFileProcess: () => { called = true; }
   }), /valid PID/);
   assert.equal(called, false);
