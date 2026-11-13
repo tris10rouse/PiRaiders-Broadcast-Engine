@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -27,5 +31,7 @@ jobs:
           node --check routes/routes-api-v1.js
           node --check static/js/spx_gc.js
           node --check static/js/ograf_functions.js
+      - name: Exclusive agent lease state machine tests
+        run: node --test tests/agent-lease.test.mjs
       - name: Static baseline and project contract checks
         run: node --test tests/baseline.test.cjs

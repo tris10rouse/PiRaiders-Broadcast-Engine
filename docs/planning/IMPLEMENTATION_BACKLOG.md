@@ -4,6 +4,10 @@ This file is the interim source of truth for actionable work items. GitHub Issue
 
 Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. Use one focused feature branch/PR per independently testable unit. Mark work complete only with test evidence and a rollback path.
 
+## Agent coordination prerequisite
+
+- [x] **BE-000 · Prevent overlapping hourly AI development sessions**: an isolated GitHub coordination branch with versioned, expiring leases, owner fencing tokens, fast-forward-only atomic ref changes, heartbeat, fail-closed behavior, agent instructions and CI unit tests. Verify actual GitHub claim/release during this PR; GitHub Actions concurrency also serializes CI for the same ref.
+
 ## Ordered tasks
 
 - [ ] **BE-001 · Original SPX HTML / OGraf executable regression suite** (Stage 0)
