@@ -1,0 +1,31 @@
+name: Foundation checks
+
+on:
+  push:
+    branches: [master, 'feature/**', 'docs/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Syntax checks for SPX entry points
+        run: |
+          node --check server.js
+          node --check routes/routes-api-v1.js
+          node --check static/js/spx_gc.js
+          node --check static/js/ograf_functions.js
+      - name: Static baseline and project contract checks
+        run: node --test tests/baseline.test.cjs
