@@ -321,7 +321,10 @@ internal static class NdiProbe
             int type = CaptureVideo(Receiver, ref frame, IntPtr.Zero, IntPtr.Zero, 100);
             if (type != Video)
             {
-                Require(type == 0 || type == 100, "CAPTURE_ERROR");
+                // Initial connection/reconnect may notify an error before the
+                // stream becomes available. It never counts as a valid frame.
+                if (type == 4) { matched = 0; firstMatch = -1; timestamps.Clear(); continue; }
+                if (type != 0 && type != 100) throw new ProbeFailure("CAPTURE_TYPE_" + type.ToString());
                 continue;
             }
             try
@@ -364,7 +367,7 @@ internal static class NdiProbe
             // A connection-lost notification is not video silence. Reset the
             // observation and require a subsequent healthy none/status interval.
             if (type == 4) { quietSince = -1; continue; }
-            Require(type == 0 || type == 100, "CAPTURE_ERROR");
+            if (type != 0 && type != 100) throw new ProbeFailure("CAPTURE_TYPE_" + type.ToString());
             if (GetConnections(Receiver) != 0) { quietSince = -1; continue; }
             if (quietSince < 0) quietSince = watch.ElapsedMilliseconds;
             if (watch.ElapsedMilliseconds - quietSince >= durationMs)

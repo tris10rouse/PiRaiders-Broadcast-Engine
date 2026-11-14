@@ -168,7 +168,7 @@ async function main(){
     }
     report={event:'real-ndi-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:tools.provenance,ndiProvenance:ndi.provenance,runtimeVersion:probe.info.runtimeVersion,actualNdiSdkReceiver:true,actualNdiConsumer:true,sourceIdentityStable:true,sourceIdentityHash:expectedIdentity,frameEvidence,missingRuntimeRejected:true,actualPNGAndJPEG:true,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realWallClockWindow:window,processStoppedAt,quietAfterDrain:{connections:quiet.connections,durationMs:quiet.quietDurationMs,drainedFrames:quiet.drainedFrames},persistentSPXStandIn:true,sameMachineOnly:true,lanTransportTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){
-    console.error(JSON.stringify({event:'ndi-proof-fixed-diagnostic',phase,code:/^[A-Z_]{1,80}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',fixedReceiverErrors:[...fixedReceiverErrors],nativeExits,framesVerified:frameEvidence.map(f=>f.name)}));
+    console.error(JSON.stringify({event:'ndi-proof-fixed-diagnostic',phase,code:/^[A-Z_][A-Z_0-9]{0,79}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',fixedReceiverErrors:[...fixedReceiverErrors],nativeExits,framesVerified:frameEvidence.map(f=>f.name)}));
     if(phase==='START')console.error(JSON.stringify({event:'ndi-preauth-caspar-startup',text:casparStartup.replace(/https?:\/\/[^\s<>"']+/g,'[URL omitted]')}));
     throw Error('NDI_PROOF_FAILED_'+phase);
   }finally{

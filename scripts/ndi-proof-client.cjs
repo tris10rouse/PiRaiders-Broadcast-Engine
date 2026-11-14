@@ -18,9 +18,9 @@ function requestProbe(port,token,id,command,values={},timeoutMs=30000){
       try{
         const result=JSON.parse(buffer.subarray(0,end).toString('utf8'));
         if(!result||typeof result!=='object'||Array.isArray(result)||result.id!==id||typeof result.ok!=='boolean')throw Error('PROBE_PROTOCOL');
-        if(!result.ok){const code=typeof result.code==='string'&&/^[A-Z_]{1,64}$/.test(result.code)?result.code:'FAILED';throw Error('PROBE_'+code);}
+        if(!result.ok){const code=typeof result.code==='string'&&/^[A-Z_][A-Z_0-9]{0,63}$/.test(result.code)?result.code:'FAILED';throw Error('PROBE_'+code);}
         finish(null,result);
-      }catch(error){finish(/^PROBE_[A-Z_]+$/.test(error.message)?error:Error('PROBE_PROTOCOL'));}
+      }catch(error){finish(/^PROBE_[A-Z_0-9]+$/.test(error.message)?error:Error('PROBE_PROTOCOL'));}
     });
   });
 }
