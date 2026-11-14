@@ -6,7 +6,7 @@
   "task": "BE-004/BE-005 complete managed Reload and feedback verification",
   "workBranch": "feature/be-005-managed-reload-feedback",
   "acquiredAt": "2026-11-14T11:44:32.721Z",
-  "lastHeartbeat": "2026-11-14T11:48:26.467Z",
-  "expiresAt": "2026-11-14T13:18:26.467Z",
+  "lastHeartbeat": "2026-11-14T12:01:18.657Z",
+  "expiresAt": "2026-11-14T13:31:18.657Z",
   "releasedAt": null
 }
