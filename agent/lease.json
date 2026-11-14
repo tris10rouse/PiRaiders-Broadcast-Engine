@@ -6,7 +6,7 @@
   "task": "Verify and integrate managed RossTalk control PR20",
   "workBranch": "feature/be-003-managed-control",
   "acquiredAt": "2026-11-14T16:48:43.481Z",
-  "lastHeartbeat": "2026-11-14T16:48:43.481Z",
-  "expiresAt": "2026-11-14T18:18:43.481Z",
+  "lastHeartbeat": "2026-11-14T16:55:59.219Z",
+  "expiresAt": "2026-11-14T18:25:59.219Z",
   "releasedAt": null
 }
