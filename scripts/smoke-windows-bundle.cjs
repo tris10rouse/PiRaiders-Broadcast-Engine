@@ -161,9 +161,20 @@ async function main() {
     assert.equal(transportError, undefined); assert.equal(host.snapshot().renderer.ready, true);
     assert.equal((await host.dispatch('launch')).ok, true); assert.equal(host.snapshot().controller.index, 0);
     assert.equal((await host.dispatch('next')).ok, true); assert.equal(host.snapshot().controller.index, 1);
+    assert.equal((await host.dispatch('auto')).ok, true); assert.equal(host.snapshot().controller.mode, 'auto');
+    assert.equal((await host.dispatch('manual')).ok, true); assert.equal(host.snapshot().controller.mode, 'manual');
+    const replacementSource = path.join(work, 'Replacement media'); fs.mkdirSync(replacementSource);
+    fs.writeFileSync(path.join(replacementSource, '02.jpg'), jpeg.encode(image, 90).data);
+    const replacement = await stageSnapshot({ sourceDir: replacementSource, cacheDir, quietMs: 0 });
+    fs.rmSync(replacementSource, { recursive: true });
+    assert.equal((await host.reloadSnapshot(replacement.snapshotDir)).ok, true);
+    assert.equal(host.snapshot().controller.deckId, replacement.deck.id); assert.equal(host.snapshot().controller.index, 0);
     assert.equal((await host.dispatch('stop')).ok, true); assert.equal(host.snapshot().controller.state, 'stopped');
+    assert.equal((await host.reloadSnapshot(prepared.snapshotDir)).ok, true);
+    assert.equal(host.snapshot().controller.deckId, prepared.deck.id); assert.equal(host.snapshot().controller.index, null);
+    assert.equal(host.snapshot().media.registered, 1);
   } finally { wire?.terminate(); await host.close(); }
-  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true, trustedHttpServing: true, presentationHostTransport: true, simulatedPresentationAck: true }));
+  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true, trustedHttpServing: true, presentationHostTransport: true, runtimeReloadAndFeedback: true, simulatedPresentationAck: true }));
 }
 main().catch(() => { console.error('Bundled media validation failed'); process.exitCode = 1; });
 `);

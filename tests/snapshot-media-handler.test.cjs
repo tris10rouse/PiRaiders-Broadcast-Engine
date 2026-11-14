@@ -230,3 +230,20 @@ test('authorization revoked while reading prevents image bytes from being emitte
   const response = await pending; assert.equal(response.status, 403); assert.equal(response.bytes.length, 0);
   f.setAuth(() => true); assert.equal((await f.request()).status, 200);
 });
+
+test('snapshot registration validates and forwards abort signals before any route can be returned',async t=>{
+  const f=await fixture(t), abort=new AbortController();abort.abort();
+  await assert.rejects(createSnapshotMediaHandler({snapshotDir:f.snapshot.snapshotDir,authorize:()=>true,signal:{}}),{code:'INVALID_OPTIONS'});
+  await assert.rejects(createSnapshotMediaHandler({snapshotDir:f.snapshot.snapshotDir,authorize:()=>true,signal:abort.signal}),{code:'IMAGE_ABORTED'});
+});
+
+test('registration abort during actual worker validation waits for the decoder thread to terminate',async t=>{
+  const f=await fixture(t), abort=new AbortController(),{Worker}=require('node:worker_threads');
+  const once=Worker.prototype.once;let worker;
+  t.mock.method(Worker.prototype,'once',function(event,listener){
+    if(event==='message'&&!worker){worker=this;queueMicrotask(()=>abort.abort());}
+    return once.call(this,event,listener);
+  });
+  await assert.rejects(createSnapshotMediaHandler({snapshotDir:f.snapshot.snapshotDir,authorize:()=>true,signal:abort.signal}),{code:'IMAGE_ABORTED'});
+  assert.ok(worker,'a real decoder worker was created');assert.equal(worker.threadId,-1,'abort is actual decoder settlement, not an ignored late result');
+});

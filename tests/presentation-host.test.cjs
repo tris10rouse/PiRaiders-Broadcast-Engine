@@ -184,7 +184,7 @@ test('negative black paint acknowledgment invalidates readiness and requires fre
 test('disconnect rejects active and queued work, preserves mode, and fresh connection requires Launch', async t => {
   const f=await fixture(t), {client,cookie}=await program(t,f);
   const launch=f.host.dispatch('launch'), command=await client.next('command'); client.ack(command); await launch;
-  await f.host.dispatch('auto'); await f.host.dispatch('manual');
+  for (const mode of ['auto','manual']) { const change=f.host.dispatch(mode), feedback=await client.next('command'); assert.equal(feedback.type,'feedback'); client.ack(feedback); await change; }
   const next=f.host.dispatch('next'); await client.next('command'); const queued=f.host.dispatch('previous'); client.ws.terminate();
   assert.equal((await next).ok,false); assert.equal((await queued).ok,false); await until(()=>!f.host.snapshot().renderer.connected);
   assert.equal(f.host.snapshot().renderer.presentation,'unverified'); assert.equal(f.host.snapshot().controller.state,'stopped');
@@ -235,7 +235,7 @@ test('close is bounded/idempotent, cancels pending work, frees listener and neve
 });
 
 test('invalid host/controller options and occupied port fail before leaving an orphan listener', async t => {
-  for (const raw of [null,[],{host:'0.0.0.0'},{port:-1},{commandTimeoutMs:99},{commandTimeoutMs:60000},
+  for (const raw of [null,[],{host:'0.0.0.0'},{port:-1},{commandTimeoutMs:99},{commandTimeoutMs:60000},{prepareTimeoutMs:99},{prepareTimeoutMs:120001},
     {controllerOptions:{scheduler:{}}},{controllerOptions:{mode:'invalid'}},{controllerOptions:{transition:{type:'fade',durationMs:1000}},commandTimeoutMs:100}])
     await assert.rejects(createPresentationHost(raw),{code:'INVALID_OPTIONS'});
   const f=await fixture(t), address=new URL(f.host.origin);

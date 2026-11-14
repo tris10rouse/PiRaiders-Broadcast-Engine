@@ -20,11 +20,13 @@ function samePath(a, b) { return process.platform === 'win32' ? a.toLowerCase() 
  */
 async function createSnapshotMediaHandler(raw = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw) ||
-      Reflect.ownKeys(raw).some(key => !['snapshotDir', 'authorize', 'maxConcurrentReads'].includes(key)) ||
+      Reflect.ownKeys(raw).some(key => !['snapshotDir', 'authorize', 'maxConcurrentReads', 'signal'].includes(key)) ||
       typeof raw.authorize !== 'function') invalidOptions();
-  const { authorize, snapshotDir, maxConcurrentReads = 4 } = raw;
+  const { authorize, snapshotDir, maxConcurrentReads = 4, signal } = raw;
+  if (signal !== undefined && !(signal instanceof AbortSignal)) invalidOptions();
   if (!Number.isSafeInteger(maxConcurrentReads) || maxConcurrentReads < 1 || maxConcurrentReads > 16) invalidOptions();
-  const snapshot = await loadSnapshot(snapshotDir);
+  const snapshot = await loadSnapshot(snapshotDir, {signal});
+  if (signal?.aborted) { const error = new Error('Snapshot verification aborted'); error.code = 'IMAGE_ABORTED'; throw error; }
   const root = snapshot.snapshotDir, media = path.join(root, 'media');
   const rootStat = await fs.lstat(root, { bigint: true }), mediaStat = await fs.lstat(media, { bigint: true });
   directory(rootStat); directory(mediaStat);
@@ -127,6 +129,7 @@ async function createSnapshotMediaHandler(raw = {}) {
       else empty(res, 503);
     }
   }
+  if (signal?.aborted) { const error = new Error('Snapshot verification aborted'); error.code = 'IMAGE_ABORTED'; throw error; }
   return Object.freeze({ deck, handle, close });
 }
 module.exports = { createSnapshotMediaHandler };
