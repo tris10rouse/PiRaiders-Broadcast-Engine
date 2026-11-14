@@ -1,6 +1,6 @@
 # Real Windows output proof: pinned components and gates
 
-Research checkpoint, 2026-11-14. The pinned Caspar/Mesa components have now executed on disposable Windows CI and produced a verified actual1080p red mixed PNG. Complete managed playback proof remains in progress; NDI has not been installed or tested. Existing AMCP/NDI stand-ins and Chromium output are not proof of real CasparCG/NDI integration. Do not enable production deployment or publish a release from this document.
+Research checkpoint, 2026-11-14. The pinned Caspar/Mesa components have now executed on disposable Windows CI and produced a verified actual1080p red mixed PNG. Initial complete managed playback proof passed on source1eef232; final recovery coverage/CI remain required, and NDI has not been installed or tested. Existing AMCP/NDI stand-ins and Chromium output are not proof of real CasparCG/NDI integration. Do not enable production deployment or publish a release from this document.
 
 ## Candidate pins
 
@@ -51,3 +51,8 @@ First actual Windows attempt (source183fb4, diagnosticdf27c7b) downloaded/verifi
 
 
 Compatibility-profile result: source238f27 passed real Caspar startup and actual1080p mixer-red PNG capture, then failed managed CEF initialization at the authentication boundary. Corrected source87c33 request counters confirmed template200×5 then bootstrap403×1, zero upgrades: https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43620130276 . These failures were retained, not skipped. The narrow independently reviewed bootstrap compatibility contract is in PRESENTATION_PROTOCOL.md; final full Caspar/CEF pixels/window tests and all latest-head checks remain required. The production-window probe injects the policy clock while supervising real processes; this must not be confused with NDI packet timing or target-PC elapsed-time validation.
+
+
+Initial complete real Windows software proof passed on source1eef2321214807de93ebfd3c1e877e247c5a3ee1 in both [PR CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43621765909) and [push CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43621760382). Actual pinned Caspar/CEF/Mesa produced six verified1080p PNG captures: mixer red, Launch red, Next blue, Previous red, Reload green, Stop black. Stop retained the Caspar process; injected production-window end removed the full recorded real Caspar/CEF tree while persistent SPX stand-in survived. No NDI runtime/consumer, Windows10 target or stadium equipment was tested. Private URLs/raw post-auth native logs were not published.
+
+Final acceptance adds actual JPEG alongside PNG, forced termination of the proven owned Caspar root, native descendant cleanup and bounded supervisor restart, a fresh stopped renderer epoch/black frame, then explicit Launch of the last good deck. Eight capture files and structured origin-proof/referrer-privacy fields are required. This added recovery coverage and all final-head checks must pass before merge; the earlier six-frame proof is not evidence for these new paths.

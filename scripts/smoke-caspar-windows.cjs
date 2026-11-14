@@ -9,6 +9,7 @@ const http=require('node:http');
 const {spawn,execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
 const {PNG}=require('pngjs');
+const jpeg=require('jpeg-js');
 const {LauncherRuntime}=require('./lib/launcher-runtime.cjs');
 const {JOB_HOST}=require('./lib/windows-job-process.cjs');
 const {stageSnapshot}=require('./lib/media-snapshot.cjs');
@@ -47,7 +48,7 @@ async function main(){
   for(const folder of ['media','log','data','template'])await fs.mkdir(path.join(bin,folder),{recursive:true});
   await fs.writeFile(config,configuration(port));
   const fixtures=path.join(toolRoot,'fixtures');await fs.mkdir(fixtures,{recursive:true});
-  async function prepare(name,colors){const sourceDir=path.join(fixtures,name);await fs.mkdir(sourceDir);for(let i=0;i<colors.length;i++)await fs.writeFile(path.join(sourceDir,'0'+i+'.png'),image(colors[i]));return stageSnapshot({sourceDir,cacheDir:path.join(toolRoot,'snapshots'),quietMs:0});}
+  async function prepare(name,colors){const sourceDir=path.join(fixtures,name);await fs.mkdir(sourceDir);for(let i=0;i<colors.length;i++)await fs.writeFile(path.join(sourceDir,'0'+i+(i===1?'.jpg':'.png')),i===1?jpeg.encode(PNG.sync.read(image(colors[i])),95).data:image(colors[i]));return stageSnapshot({sourceDir,cacheDir:path.join(toolRoot,'snapshots'),quietMs:0});}
   const initial=await prepare('initial',[[240,20,20],[20,20,240]]),replacement=await prepare('replacement',[[20,220,20]]);
   let now=Date.now(),session,runtime,mesaStartupObserved=false,phase='START',captureCount=0;
   const start=now+16*60000,end=start+3600000,children=[],hosts=new Set();let activeHost,report,startupBytes=0;const startup=[],nativeExits=[];const httpCounts={},nativeFlags=new Set();let upgrades=0,bootstrapFields=null,expectedBearer=null;
@@ -63,7 +64,7 @@ async function main(){
   runtime=new LauncherRuntime({productionWindow:{start:new Date(start).toISOString(),end:new Date(end).toISOString()},services:[
     {name:'spx',command:process.execPath,args:['-e','setInterval(()=>{},1000)']},
     {name:'casparcg',command:path.join(bin,'casparcg.exe'),args:[config,'--log-severity=disable','--disable-logging'],cwd:bin}
-  ]},{clock:()=>now,supervisorOptions:{spawnProcess:contained,maxRestarts:0}});
+  ]},{clock:()=>now,supervisorOptions:{spawnProcess:contained,maxRestarts:1,restartDelayMs:100}});
   // The persistent SPX process is a harmless stand-in in this probe. Separate
   // package CI tests the actual SPX server. Managed host/CEF/Caspar here are real.
   try{
@@ -87,7 +88,7 @@ async function main(){
     await capture('mixer-red',[255,0,0]);assert.ok(mesaStartupObserved,'MESA_GL_STARTUP_UNOBSERVED');
     await command(port,'CLEAR 1');phase='MANAGED_CEF';
     const createServer=http.createServer;
-    http.createServer=function(...args){const server=createServer.apply(this,args);const emit=server.emit;server.emit=function(event,...values){if(event==='request'){const [req,res]=values;const category=req.url==='/piraiders/session'?'bootstrap':req.url.startsWith('/templates/piraiders/slideshow/')?'template':req.url.startsWith('/piraiders/socket.io')?'socket':req.url.startsWith('/piraiders/media/')?'media':'other';if(category==='bootstrap'){const h=req.headers,expected=new URL(session.origin);const classify=(value,allowed)=>value===undefined?'absent':allowed.includes(value)?value:'other';bootstrapFields={originAbsent:h.origin===undefined,originKind:h.origin===undefined?'absent':h.origin==='null'?'null':'other',originMatches:h.origin===session.origin,hostMatches:h.host===expected.host,markerMatches:h['x-piraiders-bootstrap']==='1',bearerMatches:expectedBearer!==null&&h.authorization===expectedBearer,site:classify(h['sec-fetch-site'],['same-origin','same-site','cross-site','none']),mode:classify(h['sec-fetch-mode'],['cors','same-origin','no-cors','navigate','websocket']),dest:classify(h['sec-fetch-dest'],['empty','document','iframe'])};}res.once('finish',()=>{const key=category+':'+res.statusCode;httpCounts[key]=(httpCounts[key]||0)+1;});}return emit.call(this,event,...values);};server.on('upgrade',()=>upgrades++);return server;};
+    http.createServer=function(...args){const server=createServer.apply(this,args);const emit=server.emit;server.emit=function(event,...values){if(event==='request'){const [req,res]=values;const category=req.url==='/piraiders/session'?'bootstrap':req.url.startsWith('/templates/piraiders/slideshow/')?'template':req.url.startsWith('/piraiders/socket.io')?'socket':req.url.startsWith('/piraiders/media/')?'media':'other';if(category==='bootstrap'){const h=req.headers,expected=new URL(session.origin);const classify=(value,allowed)=>value===undefined?'absent':allowed.includes(value)?value:'other';bootstrapFields={originAbsent:h.origin===undefined,originKind:h.origin===undefined?'absent':h.origin==='null'?'null':'other',originMatches:h.origin===session.origin,hostMatches:h.host===expected.host,markerMatches:h['x-piraiders-bootstrap']==='1',bearerMatches:expectedBearer!==null&&h.authorization===expectedBearer,referrerContainsCapability:typeof h.referer==='string'&&expectedBearer!==null&&h.referer.includes(expectedBearer.slice(7)),site:classify(h['sec-fetch-site'],['same-origin','same-site','cross-site','none']),mode:classify(h['sec-fetch-mode'],['cors','same-origin','no-cors','navigate','websocket']),dest:classify(h['sec-fetch-dest'],['empty','document','iframe'])};}res.once('finish',()=>{const key=category+':'+res.statusCode;httpCounts[key]=(httpCounts[key]||0)+1;});}return emit.call(this,event,...values);};server.on('upgrade',()=>upgrades++);return server;};
     try{session=await createRossTalkSession({presentation:{snapshotDir:initial.snapshotDir,commandTimeoutMs:20000,controllerOptions:{mode:'manual'}},rossTalk:{host:'127.0.0.1',port:0,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',3:'previous',5:'reload',8:'stop'},acknowledgements:true},canControl:()=>runtime.allowed(),resolvePreparedSnapshot:async()=>replacement.snapshotDir},{allowEphemeral:true});}finally{http.createServer=createServer;}
     await session.start();const privateURL=session.getProgramURL(),token=new URL(privateURL).hash.split('=')[1];
     expectedBearer='Bearer '+token;
@@ -108,12 +109,27 @@ async function main(){
       const stat=await fs.stat(file);if(stat.size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');
       const body=await fs.readFile(file);if(body.includes(Buffer.from(token))||body.includes(Buffer.from(token,'utf16le'))||body.includes(Buffer.from(privateURL)))throw Error('PRIVATE_URL_PERSISTED');
     }
+    phase='CRASH_RECOVERY';const oldHost=activeHost,oldEpoch=session.snapshot().presentation.renderer.epoch,rows=processTable();
+    const root=rows.find(row=>row.ParentProcessId===oldHost.pid);
+    assert.ok(root&&Number.isSafeInteger(root.ProcessId)&&root.ProcessId>0,'OWNED_ROOT_MISSING');
+    const crashedTree=descendants(rows,oldHost.pid);children.push(...crashedTree);
+    // Kill only the proven direct child of our native containment host. The
+    // host must tear down CEF, then supervisor may restart within its window.
+    execFileSync('taskkill.exe',['/PID',String(root.ProcessId),'/F'],{stdio:'ignore',timeout:15000,windowsHide:true});
+    await until(async()=>{if(activeHost===oldHost)return false;try{await command(port,'VERSION',{prefix:'201 ',timeoutMs:1000});return true;}catch{return false;}},'CASPAR_RESTART',60000);
+    await until(()=>{const alive=new Set(processTable().map(row=>row.ProcessId));return crashedTree.every(pid=>!alive.has(pid));},'CRASHED_TREE_SURVIVED',10000);
+    await until(()=>!session.snapshot().presentation.renderer.connected,'OLD_RENDERER_SURVIVED',10000);
+    await command(port,'PLAY 1-10 [HTML] "'+session.getProgramURL()+'"');
+    await until(()=>session.snapshot().presentation.renderer.ready,'RESTART_INITIAL_BLACK',60000);
+    assert.notEqual(session.snapshot().presentation.renderer.epoch,oldEpoch);assert.equal(session.snapshot().presentation.controller.state,'stopped');
+    await capture('restart-black',[0,0,0]);await command(talk,'GPI 1',{prefix:'OK ',timeoutMs:30000});await capture('restart-launch-green',[20,220,20]);
+    assert.equal(bootstrapFields.referrerContainsCapability,false,'PRIVATE_URL_REFERRER');
     children.push(...descendants(processTable(),activeHost.pid));phase='WINDOW_END';
     now=end;await runtime.reconcile();assert.equal(runtime.sender,null);
     await until(()=>{const alive=new Set(processTable().map(row=>row.ProcessId));return children.every(pid=>!alive.has(pid));},'CASPAR_TREE_SURVIVED',10000);
     await assert.rejects(command(port,'VERSION',{prefix:'201 ',timeoutMs:1000}));
     assert.ok(hosts.size>=1,'Persistent service survives window end');
-    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:6,realRossTalk:true,windowEndProcessTreeGone:true,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
+    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:8,actualPNGAndJPEG:true,bootstrapOriginProof:bootstrapFields.originMatches?'matching-origin':'same-origin-metadata',privateCapabilityInReferrer:false,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realRossTalk:true,windowEndProcessTreeGone:true,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){
     const renderer=session?.snapshot().presentation.renderer;
     console.error(JSON.stringify({event:'caspar-proof-fixed-diagnostic',phase,code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',httpCounts,bootstrapFields,upgrades,nativeFlags:[...nativeFlags],renderer:renderer?{ready:renderer.ready,connected:renderer.connected,presentation:renderer.presentation,lastError:renderer.lastError}:null}));
