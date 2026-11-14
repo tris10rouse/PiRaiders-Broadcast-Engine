@@ -43,30 +43,39 @@ test('real SPX starts with isolated settings and passes its version health probe
     windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'pipe']
   });
   const errors = []; child.on('error', error => errors.push(error));
-  const exited = once(child, 'exit');
-  exited.catch(() => {});
+  const closed = once(child, 'close');
+  closed.catch(() => {});
   let captured = '';
   for (const stream of [child.stdout, child.stderr]) stream?.on('data', data => {
     if (captured.length < 16384) captured += data.toString().slice(0, 16384 - captured.length);
   });
+  const health = normalizeHealthConfig('spx', { protocol: 'spx-http', host: '127.0.0.1', port, timeoutMs: 250 });
   t.after(async () => {
     try {
       if (child.exitCode === null && child.signalCode === null) {
         if (process.platform === 'win32') {
-          try { await terminateProcessTree(child); }
-          catch (error) { if (child.exitCode === null && child.signalCode === null) throw error; }
+          // Normal cleanup uses the host's cooperative EOF path, which waits
+          // for all contained processes. Killing the host then observing only
+          // its exit can race Windows working-directory handle release.
+          child.stdin.end();
         } else child.kill('SIGTERM');
       }
-      try { await Promise.race([exited, delay(5000, undefined, { ref: false }).then(() => { throw Error('SPX fixture shutdown timed out'); })]); }
+      try { await Promise.race([closed, delay(8000, undefined, { ref: false }).then(() => { throw Error('SPX fixture shutdown timed out'); })]); }
       catch (error) {
-        if (process.platform !== 'win32' && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-        throw error;
+        if (child.exitCode === null && child.signalCode === null) {
+          if (process.platform === 'win32') await terminateProcessTree(child);
+          else child.kill('SIGKILL');
+          await Promise.race([closed, delay(5000, undefined, { ref: false }).then(() => { throw Error('SPX fallback cleanup timed out'); })]);
+        }
+        throw error; // Cleanup fallback must not turn a shutdown failure into PASS.
       }
+      assert.equal((await probeServiceHealth(health)).healthy, false, 'SPX fixture must no longer be healthy after close');
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+      // Async retries let Windows close handles between attempts; exhaustion
+      // still fails the test rather than silently abandoning the fixture.
+      await fs.promises.rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
-  const health = normalizeHealthConfig('spx', { protocol: 'spx-http', host: '127.0.0.1', port, timeoutMs: 250 });
   const deadline = performance.now() + 10000;
   let result;
   do {

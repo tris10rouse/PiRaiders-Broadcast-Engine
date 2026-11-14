@@ -185,6 +185,13 @@ function buildWindowsBundle() {
     execFileSync(process.execPath, [process.env.npm_execpath, 'ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], {
       cwd: path.join(bundle, 'app'), stdio: 'inherit', shell: false, windowsHide: true, timeout: 180000
     });
+    for (const [dependency, version, notice] of [
+      ['pngjs', '7.0.0', 'PNGJS-LICENSE.txt'], ['jpeg-js', '0.4.4', 'JPEG-JS-LICENSE.txt']
+    ]) {
+      const dependencyRoot = path.join(bundle, 'app', 'node_modules', dependency);
+      if (JSON.parse(fs.readFileSync(path.join(dependencyRoot, 'package.json'), 'utf8')).version !== version) throw Error('Unexpected image decoder dependency version');
+      fs.copyFileSync(path.join(dependencyRoot, 'LICENSE'), path.join(bundle, 'licenses', notice));
+    }
     assertClean();
     const metadata = { commitSHA, spxVersion: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version,
       node: { version: process.version, platform: process.platform, arch: process.arch } };

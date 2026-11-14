@@ -21,7 +21,7 @@ Only perform a controlled off-air test on an isolated nonproduction computer. No
 
 ## Automated artifact checks and remaining gates
 
-Windows CI extracts this ZIP under a path containing spaces/Unicode, verifies the inventory, checks missing-configuration failure, and uses the fixed `.cmd` entry point to start actual bundled SPX plus an explicitly simulated CasparCG AMCP service. It checks local HTTP pages/assets and the sender-window end, then proves fixture process cleanup. The simulator sends no video or NDI; successful CI is not a CasparCG/NDI or stadium demonstration.
+Windows CI extracts this ZIP under a path containing spaces/Unicode, verifies the inventory, checks missing-configuration failure, and uses the fixed `.cmd` entry point to start actual bundled SPX plus an explicitly simulated CasparCG AMCP service. It checks local HTTP pages/assets and the sender-window end, then proves fixture process cleanup. A separate bundled-Node check fully decodes generated PNG/JPEG fixtures through worker threads, stages an immutable snapshot and reloads it after deleting the simulated source; pinned decoder versions and complete license notices are verified. This is automated staging-library evidence, not an operator staging workflow. The simulator sends no video or NDI; successful CI is not a CasparCG/NDI or stadium demonstration.
 
 Before announcing a user-testable release, finish slideshow/control/staging/event behavior, persistent diagnostics and startup safety, validate a selected CasparCG/NDI build and source identity, and provide an operator test checklist. Direct Daktronics/D8VIDEO-P/DMP ingest and board routing require separately authorized off-air evidence. No hardware compatibility is claimed.
 
