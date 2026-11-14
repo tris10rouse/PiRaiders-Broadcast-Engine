@@ -1,0 +1,57 @@
+name: Real NDI Windows software proof
+
+on:
+  push:
+    branches: [master, 'feature/be-002-ndi-software-proof']
+  pull_request:
+    paths:
+      - '.github/workflows/ndi-software-proof.yml'
+      - 'scripts/**'
+      - 'native/**'
+      - 'ASSETS/templates/piraiders/**'
+      - 'package*.json'
+      - 'tests/ndi-proof.test.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  actual-ndi-sdk-receiver:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build real Windows containment and native SDK receiver helpers
+        run: |
+          npm run build:windows-host
+          node scripts/build-ndi-probe.cjs
+      - name: Prepare pinned private CI-only Caspar and Mesa
+        run: node scripts/prepare-caspar-proof.cjs
+      - name: Verify and install pinned official NDI runtime on disposable runner
+        run: node scripts/prepare-ndi-proof.cjs
+      - name: Prove received NDI pixels, recovery and real production-window shutdown
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/smoke-ndi-windows.cjs
+      - name: Retain synthetic received pixels and sanitized evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-ndi-software-evidence
+          path: build/ndi-proof-evidence
+          if-no-files-found: warn
+          retention-days: 14

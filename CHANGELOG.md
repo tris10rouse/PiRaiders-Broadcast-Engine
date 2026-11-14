@@ -1,5 +1,10 @@
 # PiRaiders engineering changelog
 
+## 2026-11-14 · Native NDI validation increment
+
+- Add disposable Windows actual-SDK receiver proof, pinned official runtime preparation, synthetic frame captures, crash/reconnect checks and real-clock window-end drain verification. Local bounded TCP/runtime-header tests pass; actual Windows execution pending. Default launcher and application package are unchanged. No NDI binaries are redistributed.
+
+
 ## 2026-11-13
 
 - PR #3: executable native SPX HTML, EBU OGraf and CasparCG AMCP fixture regressions. Browser/socket boundaries are simulated.
