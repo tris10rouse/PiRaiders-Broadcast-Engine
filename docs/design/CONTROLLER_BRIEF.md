@@ -21,3 +21,8 @@ The prototype in `spx-first-controller.html` simulates controls. Its event and a
 
 ## Engineering requirements
 Retain SPX Solo's HTML/CSS/JS and EBU OGraf compatibility, template functions, CasparCG path and existing controller routes. Treat graphic output, NDI sender, receiver discovery and board routing as distinct states. Document UI tokens from the incumbent SPX CSS and compare browser captures before changing its controller.
+
+
+## Media-library data contract
+
+Use [the owner-supplied Apps Script media contract](APPS_SCRIPT_MEDIA_CONTRACT.md) for Library and Game Day: select school year → event → resolved board/button; display source-ordered Board occurrences and separate source loaded ticks from Engine prepared/active versions. A file appearing in a folder is not event membership, and a prepared deck is not proof of NDI/reception/on-air. The source app owns shared rows/Drive organization; the Engine defaults to read-only consumption and private local caching. Scripts/PDFs/crew details never become audience media. The source document's R-158/R-168 UI changes are planned and do not imply any Engine UI has been implemented.

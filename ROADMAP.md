@@ -13,7 +13,7 @@ PiRaiders is a Windows broadcast-graphics application built as a maintained fork
 | 0. Foundation | Record architecture, design, agent policies, CI, upstream baseline | Docs and check checks committed; CI verified on PR | Merged; executable fixture CI passing |
 | 1. Engine proof | Windows launcher, SPX + CasparCG output, 1080p30 NDI, RossTalk bridge | Bench-tested on target PC; direct NDI reception demonstrated off-air; no vMix/OBS | In progress: supervisor and scheduling policy merged; Windows tree shutdown verified in PR #6; PR #7 integrates window enforcement; job containment verified in Windows CI (PR #8); endpoint health diagnostics verified on Windows/Ubuntu; portable development ZIP verified on Windows; output/release proof pending |
 | 2. Slideshow | Local nested PNG/JPG decks, deterministic order, cut/fade, commands | Auto 10s configurable; timer resets on manual navigation; bidirectional wrap; overlay indicators | Planned |
-| 3. Event preparation | Watched local Google Drive sync folder, staged updates, manual reload | Cache/version validation; hold last frame on reload; rollback; offline operation | Planned |
+| 3. Event preparation | Sheet-selected ordered Board media, ID-resolved local bytes, staged updates and manual reload | Correct year/event/button membership and sequence; cache validation; last-frame hold/rollback; offline operation | Generic local snapshots verified; source contract documented; ordered provider and activation planned |
 | 4. Scheduled lifecycle | Read event metadata, prepare in advance, transmit in production window | No NDI off-window, pre-roll configurable, manual overrides, recovery after reboot | Planned |
 | 5. Integrated UI | SPX-preserving controller plus Game Day, Library, diagnostics | User-approved mockup; original SPX template/rundown workflows regression-tested | Structure approved; SPX integration planned |
 | 6. Production hardening | Install/update, Windows auto-start, logs, security, long-run stability | 4h soak, disconnect/reconnect, rapid RossTalk, offline + cache corruption tests | Planned |
@@ -27,7 +27,7 @@ PiRaiders is a Windows broadcast-graphics application built as a maintained fork
 - Idle: do not transmit NDI outside a production window. Default proposed preparation T-4h; proposed NDI T-15m; distinguish initial source warm-up from Launch.
 - Launch starts slide 1; Daktronics controls board input + sends RossTalk. Auto advances every 10 seconds by default. Manual Next/Previous resets countdown; Next and Previous wrap; stop clears to black, NDI remains for production window.
 - On-board ephemeral audience-visible white bordered AUTO/MANUAL indicator on toggle, bottom right, easing vertically to opacity 0.75, holds 1s, fades to zero. Reload holds last rendered frame and displays small loading spinner, then swaps to new validated package; failure leaves old package and reports a brief safe error.
-- Changes on synced Google Drive folders stage as new version; warning and manual Reload activation; more detailed Apps Script/Sheet integration deferred until its schema is available. Reminders belong in Apps Script, not PiRaiders.
+- Apps Script Sheet rows define school-year/event/Board-button membership and order; Drive IDs identify source bytes and File Keys retain distinct occurrences. Folder changes alone never define a game. Metadata or byte changes prepare a new candidate with warning/manual Reload. The [owner-supplied media contract](docs/design/APPS_SCRIPT_MEDIA_CONTRACT.md) is documented; read-only export/auth/order/timestamp details remain integration gates. Apps Script is the sole Sheet writer; reminders remain there.
 - UI is a workstation application for the district operator/developer. No PiRaiders UI on the All Sport Pro iPad, and no assumption of live access by the iPad operator.
 
 ## Architecture / interfaces
@@ -35,7 +35,7 @@ PiRaiders is a Windows broadcast-graphics application built as a maintained fork
 - SPX server: `server.js`, `routes/routes-application.js`, `routes/routes-api-v1.js`, `utils/spx_server_functions.js`.
 - Controller: `views/view-controller.handlebars`, `static/js/spx_gc.js`, `static/css/spx_*.css`, `ASSETS/plugins/`.
 - Rendering: `views/view-renderer.handlebars`, `static/js/ograf_functions.js`, `utils/playout_casparCG.js`, CasparCG integration, official NDI output.
-- Maintain a production-independent `PiRaidersEventManager` interface (future Apps Script adapter) and `LocalDeckProvider` initial implementation.
+- Maintain a production-independent `PiRaidersEventManager` interface with a planned read-only Apps Script event/Board catalog and ID-aware byte resolver. `LocalDeckProvider` remains an explicit local/fixture mode; its filename ordering and path-derived IDs do not define the Apps Script catalog. See [ADR 0005](docs/decisions/0005-apps-script-media-authority.md).
 - Keep runtime command/state logic in testable modules; avoid tight DOM-to-network dependencies; fail closed for unsafe remote control; preserve last known-good package.
 
 ## Milestone issues to create
@@ -68,3 +68,6 @@ Backlog task / issue → small branch → tests and docs → draft PR → automa
 ## Current engineering increment
 
 BE-003 now has an explicit RossTalk GPI transport boundary, source allowlist, bounded FIFO and loopback bench. It is not enabled in the launcher or connected to playback yet. See [transport scope and recovery](docs/operations/ROSSTALK.md). BE-004 adds a Node-authoritative slideshow state/timer controller with explicit simulated adapter tests and bounded Stop preemption; [controller scope](docs/operations/SLIDESHOW_CONTROLLER.md). BE-005 adds full-decode immutable candidate preparation and offline verification ([scope and restrictions](docs/operations/MEDIA_SNAPSHOTS.md)); it does not activate a deck. Next: actual native SPX slideshow template/render captures, safe Reload/watcher/event integration, presentation/window wiring and authorized off-air sender verification.
+
+
+Owner media-library architecture (Apps Script 2.122.0) is now incorporated into BE-005/BE-006/BE-007. Source-owned folders/Notes markers are preserved, private documents excluded from audience media, and source loaded ticks remain distinct from Engine/NDI/on-air state. R-158/R-168 source UI changes remain planned. This is a design integration, not a deployed Google connection.

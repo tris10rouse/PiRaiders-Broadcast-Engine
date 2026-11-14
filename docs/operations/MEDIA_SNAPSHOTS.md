@@ -2,6 +2,10 @@
 
 This module prepares a separate, fully decoded candidate from a local synced folder. It never changes an active deck, watches a folder, starts output, or changes Google Drive settings. A local Drive Desktop folder is an ordinary filesystem input; the Drive client itself is not exercised by CI. Watch/debounce integration and live Reload with last-frame hold remain release work.
 
+## Relationship to the Apps Script library
+
+This is the generic local-folder provider, with filename-derived order and path-derived slide IDs. It does not read Sheet event membership or resolve Drive IDs. The [Apps Script media contract](../design/APPS_SCRIPT_MEDIA_CONTRACT.md) requires a separate ordered catalog provider using File Key occurrences and Drive-ID byte resolution; preserve this API and schema-1 offline compatibility. Do not point it at the whole Media/year/Next game tree and treat every image as an event deck. No runtime change is made by this design clarification.
+
 ## API
 
 ```js
