@@ -23,7 +23,7 @@ before(async () => {
   });
   await fs.mkdir(artifacts, { recursive:true });
   const hashes = {};
-  const sourceFiles = ['SLIDESHOW.html','slideshow-renderer.js','slideshow.css','template-interface.js']
+  const sourceFiles = ['SLIDESHOW.html','slideshow-renderer.js','slideshow.css','template-interface.js','presentation-client.js']
     .map(name => 'ASSETS/templates/piraiders/slideshow/' + name)
     .concat('ASSETS/templates/softpix/ograf/Template_Pack_1.4.0/INFO_LEFT.mjs');
   for (const name of sourceFiles) {

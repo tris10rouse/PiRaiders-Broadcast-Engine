@@ -26,3 +26,5 @@ Windows CI extracts this ZIP under a path containing spaces/Unicode, verifies th
 Before announcing a user-testable release, finish slideshow/control/staging/event behavior, persistent diagnostics and startup safety, validate a selected CasparCG/NDI build and source identity, and provide an operator test checklist. Direct Daktronics/D8VIDEO-P/DMP ingest and board routing require separately authorized off-air evidence. No hardware compatibility is claimed.
 
 Rollback: stop the development launcher, preserve any configuration/content/logs you intentionally created, then remove its extracted folder. Do not overwrite or delete an existing SPX installation or operator media.
+
+The development bundle also contains the opt-in managed native presentation host/client. The extracted-package smoke exercises authenticated HTTP/WebSocket transport with simulated frame acknowledgments; separate Windows Chromium CI proves actual browser pixels. The default launcher does not yet wire that host into events/RossTalk/CasparCG. Do not treat this component coverage as a user-testable application or NDI proof.
