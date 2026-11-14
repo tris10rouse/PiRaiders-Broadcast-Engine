@@ -124,7 +124,46 @@ async function main() {
     media.close();
     assert.equal((await fetch(origin + media.deck.slides[0].src, { headers: { Authorization: 'Bearer fixture-only' } })).status, 503);
   } finally { media.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
-  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true, trustedHttpServing: true }));
+  const { createPresentationHost } = bundledRequire('./scripts/lib/presentation-host.cjs');
+  const { WebSocket } = bundledRequire('ws');
+  const host = await createPresentationHost({ snapshotDir: prepared.snapshotDir, commandTimeoutMs: 2000, controllerOptions: { mode: 'manual' } });
+  let wire, transportError;
+  try {
+    const credential = new URL(host.getProgramURL()).hash.slice('#piraiders='.length);
+    const bootstrap = await fetch(host.origin + '/piraiders/session', { method: 'POST', headers: { Origin: host.origin, Authorization: 'Bearer ' + credential } });
+    assert.equal(bootstrap.status, 204);
+    const cookie = bootstrap.headers.get('set-cookie').split(';')[0];
+    wire = new WebSocket(host.origin.replace('http:', 'ws:') + '/piraiders/socket.io/?EIO=4&transport=websocket', { headers: { Origin: host.origin, Cookie: cookie } });
+    wire.on('error', () => { transportError = true; });
+    wire.on('message', raw => {
+      const message = raw.toString();
+      if (message.startsWith('0')) wire.send('40' + JSON.stringify({ token: credential }));
+      else if (message === '2') wire.send('3');
+      else if (message.startsWith('44')) transportError = true;
+      else if (message.startsWith('42')) {
+        void (async () => {
+          const [event, value] = JSON.parse(message.slice(2));
+          if (event === 'init') wire.send('42' + JSON.stringify(['ready', { epoch: value.epoch }]));
+          if (event === 'command') {
+            if (value.type === 'show') {
+              const image = await fetch(host.origin + value.src, { headers: { Cookie: cookie } });
+              assert.equal(image.status, 200); assert.ok((await image.arrayBuffer()).byteLength > 0);
+            }
+            // This package probe simulates ACKs; actual painted output is covered
+            // by the separate real Chromium CI suite, never by this simulator.
+            wire.send('42' + JSON.stringify(['ack', { epoch: value.epoch, id: value.id, ok: true }]));
+          }
+        })().catch(() => { transportError = true; });
+      }
+    });
+    const deadline = Date.now() + 5000;
+    while (!host.snapshot().renderer.ready && !transportError && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(transportError, undefined); assert.equal(host.snapshot().renderer.ready, true);
+    assert.equal((await host.dispatch('launch')).ok, true); assert.equal(host.snapshot().controller.index, 0);
+    assert.equal((await host.dispatch('next')).ok, true); assert.equal(host.snapshot().controller.index, 1);
+    assert.equal((await host.dispatch('stop')).ok, true); assert.equal(host.snapshot().controller.state, 'stopped');
+  } finally { wire?.terminate(); await host.close(); }
+  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true, trustedHttpServing: true, presentationHostTransport: true, simulatedPresentationAck: true }));
 }
 main().catch(() => { console.error('Bundled media validation failed'); process.exitCode = 1; });
 `);

@@ -56,7 +56,7 @@ test('offline snapshot HTTP reaches real native output; controller wrap, atomic 
       else { res.writeHead(404); res.end(); }
       return;
     }
-    const files = { '/SLIDESHOW.html':['SLIDESHOW.html','text/html'], '/slideshow-renderer.js':['slideshow-renderer.js','text/javascript'], '/template-interface.js':['template-interface.js','text/javascript'], '/slideshow.css':['slideshow.css','text/css'] };
+    const files = { '/SLIDESHOW.html':['SLIDESHOW.html','text/html'], '/slideshow-renderer.js':['slideshow-renderer.js','text/javascript'], '/template-interface.js':['template-interface.js','text/javascript'], '/presentation-client.js':['presentation-client.js','text/javascript'], '/slideshow.css':['slideshow.css','text/css'] };
     const file = files[req.url];
     if (!file) { res.writeHead(404); res.end(); return; }
     try { res.setHeader('Content-Type', file[1]); res.end(await fs.readFile(path.join(assets, file[0]))); }
