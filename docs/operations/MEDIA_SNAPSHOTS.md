@@ -66,3 +66,7 @@ No native image runtime or cloud API is added. Windows packages retain complete 
 The automated suite uses real temporary files, complete PNG/JPEG decoding, symlink/junction boundaries, failure injection around real reads/rename, interrupted/aborted cleanup, concurrent preparations, cache corruption and source-independent offline load. Windows CI additionally extracts the actual ZIP under spaces/Unicode, runs the bundled Node without system Node/NODE_PATH, prepares PNG/JPEG media through worker threads and loads it after source deletion, and verifies codec versions/licenses. Inspect final PR CI before claiming that artifact check passed.
 
 Still required: watcher/debounce and event preparation integration; safe Reload candidate activation preserving the current stable slide when possible; renderer preload/failure/last-frame behavior; native SPX slideshow template, transitions and audience overlays; actual CasparCG/NDI and separately authorized off-air sender/hardware evidence. This increment alone is not the first user-testable release.
+
+## Serving prepared images
+
+The separate [trusted HTTP boundary](SNAPSHOT_HTTP.md) verifies a snapshot before registration and exposes only registered image URLs with explicit authorization. It remains unmounted by the default application; do not replace it with a static cache-directory mount. Session issuance, renderer transport, active-deck replacement and Reload remain separate work.

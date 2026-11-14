@@ -194,21 +194,30 @@ test('unsafe URLs are rejected before fetch and disposal cancels active work', a
 test('audience mode rise, 75 percent hold and fade; loading and safe failure feedback retain program image', async t => {
   const page = await pageFor(t);
   await show(page, 'green.png');
-  await page.evaluate(() => window.piraidersRenderer.showMode('auto'));
-  await page.waitForTimeout(60);
+  await page.evaluate(() => {
+    window.piraidersRenderer.showMode('auto');
+    const animation = document.querySelector('.piraiders-mode').getAnimations()[0];
+    animation.pause(); animation.currentTime = 60;
+  });
   const entering = await page.locator('.piraiders-mode').evaluate(el => ({opacity:Number(getComputedStyle(el).opacity),transform:getComputedStyle(el).transform}));
   assert.ok(entering.opacity > 0 && entering.opacity < .75, 'mode rises into view');
   assert.notEqual(entering.transform, 'none');
-  await page.waitForTimeout(400);
+  await page.locator('.piraiders-mode').evaluate(el => { el.getAnimations()[0].currentTime = 460; });
   const mode = page.locator('.piraiders-mode');
   assert.equal(await mode.innerText(), 'AUTO');
   const held = await mode.evaluate(el => ({opacity:Number(getComputedStyle(el).opacity),border:getComputedStyle(el).borderTopColor,rect:el.getBoundingClientRect().toJSON()}));
   assert.ok(held.opacity >= .73 && held.opacity <= .76, `mode hold opacity ${held.opacity}`);
   assert.ok(held.rect.x > 960 && held.rect.y > 540, 'mode is lower right');
   await capture(page, 'slideshow-auto-feedback.png');
-  await page.waitForTimeout(550);
-  assert.ok(await mode.evaluate(el => Number(getComputedStyle(el).opacity)) >= .73, 'roughly one-second hold');
-  await page.waitForTimeout(800);
+  // Sample the real animation timeline: screenshot latency must not count
+  // against the intended 300ms rise + 1000ms hold + 300ms fade.
+  const timing = await mode.evaluate(el => {
+    const animation = el.getAnimations()[0]; animation.currentTime = 1290;
+    return { duration:animation.effect.getTiming().duration, opacity:Number(getComputedStyle(el).opacity) };
+  });
+  assert.equal(timing.duration, 1600);
+  assert.ok(timing.opacity >= .73, 'holds through the end of its one-second plateau');
+  await mode.evaluate(el => { el.getAnimations()[0].currentTime = 1600; });
   assert.ok(await mode.evaluate(el => Number(getComputedStyle(el).opacity)) <= .01, 'feedback fades to zero');
   await page.evaluate(() => window.piraidersRenderer.showMode('manual'));
   assert.equal(await mode.innerText(), 'MANUAL');
