@@ -201,8 +201,8 @@
     const timer = setTimeout(() => controller.abort(), 3000);
     try {
       const response = await global.fetch('/piraiders/session', {
-        method: 'POST', headers: { Authorization: 'Bearer ' + capability },
-        credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: controller.signal
+        method: 'POST', headers: { Authorization: 'Bearer ' + capability, 'X-PiRaiders-Bootstrap': '1' },
+        credentials: 'same-origin', mode: 'cors', referrerPolicy: 'same-origin', cache: 'no-store', redirect: 'error', signal: controller.signal
       });
       if (closed || response.status !== 204) throw failure('TRANSITION_FAILED');
     } finally { clearTimeout(timer); if (bootstrap === controller) bootstrap = null; }

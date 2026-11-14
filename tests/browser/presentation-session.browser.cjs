@@ -3,6 +3,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
+const http = require('node:http');
 const path = require('node:path');
 const { chromium } = require('playwright');
 const { PNG } = require('pngjs');
@@ -217,4 +218,23 @@ test('preparation deadline replaces loading with safe failure feedback while las
     assert.equal((await f.host.reloadSnapshot(candidate.snapshotDir)).code,'BUSY');
     release();await closed;await until(()=>f.host.snapshot().reload.state==='idle','timed-out verification cleanup');
   }finally{release();if(intercepted)await closed;t.mock.restoreAll();}
+});
+
+test('Caspar-style CEF flags can bootstrap with Fetch Metadata and marker while preserving actual native paint', {timeout:30000},async t=>{
+  const executablePath=process.env.PIRAIDERS_BROWSER_EXECUTABLE;
+  const cefBrowser=await chromium.launch({headless:true,...(executablePath?{executablePath}:{}),args:['--no-sandbox','--disable-web-security']});
+  t.after(()=>cefBrowser.close());const f=await fixture(t),context=await cefBrowser.newContext({viewport:{width:960,height:540}});t.after(()=>context.close());
+  const foreign=http.createServer((_req,res)=>{res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>Foreign port fixture</title>');});
+  await new Promise(resolve=>foreign.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>foreign.close(resolve)));
+  const foreignPage=await context.newPage();await foreignPage.goto('http://127.0.0.1:'+foreign.address().port);
+  const token=new URL(f.host.getProgramURL()).hash.slice('#piraiders='.length);
+  const status=await foreignPage.evaluate(async({origin,token})=>(await fetch(origin+'/piraiders/session',{method:'POST',headers:{Authorization:'Bearer '+token,'X-PiRaiders-Bootstrap':'1'},credentials:'include'})).status,{origin:f.host.origin,token});
+  assert.equal(status,403);assert.equal((await context.cookies(f.host.origin)).length,0);await foreignPage.close();
+  let originSeen='unset',marker;
+  const page=await context.newPage();page.on('request',request=>{if(request.url()===f.host.origin+'/piraiders/session'){const headers=request.headers();originSeen=headers.origin;marker=headers['x-piraiders-bootstrap'];}});
+  await page.goto(f.host.getProgramURL());await until(()=>f.host.snapshot().renderer.ready,'CEF-style black readiness');
+  assert.equal(originSeen,undefined);assert.equal(marker,'1');await pixels(page,[0,0,0]);
+  assert.equal((await f.host.dispatch('launch')).ok,true);await pixels(page,[240,20,20]);
+  assert.equal((await f.host.dispatch('next')).ok,true);await pixels(page,[20,20,240]);
+  assert.equal((await f.host.dispatch('stop')).ok,true);await pixels(page,[0,0,0]);
 });

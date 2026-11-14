@@ -242,3 +242,22 @@ test('invalid host/controller options and occupied port fail before leaving an o
   await assert.rejects(createPresentationHost({snapshotDir:f.prepared.snapshotDir,port:Number(address.port)}),{code:'START_FAILED'});
   assert.equal((await request(f.host,'/templates/piraiders/slideshow/SLIDESHOW.html')).status,200);
 });
+
+test('CEF bootstrap with absent Origin requires full same-origin metadata, explicit marker and private capability; WS stays strict',async t=>{
+  const f=await fixture(t),headers={authorization:'Bearer '+f.token,'x-piraiders-bootstrap':'1','sec-fetch-site':'same-origin','sec-fetch-mode':'cors','sec-fetch-dest':'empty'};
+  const invalid=[{authorization:'Bearer invalid'},{origin:'null'},{origin:'http://example.invalid'},{origin:'http://127.0.0.1:1'},
+    {'x-piraiders-bootstrap':'0'},{'x-piraiders-bootstrap':['1','1']},{'sec-fetch-site':'none'},{'sec-fetch-site':'same-site'},{'sec-fetch-site':'cross-site'},
+    {'sec-fetch-site':['same-origin','same-origin']},{'sec-fetch-mode':'no-cors'},{'sec-fetch-mode':'navigate'},{'sec-fetch-dest':'document'},{'sec-fetch-dest':'iframe'},
+    {host:'127.0.0.1:1','x-forwarded-host':new URL(f.host.origin).host}].map(extra=>({...headers,...extra}));
+  for(const key of Object.keys(headers)){const value={...headers};delete value[key];invalid.push(value);}
+  for(const [caseIndex,value] of invalid.entries()){const result=await request(f.host,'/piraiders/session',{method:'POST',headers:value});assert.equal(result.status,403,'bootstrap denial case '+caseIndex);assert.equal(result.bytes.length,0);assert.equal(result.headers['set-cookie'],undefined);}
+  const valid=await request(f.host,'/piraiders/session',{method:'POST',headers});assert.equal(valid.status,204);assert.equal(valid.bytes.length,0);assert.equal(valid.headers['access-control-allow-origin'],undefined);assert.match(valid.headers['set-cookie'][0],/HttpOnly; SameSite=Strict/);
+  for(const method of ['GET','OPTIONS'])assert.equal((await request(f.host,'/piraiders/session',{method,headers})).status,405);
+  assert.equal((await request(f.host,'/piraiders/session',{method:'POST',headers,body:'x'})).status,400);
+  const address=new URL(f.host.origin),cookie=valid.headers['set-cookie'][0].split(';')[0];
+  for(const origin of [undefined,'null','http://127.0.0.1:1']){
+    const rejected=new WebSocket('ws://'+address.host+'/piraiders/socket.io/?EIO=4&transport=websocket',{headers:{...headers,Cookie:cookie,...(origin===undefined?{}:{Origin:origin})}});
+    const status=await new Promise((resolve,reject)=>{rejected.on('unexpected-response',(_req,res)=>{res.resume();resolve(res.statusCode);rejected.terminate();});rejected.on('open',()=>{rejected.terminate();reject(Error('WS_ORIGIN_BYPASSED'));});rejected.on('error',()=>{});});assert.ok(status===400||status===403,'Engine.IO parsing or strict Origin admission must reject');
+  }
+  const good=rawClient(t,f,cookie);await good.init();good.ready();await until(()=>f.host.snapshot().renderer.ready);
+});
