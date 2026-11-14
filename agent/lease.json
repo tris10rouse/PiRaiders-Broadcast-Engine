@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 19,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-14T06:27:33.028Z",
-  "lastHeartbeat": "2026-11-14T07:10:06.240Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-14T07:10:06.240Z"
+  "status": "active",
+  "owner": "codex-reload-feedback-2026-11-14T07:26:57.051Z-106evfsroyyk",
+  "fence": 20,
+  "task": "BE-004/BE-005 managed Reload and audience feedback",
+  "workBranch": "feature/be-005-managed-reload-feedback",
+  "acquiredAt": "2026-11-14T07:26:57.051Z",
+  "lastHeartbeat": "2026-11-14T07:26:57.051Z",
+  "expiresAt": "2026-11-14T08:56:57.051Z",
+  "releasedAt": null
 }
