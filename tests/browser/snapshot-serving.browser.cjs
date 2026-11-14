@@ -27,11 +27,13 @@ async function center(page) {
 function near(actual, expected) {
   assert.ok(actual.every((v, i) => Math.abs(v - expected[i]) <= 8), `${actual} near ${expected}`);
 }
-test('offline snapshot HTTP reaches real native output; controller wrap, failures and Stop preserve honest state', async t => {
+test('offline snapshot HTTP reaches real native output; controller wrap, atomic Reload, failures and Stop preserve honest state', async t => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'PiRaiders browser media '));
   let media, server, browser, context, controller;
+  const registered = new Map();
   t.after(async () => {
-    controller?.close(); media?.close(); await context?.close(); await browser?.close();
+    controller?.close(); for (const handler of registered.values()) handler.close();
+    await context?.close(); await browser?.close();
     if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
     await fs.rm(temporary, { recursive:true, force:true, maxRetries:10, retryDelay:100 });
   });
@@ -46,8 +48,14 @@ test('offline snapshot HTTP reaches real native output; controller wrap, failure
   // Test-only session. Production session issuance/revocation remains a separate
   // integration task; no route in server.js implicitly grants this credential.
   media = await createSnapshotMediaHandler({snapshotDir:staged.snapshotDir, authorize:req => req.headers.cookie === 'fixture-session=authorized'});
+  registered.set(media.deck.id, media);
   server = http.createServer(async (req, res) => {
-    if (req.url.startsWith('/piraiders/media/')) { await media.handle(req, res); return; }
+    if (req.url.startsWith('/piraiders/media/')) {
+      const handler = registered.get(req.url.split('/')[3]);
+      if (handler) await handler.handle(req, res);
+      else { res.writeHead(404); res.end(); }
+      return;
+    }
     const files = { '/SLIDESHOW.html':['SLIDESHOW.html','text/html'], '/slideshow-renderer.js':['slideshow-renderer.js','text/javascript'], '/template-interface.js':['template-interface.js','text/javascript'], '/slideshow.css':['slideshow.css','text/css'] };
     const file = files[req.url];
     if (!file) { res.writeHead(404); res.end(); return; }
@@ -87,8 +95,36 @@ test('offline snapshot HTTP reaches real native output; controller wrap, failure
   near(await center(page), [240,20,20]);
   await fs.writeFile(damaged, blue);
   assert.equal((await controller.dispatch('next')).ok, true); near(await center(page), [20,20,240]);
+  // A second immutable snapshot changes membership/order, while the surviving
+  // occurrence keeps its identity. No file in the old snapshot is overwritten.
+  await fs.mkdir(sourceDir);
+  await fs.writeFile(path.join(sourceDir, '02.jpg'), blue);
+  await fs.writeFile(path.join(sourceDir, '03.png'), PNG.sync.write(solid(160, 90, [20,220,20])));
+  const candidate = await stageSnapshot({sourceDir,cacheDir,quietMs:0});
+  await fs.rm(sourceDir, {recursive:true});
+  const candidateMedia = await createSnapshotMediaHandler({snapshotDir:candidate.snapshotDir,authorize:req => req.headers.cookie === 'fixture-session=authorized'});
+  registered.set(candidateMedia.deck.id, candidateMedia);
+  assert.equal((await controller.replaceDeck(candidateMedia.deck)).ok, true);
+  assert.equal(controller.snapshot().deckId, candidateMedia.deck.id);
+  assert.equal(controller.snapshot().index, 0, 'surviving blue occurrence moves to its new index');
+  near(await center(page), [20,20,240]);
+  assert.equal((await controller.dispatch('next')).ok, true); near(await center(page), [20,220,20]);
+  const oldRed = path.join(staged.snapshotDir, staged.manifest.files[0].src);
+  await fs.writeFile(oldRed, Buffer.alloc(red.length));
+  assert.equal((await controller.replaceDeck(media.deck)).ok, false);
+  assert.equal(controller.snapshot().deckId, candidateMedia.deck.id);
+  assert.equal(controller.snapshot().index, 1); near(await center(page), [20,220,20]);
+  await fs.writeFile(oldRed, red);
+  assert.equal((await controller.replaceDeck(media.deck)).ok, true);
+  assert.equal(controller.snapshot().index, 0, 'removed occurrence falls back to slide1');
+  near(await center(page), [240,20,20]);
   assert.equal((await controller.dispatch('stop')).ok, true); near(await center(page), [0,0,0]);
   assert.equal((await controller.dispatch('next')).ok, false); near(await center(page), [0,0,0]);
+  assert.equal((await controller.replaceDeck(candidateMedia.deck)).ok, true);
+  assert.equal(controller.snapshot().state, 'stopped'); assert.equal(controller.snapshot().index, null);
+  near(await center(page), [0,0,0]);
+  assert.equal((await controller.dispatch('launch')).ok, true); near(await center(page), [20,20,240]);
+  assert.equal((await controller.replaceDeck(media.deck)).ok, true);
   assert.equal((await controller.dispatch('launch')).ok, true); near(await center(page), [240,20,20]);
   media.close();
   assert.equal((await controller.dispatch('next')).ok, false); near(await center(page), [240,20,20]);
@@ -97,6 +133,6 @@ test('offline snapshot HTTP reaches real native output; controller wrap, failure
   await fs.mkdir(artifactDir, {recursive:true});
   await fs.writeFile(path.join(artifactDir, 'snapshot-serving.json'), JSON.stringify({
     scope:'Actual staged/offline PNG and JPEG via restricted HTTP into native Chromium output; browser automation completion adapter only, no production bridge or hardware proof',
-    browserVersion:browser.version(),platform:process.platform,checks:['unauthorized black','launch slide 1','previous/next wrap','tamper last-good retention','restore recovery','Stop black','closed media revocation']
+    browserVersion:browser.version(),platform:process.platform,checks:['unauthorized black','launch slide 1','previous/next wrap','tamper last-good retention','restore recovery','reload preserves occurrence after reorder','failed reload keeps deck and pixels','removed occurrence falls back to slide1','stopped reload stays black','Stop black','closed media revocation']
   }, null, 2));
 });

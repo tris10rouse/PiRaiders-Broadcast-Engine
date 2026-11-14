@@ -43,3 +43,12 @@ No user-testable Windows release or stadium hardware compatibility has been esta
 - Added an opt-in, authenticated loopback HTTP boundary for fully verified snapshot images, exact image-only routes, bounded hash-checked reads, private responses and explicit revocation. No default server route or source data migration.
 - Added real HTTP failure/recovery tests, actual Chromium rendering from offline staged PNG/JPEG through the Node controller, and extracted Windows ZIP serving probes. The browser automation adapter is test-only; production presentation/control/Reload integration and sender/hardware evidence remain open.
 - Fixed a browser regression-test timing assumption: overlay samples use the real animation timeline so screenshot overhead cannot incorrectly fail the required one-second hold. No rendering behavior changed.
+
+- [PR #16](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/16) merged after all four final-head Windows/Ubuntu checks passed: [CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43550650858). Windows171 baseline passes/one explicit NTFS casefold skip,14 Chromium passes, actual extracted ZIP image-serving smoke; Linux163 passes/nine Windows-only skips and14 browser passes.
+
+## Atomic prepared-deck activation increment
+
+- Added explicit controller replaceDeck with immutable admission, occurrence preservation at execution, slide1 fallback, confirmed-render atomic commit and full Auto interval reset. Failed/canceled candidates keep the old deck; stopped preparation stays black; priority Stop and orphan watchdogs remain bounded. The committed deck is exposed read-only.
+- Added failure/timer/queue/cancel/Stop regression tests and real Chromium two-snapshot reorder, corrupt-candidate rollback, retry and stopped activation. Candidate preparation, session transport, watcher/Reload overlays and sender/event wiring remain application integration work.
+
+- [PR #17](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/17) implementation ef5c397 passed [Windows/Ubuntu CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43564163343): Windows185 baseline passes/one explicit NTFS skip, Linux177/nine Windows skips,14 actual Chromium tests each including two-snapshot replacement/rollback, and extracted ZIP smoke. Final documentation-head checks remain required before merge. Condensed the durable checkpoint to distinguish completed components from remaining release integration.
