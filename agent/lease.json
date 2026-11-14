@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "codex-media-design-2026-11-14T01:35:51.344Z-124d7df1dee358",
+  "status": "idle",
+  "owner": null,
   "fence": 15,
-  "task": "Incorporate owner-supplied Apps Script media architecture",
-  "workBranch": "docs/apps-script-media-contract",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-14T01:35:51.344Z",
-  "lastHeartbeat": "2026-11-14T01:48:10.846Z",
-  "expiresAt": "2026-11-14T03:18:10.846Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-14T01:49:10.404Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-14T01:49:10.404Z"
 }
