@@ -19,6 +19,8 @@ function filesIn(dir) {
 }
 function check() {
   const files = ['server.js', 'routes/routes-api-v1.js', 'static/js/spx_gc.js', 'static/js/ograf_functions.js',
+    'ASSETS/templates/softpix/ograf/Template_Pack_1.4.0/INFO_LEFT.mjs',
+    ...filesIn('ASSETS/templates/piraiders/slideshow'),
     ...filesIn('scripts'), ...filesIn('tests')].filter(file => /\.(?:cjs|mjs|js)$/.test(file));
   for (const file of files) run(['--check', file]);
   console.log('Syntax checks passed (' + files.length + ' files).');

@@ -82,6 +82,10 @@ test('original OGraf INFO_LEFT fixture loads, updates, plays, stops and disposes
     assert.equal(fields.f1.innerText, 'lottie/live-default.json');
     assert.equal(fields.f99.innerText, 'themes/Default.css');
     await graphic.updateAction({ data });
+    assert.deepEqual(actions[0], ['update', { f0: 'Fixture', f1: 'lottie/live-default.json', f99: 'themes/Default.css' }]);
+    assert.equal(data.f99, 'resources/Info_left/themes/Default.css', 'adapter must not mutate the caller data');
+    await assert.rejects(graphic.updateAction({ data: null }), /data must be an object/);
+    assert.equal(actions.length, 1, 'malformed update must not reach the graphic');
     await graphic.playAction({ data });
     await graphic.stopAction({ data });
     assert.deepEqual(actions.map(x=>x[0]), ['update','play','stop']);

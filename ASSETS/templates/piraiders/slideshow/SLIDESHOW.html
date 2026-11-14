@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiRaiders Slideshow</title>
+  <link rel="stylesheet" href="slideshow.css">
+  <script>
+    window.SPXGCTemplateDefinition = {
+      description: 'PiRaiders passive slideshow',
+      playserver: 'OVERLAY', playchannel: '1', playlayer: '5', webplayout: '5',
+      out: 'manual', dataformat: 'json',
+      DataFields: [{ field: 'f0', ftype: 'textfield', title: 'Trusted frame JSON', value: '' }]
+    };
+  </script>
+  <script src="slideshow-renderer.js" defer></script>
+  <script src="template-interface.js" defer></script>
+</head>
+<body><main id="slideshow" aria-label="Slideshow output"></main></body>
+</html>

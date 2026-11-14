@@ -32,6 +32,18 @@ jobs:
           cache: npm
       - name: Install dependencies and run baseline validation
         run: npm run setup
+      - name: Install pinned Chromium for native template regression tests
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Render native slideshow and preserve SPX HTML/OGraf lifecycle
+        run: npm run test:browser
+      - name: Retain native template browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-template-browser-${{ runner.os }}
+          path: build/browser-artifacts
+          if-no-files-found: warn
+          retention-days: 14
       - name: Exercise off-air loopback RossTalk transport bench
         run: npm run bench:rosstalk
       - name: Upload verified Windows containment helper (component only)

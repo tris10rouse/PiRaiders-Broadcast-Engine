@@ -28,3 +28,10 @@ No user-testable Windows release or stadium hardware compatibility has been esta
 ## November 13, 2026 · Owner media-library design input (America/Chicago)
 
 - Incorporated the supplied Apps Script 2.122.0 media-library architecture into ADR0005, an integration contract, roadmap/backlog, Library/Game Day brief and staging guidance. Sheet rows own event/button meaning and sequence; Drive ID identifies bytes and File Key preserves occurrences. Source access defaults read-only; private documents and source loaded ticks stay separate from audience media/Engine readiness. Generic local snapshot compatibility is retained. Export/auth/order/board/time details and planned R-158/R-168 changes are explicitly distinguished from current storage. No runtime, Google data or external permissions changed.
+
+
+## Native SPX slideshow rendering increment
+
+- Added passive HTML/CSS/JS image output with real decoding, cut/fade, last-good retention, bounded cancellation/transition recovery, full black Stop and audience mode/reload feedback. Real Chromium tests cover pixels/races and existing SPX fixtures; no application/NDI/hardware readiness is claimed.
+- Actual iframe tests exposed the existing OGraf INFO_LEFT Update envelope bug; its adapter now forwards flat normalized fields without mutating caller data. Added a regression for visible updates and invalid-data retention.
+- Pinned development-only Playwright and added Windows/Ubuntu browser CI with capture provenance; Windows development ZIP smoke checks native template asset delivery.
