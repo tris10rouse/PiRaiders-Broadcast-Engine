@@ -31,7 +31,8 @@ function bounded(value, fallback, min, max, name) {
   return result;
 }
 
-function normalizeRossTalkConfig(raw, { allowEphemeral = false } = {}) {
+function normalizeRossTalkConfig(raw, { allowEphemeral = false, allowExtendedTimeout = false } = {}) {
+  if (typeof allowExtendedTimeout !== 'boolean') throw Error('Invalid RossTalk extended timeout option');
   if (!plainObject(raw) || Reflect.ownKeys(raw).some(key => !KEYS.has(key))) throw Error('Invalid RossTalk configuration');
   const host = canonicalAddress(raw.host === undefined ? '127.0.0.1' : raw.host);
   const ephemeral = allowEphemeral === true && ['127.0.0.1', '::1'].includes(host);
@@ -56,7 +57,7 @@ function normalizeRossTalkConfig(raw, { allowEphemeral = false } = {}) {
     maxQueue: bounded(raw.maxQueue, 32, 1, 256, 'queue limit'),
     maxFrameBytes: bounded(raw.maxFrameBytes, 128, 16, 1024, 'frame limit'),
     idleTimeoutMs: bounded(raw.idleTimeoutMs, 10000, 100, 60000, 'idle timeout'),
-    handlerTimeoutMs: bounded(raw.handlerTimeoutMs, 2000, 50, 10000, 'handler timeout')
+    handlerTimeoutMs: bounded(raw.handlerTimeoutMs, 2000, 50, allowExtendedTimeout ? 300000 : 10000, 'handler timeout')
   });
 }
 

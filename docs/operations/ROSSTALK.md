@@ -1,6 +1,6 @@
 # RossTalk transport development boundary (BE-003)
 
-This increment supplies a TCP transport library and an off-air loopback bench. It does **not** enable a listener in the Windows launcher, drive graphics, or establish Daktronics interoperability. A real presentation adapter and a Display Studio off-air test remain acceptance gates. The separate iPad operator never uses a PiRaiders interface.
+The transport library and loopback bench remain available with legacy FIFO defaults. The opt-in managed facade below now drives the real native presentation session. It does **not** enable a listener in the default Windows launcher or establish Daktronics interoperability; launcher lifecycle wiring and a separately authorized Display Studio off-air test remain gates. The separate iPad operator never uses a PiRaiders interface.
 
 ## Wire contract
 
@@ -63,3 +63,38 @@ npm run bench:rosstalk
 The bench binds an ephemeral port on 127.0.0.1 only, supplies a simulated handler, fragments/coalesces commands and verifies ordered Launch/Next/Next/Stop plus diagnostic replies. It cannot target stadium hardware. The TCP test suite also exercises denial, overload, disconnect, malformed input, timeout, cancellation, failure recovery and listener lifecycle. CI runs the suite and bench on Windows and Ubuntu. OS TCP execution is real; the presentation callback is simulated. No rendering, Display Studio, CasparCG, NDI or Daktronics hardware is exercised here.
 
 Before marking BE-003 complete, wire a tested presentation controller without bypassing production-window enforcement, implement bounded persistent command diagnostics, and record a separately authorized off-air Display Studio sender test. Maintain original SPX HTML/OGraf/project/rundown workflows throughout.
+
+## Owned managed presentation facade
+
+```js
+const { createRossTalkSession } = require('../../scripts/lib/rosstalk-session.cjs');
+const control = await createRossTalkSession({
+  presentation: {snapshotDir: absolutePreparedSnapshotDir},
+  rossTalk: {
+    host:'127.0.0.1',port:7788,allowedSenders:['127.0.0.1'],
+    commandMap:{1:'launch',2:'next',3:'previous',4:'toggle-auto',5:'reload',8:'stop'}
+  },
+  canControl: () => runtime.started && runtime.allowed(),
+  resolvePreparedSnapshot: async ({signal}) => {
+    signal.throwIfAborted(); return selectedPreparedSnapshotDirectory;
+  }
+});
+// Pass control.getProgramURL() privately to the intended producer; never log it.
+await control.start();
+// Application shutdown:
+await control.close();
+```
+
+`runtime` and selected paths are application-owned inputs; the example is not an automatic event/source provider. Both callbacks are mandatory. The gate must return literal true synchronously; false, throw, rejected or resolved promises deny normal commands. Stop bypasses the gate. Reload resolves only an absolute already-prepared snapshot and rechecks cancellation, generation, renderer epoch and gate before activation. Raw resolver errors and program credentials never enter snapshot/diagnostic replies. The facade owns and closes both host and listener; no caller can bypass its command ordering through a public host object. A failed host result is a rejected handler, not OK.
+
+Defaults derive the facade's handler budget from resolverTimeoutMs5000 + prepareTimeoutMs30000 + three*(commandTimeoutMs12000+500) +1000 =73500ms. Explicit smaller budgets fail before binding; maximum300000. The underlying transport's legacy default2000/range50–10000 is unchanged. Only explicit priority mode accepts the extended bound. A resolver timeout aborts/requests black promptly, but an ignored callback retains its actual barrier until settlement or terminal transport timeout. Any transport abort independently requests Stop; a terminal fault closes the owned host/listener, never resumes around a stuck callback. Inspect fixed facade lastError and transport counters; recreate only after recovery.
+
+`control.snapshot()` freezes state/lastError, transport and presentation snapshots; `address()` returns listener address. TCP is off until start; the presentation HTTP host is created by the factory and still needs its authenticated renderer to acknowledge black. Diagnostic OK confirms the managed host operation, not a receiver or board route. Source staging/watchers, event selection, sender startup and deployment are outside this facade.
+
+## Opt-in priority Stop semantics
+
+`new RossTalkBridge(config,{handleCommand,prioritizeStop:true})` enables priority Stop. It admits valid Stop before normal queue capacity, cancels queued normal work, aborts/logically cancels the active normal callback and starts one Stop alongside it. Repeated Stops share the black operation/outcome; unresolved reply followers are capped at maxQueue. No normal successor runs until both actual callbacks settle. The interrupted callback retains its original independent watchdog even after black succeeds. Snapshot outstandingCallbacks/stopPending/stopFollowers/callbackTimeouts distinguishes actual work from logical results; an orphan timeout does not double-count its earlier cancellation.
+
+Priority-mode BUSY rejects keep the input readable so a later Stop in the same burst can be parsed. Silent fire-and-forget EOF releases its socket slot immediately while preserving accepted metadata/work. Framing/source/reply-buffer failures remain fail-closed, and an unaccepted command on a closed socket has no delivery guarantee. Legacy callers keep their original FIFO/overflow behavior. Full queue,100 repeated Stops, late callbacks, orphan timeout and listener close are covered with actual TCP.
+
+Actual TCP-to-Chromium tests now prove frames, mode feedback, verified Reload, gate denial/Stop bypass, full-queue black with a stuck resolver, and late resolution fenced across gate/renderer changes. Extracted Windows package smoke uses real TCP/WebSocket transport with explicitly simulated frame ACKs. These are software tests, not Display Studio, NDI or stadium compatibility. Sender window enforcement remains independently owned by LauncherRuntime; it must never wait for control callbacks at window end.

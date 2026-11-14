@@ -68,3 +68,13 @@ No user-testable Windows release or stadium hardware compatibility has been esta
 - Added controller, real HTTP/WebSocket and real Chromium failure/recovery coverage; package smoke exercises runtime Reload/feedback with explicitly simulated ACKs. No new dependencies, source schema migration, watcher, sender or default launcher change.
 
 - [PR #19](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/19) implementation4634eed passed [Windows/Ubuntu CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43592128097): Windows230 baseline passes/one explicit NTFS fixture skip, Linux222/nine Windows skips,23 real Chromium tests each, and extracted ZIP runtime Reload/feedback with explicitly simulated ACKs. Independent final review89/89 passed. Final documentation-head checks remain required.
+
+## Managed RossTalk control increment
+
+- Added opt-in priority Stop through a full queue, bounded repeated-Stop followers, independent orphan callback watchdog/barrier and silent EOF slot cleanup; legacy FIFO/default timeouts stay unchanged.
+- Added an owned managed-session facade with explicit synchronous eligibility gate, prepared-snapshot resolver, validated deadline budget and stale-generation/epoch fencing. Actual TCP/browser tests cover frames, overlays, Reload, full-queue Stop and late work; package probe explicitly simulates frame ACKs.
+- Recorded exact candidate Caspar/NDI/Mesa pins and unexecuted Windows software-proof plan, including upstream URL logging and all-interface AMCP risks. No binaries installed or compatibility claims; production deployment/network changes remain owner-approved gates.
+- Corrected the successful-control fixture deadline under parallel decode load and made diagnostic assertions sequence-aware; dedicated short timeout/fault coverage remains unchanged. Local final baseline249, browser26/26 and package-probe reproduction pass.
+
+
+Managed control verification: [PR #20](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/20), source a2a47712bd011a984e3bee4ce345ac520dd6d2b8, passed all four Windows/Ubuntu push and pull-request checks: [CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43596957244). Windows248 baseline passes/one explicit NTFS casefold fixture skip; Linux240/nine native Windows skips; actual Chromium26/26 with zero skips on each OS. Real extracted Windows ZIP passed managedRossTalkControl:true alongside media/Reload/SPX/window/process smoke; its frame ACKs remain explicitly simulated. Final documentation-head CI remains required before merge. Default launcher integration and actual CasparCG/NDI frames remain release gates.

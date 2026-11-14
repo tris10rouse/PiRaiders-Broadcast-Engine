@@ -174,7 +174,46 @@ async function main() {
     assert.equal(host.snapshot().controller.deckId, prepared.deck.id); assert.equal(host.snapshot().controller.index, null);
     assert.equal(host.snapshot().media.registered, 1);
   } finally { wire?.terminate(); await host.close(); }
-  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true, trustedHttpServing: true, presentationHostTransport: true, runtimeReloadAndFeedback: true, simulatedPresentationAck: true }));
+  const { createRossTalkSession } = bundledRequire('./scripts/lib/rosstalk-session.cjs');
+  const net = require('node:net');
+  const control = await createRossTalkSession({ presentation: { snapshotDir: prepared.snapshotDir, commandTimeoutMs: 2000, prepareTimeoutMs: 3000, controllerOptions: { mode: 'manual' } },
+    rossTalk: { host: '127.0.0.1', port: 0, allowedSenders: ['127.0.0.1'], commandMap: {1:'launch',2:'next',5:'reload',8:'stop'}, acknowledgements: true },
+    canControl: () => true, resolvePreparedSnapshot: async () => prepared.snapshotDir, resolverTimeoutMs: 1000 }, { allowEphemeral: true });
+  let controlWire, input, controlError;
+  try {
+    await control.start();
+    const capability = new URL(control.getProgramURL()).hash.slice('#piraiders='.length);
+    const session = await fetch(control.origin + '/piraiders/session', { method: 'POST', headers: { Origin: control.origin, Authorization: 'Bearer ' + capability } });
+    assert.equal(session.status, 204); const credentialCookie = session.headers.get('set-cookie').split(';')[0];
+    controlWire = new WebSocket(control.origin.replace('http:', 'ws:') + '/piraiders/socket.io/?EIO=4&transport=websocket', { headers: { Origin: control.origin, Cookie: credentialCookie } });
+    controlWire.on('error', () => { controlError = true; });
+    controlWire.on('message', raw => {
+      const packet = raw.toString();
+      if (packet.startsWith('0')) controlWire.send('40' + JSON.stringify({ token: capability }));
+      else if (packet === '2') controlWire.send('3');
+      else if (packet.startsWith('44')) controlError = true;
+      else if (packet.startsWith('42')) {
+        const [event, value] = JSON.parse(packet.slice(2));
+        if (event === 'init') controlWire.send('42' + JSON.stringify(['ready', { epoch: value.epoch }]));
+        if (event === 'command') controlWire.send('42' + JSON.stringify(['ack', { epoch: value.epoch, id: value.id, ok: true }]));
+      }
+    });
+    const deadline = Date.now() + 5000;
+    while (!control.snapshot().presentation.renderer.ready && !controlError && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(controlError, undefined); assert.equal(control.snapshot().presentation.renderer.ready, true);
+    input = net.createConnection({ host: '127.0.0.1', port: control.address().port });
+    await new Promise((resolve, reject) => { input.once('connect', resolve); input.once('error', reject); });
+    let text = ''; const replies = [];
+    input.on('data', bytes => { text += bytes; for (let index; (index = text.indexOf('\r\n')) >= 0;) { replies.push(text.slice(0, index)); text = text.slice(index + 2); } });
+    for (const gpi of [1, 2, 5, 8]) {
+      const count = replies.length; input.write('GPI ' + gpi + '\r\n');
+      const end = Date.now() + 5000;
+      while (replies.length === count && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 10));
+      assert.equal(replies.length, count + 1); assert.ok(replies[count].startsWith('OK '));
+    }
+    assert.equal(control.snapshot().presentation.controller.state, 'stopped');
+  } finally { input?.destroy(); controlWire?.terminate(); await control.close(); }
+  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true, trustedHttpServing: true, presentationHostTransport: true, runtimeReloadAndFeedback: true, managedRossTalkControl: true, simulatedPresentationAck: true }));
 }
 main().catch(() => { console.error('Bundled media validation failed'); process.exitCode = 1; });
 `);
