@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 16,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-14T01:54:41.452Z",
-  "lastHeartbeat": "2026-11-14T02:54:43.990Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-14T02:54:43.990Z"
+  "status": "active",
+  "owner": "codex-snapshot-http-2026-11-14T03:05:48.035Z-2b5a7ag7vmj",
+  "fence": 17,
+  "task": "BE-004/BE-005 trusted local snapshot presentation",
+  "workBranch": "feature/be-005-snapshot-presentation-bridge",
+  "acquiredAt": "2026-11-14T03:05:48.035Z",
+  "lastHeartbeat": "2026-11-14T03:05:48.035Z",
+  "expiresAt": "2026-11-14T04:35:48.035Z",
+  "releasedAt": null
 }
