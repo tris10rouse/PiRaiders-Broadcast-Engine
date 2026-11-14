@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-final-control-2026-11-14T16:48:43.481Z-5p2f1f5tf64",
   "fence": 23,
-  "task": "Verify and integrate managed RossTalk control PR20",
-  "workBranch": "feature/be-003-managed-control",
+  "task": "BE-002 real CasparCG CEF mixer proof and Windows startup recovery",
+  "workBranch": "feature/be-002-caspar-software-proof",
   "acquiredAt": "2026-11-14T16:48:43.481Z",
-  "lastHeartbeat": "2026-11-14T16:59:10.595Z",
-  "expiresAt": "2026-11-14T18:29:10.595Z",
+  "lastHeartbeat": "2026-11-14T17:08:03.777Z",
+  "expiresAt": "2026-11-14T18:38:03.777Z",
   "releasedAt": null
 }
