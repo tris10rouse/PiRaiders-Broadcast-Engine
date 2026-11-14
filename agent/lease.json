@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 24,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-14T19:40:35.151Z",
-  "lastHeartbeat": "2026-11-14T20:54:33.959Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-14T20:56:10.131Z"
+  "status": "active",
+  "owner": "codex-private-stdin-2026-11-14T20:57:38.205Z-759c8azf07b",
+  "fence": 25,
+  "task": "BE-002 contained private stdin and stock Caspar console proof",
+  "workBranch": "feature/be-002-private-caspar-control",
+  "acquiredAt": "2026-11-14T20:57:38.205Z",
+  "lastHeartbeat": "2026-11-14T20:57:38.205Z",
+  "expiresAt": "2026-11-14T22:27:38.205Z",
+  "releasedAt": null
 }
