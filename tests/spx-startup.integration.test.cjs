@@ -69,7 +69,7 @@ test('real SPX starts with isolated settings and passes its version health probe
         }
         throw error; // Cleanup fallback must not turn a shutdown failure into PASS.
       }
-      assert.equal((await probeServiceHealth(health)).healthy, false, 'SPX fixture must stop listening before cleanup');
+      assert.equal((await probeServiceHealth(health)).healthy, false, 'SPX fixture must no longer be healthy after close');
     } finally {
       // Async retries let Windows close handles between attempts; exhaustion
       // still fails the test rather than silently abandoning the fixture.
