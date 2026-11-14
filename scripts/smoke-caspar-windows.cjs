@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const net=require('node:net');
+const http=require('node:http');
 const {spawn,execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
 const {PNG}=require('pngjs');
@@ -49,13 +50,13 @@ async function main(){
   async function prepare(name,colors){const sourceDir=path.join(fixtures,name);await fs.mkdir(sourceDir);for(let i=0;i<colors.length;i++)await fs.writeFile(path.join(sourceDir,'0'+i+'.png'),image(colors[i]));return stageSnapshot({sourceDir,cacheDir:path.join(toolRoot,'snapshots'),quietMs:0});}
   const initial=await prepare('initial',[[240,20,20],[20,20,240]]),replacement=await prepare('replacement',[[20,220,20]]);
   let now=Date.now(),session,runtime,mesaStartupObserved=false,phase='START',captureCount=0;
-  const start=now+16*60000,end=start+3600000,children=[],hosts=new Set();let activeHost,report,startupBytes=0;const startup=[],nativeExits=[];
+  const start=now+16*60000,end=start+3600000,children=[],hosts=new Set();let activeHost,report,startupBytes=0;const startup=[],nativeExits=[];const httpCounts={},nativeFlags=new Set();let upgrades=0;
   function contained(command,args,options){
     const child=spawn(JOB_HOST,[command,...args],{cwd:options.cwd,env:{...process.env,GALLIUM_DRIVER:'llvmpipe',LIBGL_ALWAYS_SOFTWARE:'1',MESA_GL_VERSION_OVERRIDE:'4.5COMPAT'},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
     child.stdin.on('error',()=>{});hosts.add(child);child.once('exit',(code,signal)=>{hosts.delete(child);nativeExits.push({code,signal});});
-    // Never persist or forward raw Caspar/CEF output. Only retain a boolean
+    // Native output after pre-auth startup is discarded. Only retain a boolean
     // observation of the software renderer; bound carry across UTF-8 chunks.
-    for(const stream of [child.stdout,child.stderr]){let carry='';stream.on('data',chunk=>{const text=chunk.toString('utf8');if((phase==='START'||phase==='COLOR_MIXER')&&startupBytes<16384){const part=text.slice(0,16384-startupBytes);startupBytes+=part.length;startup.push(part);}const value=carry+text;if(/Initialized OpenGL[^\r\n]*Mesa/i.test(value))mesaStartupObserved=true;carry=value.slice(-512);});}
+    for(const stream of [child.stdout,child.stderr]){let carry='';stream.on('data',chunk=>{const text=chunk.toString('utf8');if((phase==='START'||phase==='COLOR_MIXER')&&startupBytes<16384){const part=text.slice(0,16384-startupBytes);startupBytes+=part.length;startup.push(part);}const value=carry+text;for(const flag of ['ERR_CONNECTION_REFUSED','ERR_FILE_NOT_FOUND','ERR_ABORTED','SyntaxError','TypeError','ReferenceError','CefInitialize','WebSocket','cookie'])if(value.includes(flag))nativeFlags.add(flag);if(/Initialized OpenGL[^\r\n]*Mesa/i.test(value))mesaStartupObserved=true;carry=value.slice(-512);});}
     if(command.toLowerCase().endsWith('casparcg.exe'))activeHost=child;
     return child;
   }
@@ -85,7 +86,9 @@ async function main(){
     }
     await capture('mixer-red',[255,0,0]);assert.ok(mesaStartupObserved,'MESA_GL_STARTUP_UNOBSERVED');
     await command(port,'CLEAR 1');phase='MANAGED_CEF';
-    session=await createRossTalkSession({presentation:{snapshotDir:initial.snapshotDir,commandTimeoutMs:20000,controllerOptions:{mode:'manual'}},rossTalk:{host:'127.0.0.1',port:0,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',3:'previous',5:'reload',8:'stop'},acknowledgements:true},canControl:()=>runtime.allowed(),resolvePreparedSnapshot:async()=>replacement.snapshotDir},{allowEphemeral:true});
+    const createServer=http.createServer;
+    http.createServer=function(...args){const server=createServer.apply(this,args);server.on('request',(req,res)=>{const category=req.url==='/piraiders/session'?'bootstrap':req.url.startsWith('/templates/piraiders/slideshow/')?'template':req.url.startsWith('/piraiders/socket.io')?'socket':req.url.startsWith('/piraiders/media/')?'media':'other';res.once('finish',()=>{const key=category+':'+res.statusCode;httpCounts[key]=(httpCounts[key]||0)+1;});});server.on('upgrade',()=>upgrades++);return server;};
+    try{session=await createRossTalkSession({presentation:{snapshotDir:initial.snapshotDir,commandTimeoutMs:20000,controllerOptions:{mode:'manual'}},rossTalk:{host:'127.0.0.1',port:0,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',3:'previous',5:'reload',8:'stop'},acknowledgements:true},canControl:()=>runtime.allowed(),resolvePreparedSnapshot:async()=>replacement.snapshotDir},{allowEphemeral:true});}finally{http.createServer=createServer;}
     await session.start();const privateURL=session.getProgramURL(),token=new URL(privateURL).hash.split('=')[1];
     await command(port,'PLAY 1-10 [HTML] "'+privateURL+'"');
     await until(()=>session.snapshot().presentation.renderer.ready,'CEF_INITIAL_BLACK',60000);
@@ -109,8 +112,10 @@ async function main(){
     await until(()=>{const alive=new Set(processTable().map(row=>row.ProcessId));return children.every(pid=>!alive.has(pid));},'CASPAR_TREE_SURVIVED',10000);
     await assert.rejects(command(port,'VERSION',{prefix:'201 ',timeoutMs:1000}));
     assert.ok(hosts.size>=1,'Persistent service survives window end');
-    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:6,realRossTalk:true,windowEndProcessTreeGone:true,persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
-  }catch{
+    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:6,realRossTalk:true,windowEndProcessTreeGone:true,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
+  }catch(error){
+    const renderer=session?.snapshot().presentation.renderer;
+    console.error(JSON.stringify({event:'caspar-proof-fixed-diagnostic',phase,code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',httpCounts,upgrades,nativeFlags:[...nativeFlags],renderer:renderer?{ready:renderer.ready,connected:renderer.connected,presentation:renderer.presentation,lastError:renderer.lastError}:null}));
     // This bounded capture stops BEFORE host construction/private URL creation.
     // It contains only disposable pre-auth startup; URLs are omitted as well.
     if(phase==='START'||phase==='COLOR_MIXER')console.error(JSON.stringify({event:'caspar-preauth-startup-diagnostic',nativeExits,startup:startup.join('').replace(/https?:\/\/[^\s<>"']+/g,'[URL omitted]')}));
