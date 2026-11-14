@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-snapshot-http-2026-11-14T03:05:48.035Z-2b5a7ag7vmj",
-  "fence": 17,
+  "owner": "codex-reload-2026-11-14T05:57:26.745Z-h4cd4krjll",
+  "fence": 18,
   "task": "BE-005 atomic prepared-deck activation",
   "workBranch": "feature/be-005-atomic-reload",
-  "acquiredAt": "2026-11-14T03:05:48.035Z",
-  "lastHeartbeat": "2026-11-14T03:21:43.465Z",
-  "expiresAt": "2026-11-14T04:51:43.465Z",
+  "acquiredAt": "2026-11-14T05:57:26.745Z",
+  "lastHeartbeat": "2026-11-14T05:57:26.745Z",
+  "expiresAt": "2026-11-14T07:27:26.745Z",
   "releasedAt": null
 }
