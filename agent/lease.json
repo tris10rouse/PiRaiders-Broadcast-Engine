@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "codex-engineering-2026-11-14T00:47:49.456Z-607fd4b839382",
+  "status": "idle",
+  "owner": null,
   "fence": 14,
-  "task": "Finish PR13 media snapshots and Windows validation",
-  "workBranch": "feature/be-005-media-snapshots",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-14T00:47:49.456Z",
-  "lastHeartbeat": "2026-11-14T00:57:42.760Z",
-  "expiresAt": "2026-11-14T02:27:42.760Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-14T00:59:04.689Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-14T00:59:04.689Z"
 }
