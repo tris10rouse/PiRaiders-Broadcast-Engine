@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-managed-control-2026-11-14T12:19:25.313Z-6h898ki0eb",
-  "fence": 22,
-  "task": "BE-003 managed RossTalk control and priority Stop",
+  "owner": "codex-final-control-2026-11-14T16:48:43.481Z-5p2f1f5tf64",
+  "fence": 23,
+  "task": "Verify and integrate managed RossTalk control PR20",
   "workBranch": "feature/be-003-managed-control",
-  "acquiredAt": "2026-11-14T12:19:25.313Z",
-  "lastHeartbeat": "2026-11-14T12:47:15.105Z",
-  "expiresAt": "2026-11-14T14:17:15.105Z",
+  "acquiredAt": "2026-11-14T16:48:43.481Z",
+  "lastHeartbeat": "2026-11-14T16:48:43.481Z",
+  "expiresAt": "2026-11-14T18:18:43.481Z",
   "releasedAt": null
 }
