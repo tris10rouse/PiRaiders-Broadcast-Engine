@@ -14,7 +14,7 @@ Master is unprotected with no required status checks in branch metadata; adminis
 
 ## Confirmed merged milestones
 
-Master at this increment's start: **f0cb97f074452545b4d8696b563f7cbd30e299e1** (PR #12). Verify fresh before proceeding.
+Master at this increment's start: **7c2d54e80dafff56f5041f8aea2b015b38fddd99** (PR #15). Verify fresh before proceeding.
 
 - PRs #3–#5: native SPX HTML/OGraf/AMCP runtime fixtures, process supervision and isolated production-window policy.
 - [PR #6](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/6): corrected Windows process-tree shutdown. Real test-created descendants terminated in [final CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43445825768).
@@ -65,9 +65,15 @@ Local real Chromium 156.0.8078.79/Linux:13/13 browser tests pass with zero skips
 ## Next release work
 
 1. Finish any open PR first: inspect final source SHA, tests, Windows/Ubuntu CI and ZIP smoke; fix failures and merge only verified results.
-2. Finish/verify the open native-template PR first; do not duplicate its rendering/browser work. PR #13 snapshot preparation and PR #14 source design are merged. Then implement trusted media serving/presentation wiring and safe candidate activation. Catalog watcher/event work must follow ADR0005 and the owner media contract; preserve explicit generic local mode. Do not replace native SPX/OGraf workflows or add a browser auto timer.
+2. PR #15 is merged after final source e31179f0aedcbbb9747e7dceb8fc5d5b510cfe65 passed Windows/Ubuntu CI43547950919. Do not duplicate its rendering/browser work. PR #13 snapshot preparation and PR #14 source design are merged. Finish trusted media serving, then production presentation-session wiring and safe candidate activation. Catalog watcher/event work must follow ADR0005 and the owner media contract; preserve explicit generic local mode. Do not replace native SPX/OGraf workflows or add a browser auto timer.
 3. Wire presentation commands and event preparation into the launcher/window lifecycle; explicitly handle Stop priority, stale reloads, missing files, disconnected renderers and last-good content. Preserve project/rundown and Play/Continue/Update/Stop regressions. Broader BE-001 browser/project/import coverage remains open.
 4. Complete persistent/rotated diagnostics, graceful shutdown, preflight/port ownership checks, event selection, offline cache and soak/recovery tests. Select exact legally distributable CasparCG/NDI versions and prove local moving output/source identity on nonproduction Windows. No mock result proves this.
 5. Before declaring a user-testable release, provide reproducible complete Windows build/artifact, clear installation/testing checklist and honest hardware limitations. No stadium machine/network changes or D8VIDEO-P/DMP/NDI hardware compatibility claims without explicit authorized off-air evidence. Pause the automation only at the genuine owner-evaluation gate.
 
 Continuation prompt: Read current master AGENTS.md, locking protocol and this checkpoint; inspect pinned coordination lease and acquire a fresh unique exclusive lease atomically or stop writes. Resume unfinished PRs first, verify final CI, then implement the next safe acceptance-tested release increment. Keep roadmap/backlog/changelog/checkpoint current and release the lease on exit.
+
+## Trusted media HTTP increment in progress
+
+Branch feature/be-005-snapshot-presentation-bridge starts from master7c2d54e. Scope is the opt-in snapshot-media-handler module and real HTTP/browser/extracted ZIP proofs; despite the branch name, no production transport is added. Default SPX/launcher remains unmounted. See docs/operations/SNAPSHOT_HTTP.md for the authorization boundary and next integration requirements. No Google/API schema changes or hardware claims. Resume any open PR and final CI before new work. Next coherent increment is a production session/renderer bridge with bounded actual-commit acknowledgments, cancellation, stale-generation fencing, disconnect black and explicit recovery; then safe Reload activation and RossTalk/window/event wiring.
+
+Local increment evidence: syntax60 files; baseline172 total,163 Linux passes and9 native-Windows skips; focused independent HTTP review12/12 pass, zero skips. New real offline snapshot browser test passes. Existing mode-overlay hold test exposed screenshot-latency dependence under parallel load; changed to seek the real Chromium animation timeline at60/460/1290/1600ms, preserving rise/plateau/fade assertions and captures. Final browser suite and final-head Windows/Ubuntu/ZIP CI must pass before merge. HTTP module bounds read+drain lifetimes, rechecks authorization before body, and distinguishes immediate access revocation from eventual descriptor settlement.

@@ -37,3 +37,9 @@ No user-testable Windows release or stadium hardware compatibility has been esta
 - Pinned development-only Playwright and added Windows/Ubuntu browser CI with capture provenance; Windows development ZIP smoke checks native template asset delivery.
 
 - [PR #15](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/15) implementation head cb9d260 passed [Windows/Ubuntu CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43547091647): 13 real Chromium tests on each OS, Windows baseline159 passes/one explicit casefold skip, and actual ZIP template/media/SPX/simulated-AMCP smoke. Final-head CI remains required. Browser tooling stays development-only; headless-only browser installation avoids an unused GUI download.
+
+## Trusted snapshot serving increment
+
+- Added an opt-in, authenticated loopback HTTP boundary for fully verified snapshot images, exact image-only routes, bounded hash-checked reads, private responses and explicit revocation. No default server route or source data migration.
+- Added real HTTP failure/recovery tests, actual Chromium rendering from offline staged PNG/JPEG through the Node controller, and extracted Windows ZIP serving probes. The browser automation adapter is test-only; production presentation/control/Reload integration and sender/hardware evidence remain open.
+- Fixed a browser regression-test timing assumption: overlay samples use the real animation timeline so screenshot overhead cannot incorrectly fail the required one-second hold. No rendering behavior changed.

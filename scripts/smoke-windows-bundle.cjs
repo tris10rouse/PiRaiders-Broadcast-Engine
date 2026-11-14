@@ -106,7 +106,25 @@ async function main() {
   const offline = await loadSnapshot(prepared.snapshotDir);
   assert.deepEqual(offline.deck, prepared.deck);
   assert.equal(offline.manifest.contentHash, prepared.manifest.contentHash);
-  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true }));
+  const http = require('node:http');
+  const { createSnapshotMediaHandler } = bundledRequire('./scripts/lib/snapshot-media-handler.cjs');
+  const media = await createSnapshotMediaHandler({ snapshotDir: prepared.snapshotDir,
+    authorize: request => request.headers.authorization === 'Bearer fixture-only' });
+  const server = http.createServer(media.handle);
+  try {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const origin = 'http://127.0.0.1:' + server.address().port;
+    for (const file of prepared.manifest.files) {
+      const url = origin + '/piraiders/media/' + prepared.manifest.id + '/' + file.src;
+      assert.equal((await fetch(url)).status, 403);
+      const response = await fetch(url, { headers: { Authorization: 'Bearer fixture-only' } });
+      assert.equal(response.status, 200);
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), fs.readFileSync(path.join(prepared.snapshotDir, file.src)));
+    }
+    media.close();
+    assert.equal((await fetch(origin + media.deck.slides[0].src, { headers: { Authorization: 'Bearer fixture-only' } })).status, 503);
+  } finally { media.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+  console.log(JSON.stringify({ event: 'media-snapshot-smoke-passed', platform: process.platform, decoded: ['png','jpeg'], offlineHashAndDecode: true, trustedHttpServing: true }));
 }
 main().catch(() => { console.error('Bundled media validation failed'); process.exitCode = 1; });
 `);
