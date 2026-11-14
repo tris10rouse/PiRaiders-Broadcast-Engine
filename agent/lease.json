@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-snapshot-http-2026-11-14T03:05:48.035Z-2b5a7ag7vmj",
   "fence": 17,
-  "task": "BE-004/BE-005 trusted local snapshot presentation",
-  "workBranch": "feature/be-005-snapshot-presentation-bridge",
+  "task": "BE-005 atomic prepared-deck activation",
+  "workBranch": "feature/be-005-atomic-reload",
   "acquiredAt": "2026-11-14T03:05:48.035Z",
-  "lastHeartbeat": "2026-11-14T03:20:39.935Z",
-  "expiresAt": "2026-11-14T04:50:39.935Z",
+  "lastHeartbeat": "2026-11-14T03:21:43.465Z",
+  "expiresAt": "2026-11-14T04:51:43.465Z",
   "releasedAt": null
 }
