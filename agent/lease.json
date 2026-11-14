@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "codex-final-control-2026-11-14T16:48:43.481Z-5p2f1f5tf64",
+  "status": "idle",
+  "owner": null,
   "fence": 23,
-  "task": "BE-002 real CasparCG CEF mixer proof and Windows startup recovery",
-  "workBranch": "feature/be-002-caspar-software-proof",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-14T16:48:43.481Z",
   "lastHeartbeat": "2026-11-14T18:03:15.308Z",
-  "expiresAt": "2026-11-14T19:33:15.308Z",
-  "releasedAt": null
+  "expiresAt": null,
+  "releasedAt": "2026-11-14T18:04:34.096Z"
 }
