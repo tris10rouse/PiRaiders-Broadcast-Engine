@@ -70,3 +70,5 @@ Still required: watcher/debounce and event preparation integration; safe Reload 
 ## Serving prepared images
 
 The separate [trusted HTTP boundary](SNAPSHOT_HTTP.md) verifies a snapshot before registration and exposes only registered image URLs with explicit authorization. It remains unmounted by the default application; do not replace it with a static cache-directory mount. Session issuance, renderer transport, active-deck replacement and Reload remain separate work.
+
+Controller activation is explicit through `replaceDeck` ([contract](SLIDESHOW_CONTROLLER.md)). It commits only after successful render, keeps a surviving occurrence ID and retains the old deck on failure. The application must prepare/register the candidate and manage media lifetimes; this does not implement a watcher, persistent active pointer, event catalog or Google integration.

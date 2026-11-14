@@ -27,9 +27,11 @@ function normalizeDeck(deck) {
  * {ok:false} into rejection when integrating a transport that expects throws.
  */
 class SlideshowController extends EventEmitter {
+  #deck;
+  get deck() { return this.#deck; }
   constructor({ deck, renderer, scheduler = { now: () => performance.now(), setTimeout, clearTimeout },
     intervalMs = 10000, mode = 'auto', transition = { type: 'cut', durationMs: 0 }, maxQueue = 32, handlerTimeoutMs = 2000 } = {}) {
-    super(); this.deck = normalizeDeck(deck);
+    super(); this.#deck = normalizeDeck(deck);
     if (!renderer || typeof renderer.show !== 'function' || typeof renderer.black !== 'function') throw Error('Explicit renderer required');
     if (!scheduler || !['now', 'setTimeout', 'clearTimeout'].every(key => typeof scheduler[key] === 'function')) throw Error('Invalid scheduler');
     if (!integer(intervalMs, 1, 3600000) || !integer(maxQueue, 1, 256) || !integer(handlerTimeoutMs, 1, 60000) || !['auto', 'manual'].includes(mode)) throw Error('Invalid slideshow configuration');
@@ -43,8 +45,8 @@ class SlideshowController extends EventEmitter {
     this.queue = []; this.active = null; this.operations = new Set(); this.stopRequest = null;
     this.generation = 0; this.timerFence = 0; this.timer = null; this.nextAdvanceAt = null;
   }
-  snapshot() { return Object.freeze({ state: this.state, mode: this.mode, deckId: this.deck.id,
-    index: this.index, slide: this.index === null ? null : this.deck.slides[this.index],
+  snapshot() { return Object.freeze({ state: this.state, mode: this.mode, deckId: this.#deck.id,
+    index: this.index, slide: this.index === null ? null : this.#deck.slides[this.index],
     transition: this.transition, autoSuspended: this.autoSuspended, nextAdvanceAt: this.nextAdvanceAt,
     queued: this.queue.length, busy: this.active !== null || this.operations.size > 0,
     outstandingRenders: this.operations.size, closed: this.closed, faulted: this.faulted }); }
@@ -83,10 +85,24 @@ class SlideshowController extends EventEmitter {
     }
     return this.enqueue(action, false, signal);
   }
-  enqueue(action, automatic, signal) {
+  /** Explicit trusted-candidate activation; dispatch('reload') cannot discover media. */
+  replaceDeck(candidate, options = {}) {
+    let signal, deck;
+    try {
+      if (!exact(options, ['signal'])) return Promise.resolve(this.result('reload', false, 'INVALID_OPTIONS'));
+      signal = options.signal;
+    } catch { return Promise.resolve(this.result('reload', false, 'INVALID_OPTIONS')); }
+    if (signal !== undefined && !(signal instanceof AbortSignal)) return Promise.resolve(this.result('reload', false, 'INVALID_SIGNAL'));
+    try { deck = normalizeDeck(candidate); }
+    catch { return Promise.resolve(this.result('reload', false, 'INVALID_DECK')); }
+    if (this.closed || this.faulted) return Promise.resolve(this.result('reload', false, this.faulted ? 'FAULTED' : 'CLOSED'));
+    if (signal?.aborted) return Promise.resolve(this.result('reload', false, 'CANCELLED'));
+    return this.enqueue('reload', false, signal, deck);
+  }
+  enqueue(action, automatic, signal, candidate) {
     if (this.closed || this.faulted) return Promise.resolve(this.result(action, false, this.faulted ? 'FAULTED' : 'CLOSED'));
     if (this.queue.length >= this.maxQueue) return Promise.resolve(this.result(action, false, 'BUSY'));
-    const request = { action, automatic, signal };
+    const request = { action, automatic, signal, candidate };
     const promise = new Promise(resolve => { request.resolve = resolve; });
     request.promise = promise;
     if (action === 'stop') this.stopRequest = request;
@@ -130,12 +146,22 @@ class SlideshowController extends EventEmitter {
       this.mode = action === 'toggle-auto' ? (this.mode === 'auto' ? 'manual' : 'auto') : action;
       this.autoSuspended = false; this.armTimer(); this.finish(request, true); this.changed(); this.pump(); return;
     }
+    if (action === 'reload' && this.state === 'stopped') {
+      this.clearTimer(); this.#deck = request.candidate; this.index = null; this.autoSuspended = false;
+      this.finish(request, true); this.changed(); this.pump(); return;
+    }
     if (action !== 'launch' && action !== 'stop' && this.state !== 'playing') {
       this.finish(request, false, 'NOT_PLAYING'); this.pump(); return;
     }
     this.clearTimer();
-    const index = action === 'launch' ? 0 : action === 'stop' ? null :
-      (this.index + (action === 'previous' ? -1 : 1) + this.deck.slides.length) % this.deck.slides.length;
+    // Capture execution-time state after all preceding navigation commits. A
+    // candidate is immutable from enqueue onward, but occurrence selection must
+    // follow the frame actually on screen when this request reaches the head.
+    const targetDeck = action === 'reload' ? request.candidate : this.#deck;
+    const currentId = this.index === null ? null : this.#deck.slides[this.index].id;
+    const index = action === 'reload' ? Math.max(0, targetDeck.slides.findIndex(slide => slide.id === currentId)) :
+      action === 'launch' ? 0 : action === 'stop' ? null :
+      (this.index + (action === 'previous' ? -1 : 1) + targetDeck.slides.length) % targetDeck.slides.length;
     const generation = this.generation;
     request.controller = new AbortController();
     request.timeout = this.scheduler.setTimeout(() => {
@@ -150,11 +176,12 @@ class SlideshowController extends EventEmitter {
       const signal = request.controller.signal;
       this.operations.add(request);
       return action === 'stop' ? this.renderer.black(Object.freeze({ signal })) :
-        this.renderer.show(Object.freeze({ deckId: this.deck.id, slide: this.deck.slides[index], index, transition: this.transition, signal }));
+        this.renderer.show(Object.freeze({ deckId: targetDeck.id, slide: targetDeck.slides[index], index, transition: this.transition, signal }));
     }).then(() => {
       this.operationSettled(request);
       if (request.done || generation !== this.generation) { this.pump(); return; }
       if (request.cancelled) { this.finish(request, false, 'CANCELLED'); this.pump(); return; }
+      if (action === 'reload') this.#deck = targetDeck;
       this.index = index; this.state = action === 'stop' ? 'stopped' : 'playing'; this.autoSuspended = false;
       this.armTimer(); this.finish(request, true); this.changed(); this.pump();
     }, () => {
