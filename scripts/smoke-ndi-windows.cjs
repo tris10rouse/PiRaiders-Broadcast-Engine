@@ -74,7 +74,15 @@ async function main(){
       }
     });
     let info;try{info=await ready;}catch(error){await child.closed;throw error;}
-    return{child,info,request:async(name,values={},timeoutMs=30000)=>requestProbe(port,token,++seq,name,values,timeoutMs),async close(){if(child.exitCode!==null)return;try{await requestProbe(port,token,++seq,'close',{},5000);}finally{child.stdin.end();await Promise.race([child.closed,wait(5000).then(()=>{throw Error('RECEIVER_CLOSE_TIMEOUT');})]);}}};
+    return{child,info,request:async(name,values={},timeoutMs=30000)=>requestProbe(port,token,++seq,name,values,timeoutMs),async close(){
+      try{
+        if(child.exitCode===null)await requestProbe(port,token,++seq,'close',{},5000);
+        // Wait for normal native SDK destruction before closing containment.
+        // EOF is reserved for failed/stalled cleanup, never a successful proof.
+        let timer;const result=await Promise.race([child.closed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('RECEIVER_CLOSE_TIMEOUT')),10000);})]).finally(()=>clearTimeout(timer));
+        if(result.code!==0||result.signal)throw Error('RECEIVER_CLOSE_FAILED');
+      }finally{child.stdin.end();}
+    }};
   }
   try{
     // Real Windows negative: a missing SDK library must fail before any control
