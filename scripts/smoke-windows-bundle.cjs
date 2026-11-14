@@ -66,7 +66,9 @@ async function smokeWindowsBundle(archive) {
     const manifest = verifyManifest(root);
     assert.equal(manifest.developmentOnly, true);
     assert.ok(fs.existsSync(path.join(app, 'locales', 'english.json')));
-    assert.equal(fs.existsSync(path.join(app, 'node_modules', 'nodemon')), false, 'development dependencies must not ship');
+    for (const dependency of ['nodemon', 'playwright', 'playwright-core']) {
+      assert.equal(fs.existsSync(path.join(app, 'node_modules', dependency)), false, 'development dependencies must not ship');
+    }
     const original = fs.readFileSync(path.join(app, 'server.js'));
     fs.appendFileSync(path.join(app, 'server.js'), '\n// smoke tamper');
     assert.throws(() => verifyManifest(root), /hash|checksum|size|integrity/i);

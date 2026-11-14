@@ -16,11 +16,11 @@ The stadium Windows workstation operator prepares events/media and diagnoses rea
 
 ## Product Purpose
 
-A reliable Windows broadcast-graphics application preserving SPX projects/rundowns, HTML/OGraf and Play/Continue/Update/Stop. One launcher supervises services; sender eligibility follows a configurable production window with default15-minute prewarm. Sender, receiver, board route and on-air state are distinct.
+A reliable Windows broadcast-graphics application preserving SPX projects/rundowns, HTML/OGraf and Play/Continue/Update/Stop. One launcher supervises services; sender eligibility follows a configurable production window with default 15-minute prewarm. Sender, receiver, board route and on-air state are distinct.
 
 ## Operating Context
 
-Target is a nonproduction-tested Windows10 stadium PC. Launch selects slide1, Next/Previous wrap, Auto defaults10seconds and manual navigation resets it. Stop requests black while sender lifetime remains window-controlled. Preparation/reload retains last-good content. Native slideshow is a separate compatible template; it does not replace existing SPX graphics.
+Target is a nonproduction-tested Windows10 stadium PC. Launch selects slide 1, Next/Previous wrap, Auto defaults 10 seconds and manual navigation resets it. Stop requests black while sender lifetime remains window-controlled. Preparation/reload retains last-good content. Native slideshow is a separate compatible template; it does not replace existing SPX graphics.
 
 Apps Script owns source Sheet semantics and writes; Drive supplies source files by stable ID. File Key identifies occurrences. The source integration contract is docs/design/APPS_SCRIPT_MEDIA_CONTRACT.md. Generic local-folder mode remains distinct. Private scripts/PDFs/crew data never become audience media.
 
@@ -30,7 +30,7 @@ Supervision/window policy, RossTalk transport, slideshow state/timers and full-d
 
 ## Brand Commitments
 
-Preserve SPX identity/attribution and the owner's pinned audience feedback: small lower-right white-bordered AUTO/MANUAL indicator, upward easing to75% opacity, about1-second hold then fade; small Reload feedback. The slideshow surface is the media itself against black, with no application dashboard or developer labels on program output.
+Preserve SPX identity/attribution and the owner's pinned audience feedback: small lower-right white-bordered AUTO/MANUAL indicator, upward easing to 75% opacity, about1-second hold then fade; small Reload feedback. The slideshow surface is the media itself against black, with no application dashboard or developer labels on program output.
 
 ## Evidence on Hand
 

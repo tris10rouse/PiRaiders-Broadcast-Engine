@@ -16,13 +16,15 @@ Recurring Codex continuation was configured in the ownership chat, hourly, repla
 
 ## Native template browser regressions
 
-Playwright1.62.1 is pinned as a development-only dependency; it is excluded from the portable Windows application's production dependencies. After `npm run setup`, install its exact Chromium and run the separate real-browser suite:
+Playwright 1.62.1 is pinned as a development-only dependency; it is excluded from the portable Windows application's production dependencies. After `npm run setup`, install its exact Chromium and run the separate real-browser suite:
 
 ```text
-npx --no-install playwright install --with-deps chromium
+npx --no-install playwright install --with-deps --only-shell chromium
 npm run test:browser
 ```
 
 CI runs this on Windows/Ubuntu and retains `native-template-browser-<OS>` screenshots/provenance. These tests are separate from `npm test` so baseline setup does not silently install/download a browser. A missing browser is a failure, not a skipped renderer test. No stadium component is needed.
 
 A managed Linux development environment with existing Chromium can use `PIRAIDERS_BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:browser`; the override must be absolute and its actual browser version is recorded. It is local alternate-browser evidence; CI still uses the Playwright-pinned build. The fixture server binds loopback and browser requests are restricted to that origin. The harness's no-sandbox flag serves controlled repository fixtures, not production browsing or a CasparCG launch policy. See NATIVE_SLIDESHOW.md for scope and remaining release gates.
+
+The headless-only install omits the unused full Chrome GUI download. Tests still execute real Chromium rendering and retain its version/provenance.

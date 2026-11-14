@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies and run baseline validation
         run: npm run setup
       - name: Install pinned Chromium for native template regression tests
-        run: npx --no-install playwright install --with-deps chromium
+        run: npx --no-install playwright install --with-deps --only-shell chromium
       - name: Render native slideshow and preserve SPX HTML/OGraf lifecycle
         run: npm run test:browser
       - name: Retain native template browser evidence
