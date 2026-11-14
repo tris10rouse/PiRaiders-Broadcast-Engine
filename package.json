@@ -25,7 +25,8 @@
     "build:windows-host": "node scripts/build-windows-job-host.cjs",
     "package:windows": "node scripts/build-windows-bundle.cjs",
     "smoke:windows-package": "node scripts/smoke-windows-bundle.cjs",
-    "bench:rosstalk": "node scripts/rosstalk-bench.cjs"
+    "bench:rosstalk": "node scripts/rosstalk-bench.cjs",
+    "test:browser": "node --test --test-concurrency=1 tests/browser/slideshow.browser.cjs"
   },
   "keywords": [],
   "author": "Tuomo Kulomaa <tuomo@spxgraphics.com> (https://spxgraphics.com)",
@@ -58,6 +59,7 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.7"
+    "nodemon": "^3.1.7",
+    "playwright": "1.62.1"
   }
 }

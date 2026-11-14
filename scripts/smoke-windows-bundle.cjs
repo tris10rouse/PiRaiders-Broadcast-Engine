@@ -66,7 +66,9 @@ async function smokeWindowsBundle(archive) {
     const manifest = verifyManifest(root);
     assert.equal(manifest.developmentOnly, true);
     assert.ok(fs.existsSync(path.join(app, 'locales', 'english.json')));
-    assert.equal(fs.existsSync(path.join(app, 'node_modules', 'nodemon')), false, 'development dependencies must not ship');
+    for (const dependency of ['nodemon', 'playwright', 'playwright-core']) {
+      assert.equal(fs.existsSync(path.join(app, 'node_modules', dependency)), false, 'development dependencies must not ship');
+    }
     const original = fs.readFileSync(path.join(app, 'server.js'));
     fs.appendFileSync(path.join(app, 'server.js'), '\n// smoke tamper');
     assert.throws(() => verifyManifest(root), /hash|checksum|size|integrity/i);
@@ -192,6 +194,11 @@ setTimeout(()=>process.exit(2),45000);
     const renderer = await get(spxPort, '/renderer/index.html'); assert.equal(renderer.status, 200, 'bundled renderer route'); assert.match(renderer.body, /<html/i);
     const html = await get(spxPort, '/templates/softpix/html/Template_Pack_1.4.0/INFO_LEFT.html'); assert.equal(html.status, 200, 'bundled HTML template route'); assert.match(html.body, /SPXGCTemplateDefinition/);
     const ograf = await get(spxPort, '/templates/softpix/ograf/Template_Pack_1.4.0/INFO_LEFT.ograf.json'); assert.equal(ograf.status, 200, 'bundled OGraf manifest route'); assert.equal(typeof JSON.parse(ograf.body), 'object');
+    const slideshow = await get(spxPort, '/templates/piraiders/slideshow/SLIDESHOW.html'); assert.equal(slideshow.status, 200, 'bundled native slideshow route'); assert.match(slideshow.body, /SPXGCTemplateDefinition/);
+    for (const resource of ['slideshow-renderer.js', 'template-interface.js', 'slideshow.css']) {
+      const response = await get(spxPort, '/templates/piraiders/slideshow/' + resource);
+      assert.equal(response.status, 200, 'bundled slideshow resource delivery'); assert.ok(response.body.length > 100);
+    }
     await waitUntil(() => running.events.some(e => e.event === 'service-health' && e.name === 'casparcg' && e.status === 'stopped' && Date.parse(e.at) >= windowEnd),
       'production end stops simulated sender', 30000);
     await waitUntil(() => !alive(simulatorPid), 'simulated sender process exit');
@@ -203,7 +210,7 @@ setTimeout(()=>process.exit(2),45000);
     await assert.rejects(get(spxPort, '/api/v1/version'));
     console.log(JSON.stringify({ event: 'windows-bundle-smoke-passed', sourceCommit: manifest.commitSHA,
       node: manifest.node.version, actualBundledSPX: true, casparcg: 'AMCP simulator only',
-      pathSpacesAndUnicode: true, noSystemNode: true, manifestVerified: true, senderWindowEnd: true, bundledMediaSnapshots: true }));
+      pathSpacesAndUnicode: true, noSystemNode: true, manifestVerified: true, senderWindowEnd: true, bundledMediaSnapshots: true, nativeSlideshowAssets: true }));
     return manifest;
   } finally {
     try { await stopOuter(outer); }

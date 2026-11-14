@@ -40,8 +40,17 @@ class Graphic extends HTMLElement {
     };
   }
   async updateAction(_params) {
+    if (!_params || !_params.data || typeof _params.data !== "object" || Array.isArray(_params.data)) {
+      throw new TypeError("OGraf update data must be an object");
+    }
     if (this.iframe.contentWindow) {
-      this.iframe.contentWindow.update(_params);
+      // OGraf supplies an action envelope; the native HTML helper expects flat
+      // fields and paths relative to its own resources/Info_left document.
+      const data = { ..._params.data };
+      for (const field of ["f1", "f99"]) {
+        if (typeof data[field] === "string") data[field] = data[field].replace(/^resources\/Info_left\//, "");
+      }
+      this.iframe.contentWindow.update(data);
     }
   }
   async playAction(_params) {
