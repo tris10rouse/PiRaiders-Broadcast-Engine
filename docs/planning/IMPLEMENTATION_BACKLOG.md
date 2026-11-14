@@ -17,6 +17,7 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
   - Progress: PR #3 merged and fixture CI passed for HTML lifecycle, OGraf lifecycle and AMCP layer routing. Full browser, project/rundown and import coverage remains before this broader task is complete.
 
 - [ ] **BE-002 · Windows launcher and CasparCG NDI proof** (Stage 1)
+  - Active increment: native x64 SDK receiver and actual Caspar NDI pixels on disposable Windows CI; missing-runtime failure, exact-source reconnect after owned crash, Stop black, real wall-clock production-window shutdown and post-drain zero connections/video. Acceptance/limits in `docs/design/WINDOWS_NDI_PROOF.md`; both actual Windows implementation runs passed ([PR22](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/22), runs43636937515/43636930636). Final documentation-head checks are required before merge. PR21 actual Caspar/CEF image proof is merged at `5ed3fba` after six passing final-head checks. No hardware or release readiness claim.
   - Start/supervise SPX and CasparCG through one Windows launch entry point; maintain native NDI at 1920×1080p30. Avoid OBS/vMix dependencies.
   - No off-event NDI transmission; pre-roll timing configurable. Record benchmark and logs.
   - Done: safe local NDI monitor sees moving pattern, lifecycle tests pass, licenses and packaging documented.
