@@ -6,7 +6,7 @@
   "task": "Finish PR13 media snapshots and Windows validation",
   "workBranch": "feature/be-005-media-snapshots",
   "acquiredAt": "2026-11-14T00:47:49.456Z",
-  "lastHeartbeat": "2026-11-14T00:53:07.511Z",
-  "expiresAt": "2026-11-14T02:23:07.511Z",
+  "lastHeartbeat": "2026-11-14T00:57:42.760Z",
+  "expiresAt": "2026-11-14T02:27:42.760Z",
   "releasedAt": null
 }
