@@ -51,7 +51,7 @@ async function main(){
   let now=Date.now(),session,runtime,mesaStartupObserved=false,phase='START',captureCount=0;
   const start=now+16*60000,end=start+3600000,children=[],hosts=new Set();let activeHost,report,startupBytes=0;const startup=[],nativeExits=[];
   function contained(command,args,options){
-    const child=spawn(JOB_HOST,[command,...args],{cwd:options.cwd,env:{...process.env,GALLIUM_DRIVER:'llvmpipe',LIBGL_ALWAYS_SOFTWARE:'1'},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
+    const child=spawn(JOB_HOST,[command,...args],{cwd:options.cwd,env:{...process.env,GALLIUM_DRIVER:'llvmpipe',LIBGL_ALWAYS_SOFTWARE:'1',MESA_GL_VERSION_OVERRIDE:'4.5COMPAT'},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
     child.stdin.on('error',()=>{});hosts.add(child);child.once('exit',(code,signal)=>{hosts.delete(child);nativeExits.push({code,signal});});
     // Never persist or forward raw Caspar/CEF output. Only retain a boolean
     // observation of the software renderer; bound carry across UTF-8 chunks.
@@ -109,7 +109,7 @@ async function main(){
     await until(()=>{const alive=new Set(processTable().map(row=>row.ProcessId));return children.every(pid=>!alive.has(pid));},'CASPAR_TREE_SURVIVED',10000);
     await assert.rejects(command(port,'VERSION',{prefix:'201 ',timeoutMs:1000}));
     assert.ok(hosts.size>=1,'Persistent service survives window end');
-    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:6,realRossTalk:true,windowEndProcessTreeGone:true,persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
+    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:6,realRossTalk:true,windowEndProcessTreeGone:true,persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch{
     // This bounded capture stops BEFORE host construction/private URL creation.
     // It contains only disposable pre-auth startup; URLs are omitted as well.
