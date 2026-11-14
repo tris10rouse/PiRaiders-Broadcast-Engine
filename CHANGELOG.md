@@ -60,3 +60,11 @@ No user-testable Windows release or stadium hardware compatibility has been esta
 - Added real HTTP/WebSocket and real Chromium failure/recovery tests; extracted Windows ZIP probe uses real authenticated transport with explicitly simulated frame acknowledgments. Browser tests provide actual painted-output evidence. Launcher, sender, Reload/feedback and event/command orchestration remain separate; no NDI/hardware readiness claim.
 
 - [PR #18](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/18) implementation bbd9297 passed [Windows/Ubuntu CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43568513062): Windows199 baseline passes/one explicit NTFS skip, Linux191/nine Windows skips;19 actual Chromium tests each. Extracted ZIP proved authenticated host transport with explicitly simulated frame ACKs, separately from real browser pixel tests. Final documentation-head checks remain mandatory.
+
+## Managed Reload and audience feedback increment
+
+- Added one-at-a-time verified snapshot replacement, actual decoder cancellation/preparation deadline, bounded active/candidate registrations and retirement only after frame-RPC settlement. Stop and session changes fence late work; preparation failures retain old playback/timing, render failures retain old deck and suspend Auto.
+- Routed Auto/Manual and Reload overlays through acknowledged controller feedback, with bounded coalescing and priority black. Fixed full-queue Auto starvation using one fenced full-interval retry, and replaced timed-out loading feedback with a safe terminal label.
+- Added controller, real HTTP/WebSocket and real Chromium failure/recovery coverage; package smoke exercises runtime Reload/feedback with explicitly simulated ACKs. No new dependencies, source schema migration, watcher, sender or default launcher change.
+
+- [PR #19](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/19) implementation4634eed passed [Windows/Ubuntu CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43592128097): Windows230 baseline passes/one explicit NTFS fixture skip, Linux222/nine Windows skips,23 real Chromium tests each, and extracted ZIP runtime Reload/feedback with explicitly simulated ACKs. Independent final review89/89 passed. Final documentation-head checks remain required.

@@ -117,9 +117,34 @@
   }
   function onCommand(value) {
     if (closed) return;
+    const feedback = record(value) && value.type === 'feedback';
+    const validFeedback = feedback && Object.keys(value).every(key => ['epoch', 'id', 'type', 'mode', 'reload'].includes(key)) &&
+      (Object.hasOwn(value, 'mode') || Object.hasOwn(value, 'reload')) &&
+      (!Object.hasOwn(value, 'mode') || ['auto', 'manual'].includes(value.mode)) &&
+      (!Object.hasOwn(value, 'reload') || ['loading', 'complete', 'failed'].includes(value.reload));
     if (!ready || !record(value) || value.epoch !== epoch || !identifier(value.id) || value.id <= lastID ||
         (value.type === 'show' ? !exact(value, ['epoch', 'id', 'type', 'src', 'transition']) :
-          value.type !== 'black' || !exact(value, ['epoch', 'id', 'type']))) { terminate(); return; }
+          feedback ? !validFeedback : value.type !== 'black' || !exact(value, ['epoch', 'id', 'type']))) { terminate(); return; }
+    if (feedback) {
+      if (operations.size) { terminate(); return; }
+      lastID = value.id;
+      try {
+        if (Object.hasOwn(value, 'mode')) renderer.showMode(value.mode);
+        if (Object.hasOwn(value, 'reload')) renderer.setReloadState(value.reload);
+      } catch (_) { terminate(); return; }
+      const wait = painted();
+      const operation = { id: value.id, epoch, type: 'feedback', cancel: () => wait.cancel() };
+      operations.set(value.id, operation);
+      wait.promise.then(() => acknowledge(operation, true), error => {
+        acknowledge(operation, false, error);
+        // Stop follows cancellation with black; an actual paint failure cannot
+        // certify a partially applied label and terminates the session.
+        if (!operation.cancelled) terminate();
+      });
+      const cancel = operation.cancel;
+      operation.cancel = () => { operation.cancelled = true; cancel(); };
+      return;
+    }
     if (value.type === 'show') {
       if (operations.size || typeof value.src !== 'string' || value.src.length > 2048 ||
           !exact(value.transition, ['type', 'durationMs'])) { terminate(); return; }
@@ -133,9 +158,9 @@
       } catch (error) { acknowledge(operation, false, error); }
       return;
     }
-    // Stop may overlap exactly one canceled show with one black. The native
+    // Stop may overlap exactly one canceled normal operation with one black. The native
     // renderer's generation fence prevents its late decode/paint from returning.
-    if (operations.size > 1 || [...operations.values()].some(operation => operation.type !== 'show')) { terminate(); return; }
+    if (operations.size > 1 || [...operations.values()].some(operation => !['show', 'feedback'].includes(operation.type))) { terminate(); return; }
     lastID = value.id;
     for (const operation of operations.values()) operation.cancel();
     try { renderer.black(); } catch (_) { terminate(); return; }
@@ -150,7 +175,7 @@
     if (closed) return;
     if (!ready || !exact(value, ['epoch', 'id']) || value.epoch !== epoch || !identifier(value.id) || value.id > lastID) { terminate(); return; }
     const operation = operations.get(value.id);
-    if (operation?.type === 'show') operation.cancel();
+    if (operation && ['show', 'feedback'].includes(operation.type)) operation.cancel();
     else if (operation) terminate();
     // A completed show may already have its ACK in flight when Stop aborts it.
     // The following black command remains the required Stop completion fence.

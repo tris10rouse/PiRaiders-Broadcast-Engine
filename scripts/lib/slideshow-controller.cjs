@@ -18,10 +18,10 @@ function normalizeDeck(deck) {
 /**
  * State authority only: the renderer owns presentation, never media discovery or
  * sender lifetime. Renderer promises must resolve after presentation commits.
- * show/black MUST honor signal cancellation before any later physical effect.
+ * show/black/feedback MUST honor signal cancellation before any later physical effect.
  * Generation fences prevent stale state commits but cannot undo physical effects
  * from an adapter that ignores cancellation. A timeout therefore faults terminally.
- * Stop may overlap one aborted show with one black; repeated Stops share black.
+ * Stop may overlap one aborted normal operation with one black; repeated Stops share black.
  * A preempted operation keeps its watchdog and blocks new shows until settlement.
  * dispatch resolves fixed result objects; callers must explicitly translate
  * {ok:false} into rejection when integrating a transport that expects throws.
@@ -32,7 +32,8 @@ class SlideshowController extends EventEmitter {
   constructor({ deck, renderer, scheduler = { now: () => performance.now(), setTimeout, clearTimeout },
     intervalMs = 10000, mode = 'auto', transition = { type: 'cut', durationMs: 0 }, maxQueue = 32, handlerTimeoutMs = 2000 } = {}) {
     super(); this.#deck = normalizeDeck(deck);
-    if (!renderer || typeof renderer.show !== 'function' || typeof renderer.black !== 'function') throw Error('Explicit renderer required');
+    if (!renderer || typeof renderer.show !== 'function' || typeof renderer.black !== 'function' ||
+      (renderer.feedback !== undefined && typeof renderer.feedback !== 'function')) throw Error('Explicit renderer required');
     if (!scheduler || !['now', 'setTimeout', 'clearTimeout'].every(key => typeof scheduler[key] === 'function')) throw Error('Invalid scheduler');
     if (!integer(intervalMs, 1, 3600000) || !integer(maxQueue, 1, 256) || !integer(handlerTimeoutMs, 1, 60000) || !['auto', 'manual'].includes(mode)) throw Error('Invalid slideshow configuration');
     if (!exact(transition, ['type', 'durationMs']) || !['cut', 'fade'].includes(transition.type)) throw Error('Invalid transition');
@@ -62,7 +63,13 @@ class SlideshowController extends EventEmitter {
     this.timer = this.scheduler.setTimeout(() => {
       if (fence !== this.timerFence || this.closed || this.faulted) return;
       this.timer = null; this.nextAdvanceAt = null;
-      void this.enqueue('next', true);
+      void this.enqueue('next', true).then(result => {
+        // Reload labels may keep the original deadline alive while normal work
+        // fills the queue. Retry once per full interval rather than losing Auto
+        // forever, but never overwrite a newer navigation/mode/Stop timer fence.
+        if (result.code === 'BUSY' && fence === this.timerFence && this.timer === null &&
+            !this.closed && !this.faulted && this.state === 'playing' && this.mode === 'auto' && !this.autoSuspended) this.armTimer();
+      });
     }, this.intervalMs);
   }
   result(action, ok, code) { const value = Object.freeze({ action, ok, ...(code ? { code } : {}) }); this.emit('result', value); return value; }
@@ -99,10 +106,22 @@ class SlideshowController extends EventEmitter {
     if (signal?.aborted) return Promise.resolve(this.result('reload', false, 'CANCELLED'));
     return this.enqueue('reload', false, signal, deck);
   }
-  enqueue(action, automatic, signal, candidate) {
+  /** Audience feedback only; preparing content must not restart Auto timing. */
+  setReloadState(state, options = {}) {
+    let signal;
+    try {
+      if (!exact(options, ['signal'])) return Promise.resolve(this.result('feedback', false, 'INVALID_OPTIONS'));
+      signal = options.signal;
+    } catch { return Promise.resolve(this.result('feedback', false, 'INVALID_OPTIONS')); }
+    if (!['loading', 'complete', 'failed'].includes(state)) return Promise.resolve(this.result('feedback', false, 'INVALID_FEEDBACK'));
+    if (signal !== undefined && !(signal instanceof AbortSignal)) return Promise.resolve(this.result('feedback', false, 'INVALID_SIGNAL'));
+    if (signal?.aborted) return Promise.resolve(this.result('feedback', false, 'CANCELLED'));
+    return this.enqueue('feedback', false, signal, undefined, state);
+  }
+  enqueue(action, automatic, signal, candidate, feedback) {
     if (this.closed || this.faulted) return Promise.resolve(this.result(action, false, this.faulted ? 'FAULTED' : 'CLOSED'));
     if (this.queue.length >= this.maxQueue) return Promise.resolve(this.result(action, false, 'BUSY'));
-    const request = { action, automatic, signal, candidate };
+    const request = { action, automatic, signal, candidate, feedback };
     const promise = new Promise(resolve => { request.resolve = resolve; });
     request.promise = promise;
     if (action === 'stop') this.stopRequest = request;
@@ -112,7 +131,8 @@ class SlideshowController extends EventEmitter {
         // Settle the caller now, but retain the serial barrier until the
         // cancelled adapter returns (or faults on timeout). Stop alone may
         // preempt this barrier under the renderer cancellation contract.
-        request.cancelled = true; request.controller?.abort(); this.clearTimer(); this.autoSuspended = true;
+        request.cancelled = true; request.controller?.abort();
+        if (action !== 'feedback') { this.clearTimer(); this.autoSuspended = true; }
         if (!request.responded) { request.responded = true; request.resolve(this.result(action, false, 'CANCELLED')); }
         this.changed();
       } else {
@@ -142,9 +162,14 @@ class SlideshowController extends EventEmitter {
     if (this.operations.size && this.queue[0].action !== 'stop') return;
     const request = this.queue.shift(); this.active = request;
     const { action } = request;
-    if (['auto', 'manual', 'toggle-auto'].includes(action)) {
-      this.mode = action === 'toggle-auto' ? (this.mode === 'auto' ? 'manual' : 'auto') : action;
+    const modeChange = ['auto', 'manual', 'toggle-auto'].includes(action);
+    const targetMode = modeChange ? (action === 'toggle-auto' ? (this.mode === 'auto' ? 'manual' : 'auto') : action) : null;
+    if (modeChange && (this.state !== 'playing' || !this.renderer.feedback)) {
+      this.mode = targetMode;
       this.autoSuspended = false; this.armTimer(); this.finish(request, true); this.changed(); this.pump(); return;
+    }
+    if (action === 'feedback' && (this.state !== 'playing' || !this.renderer.feedback)) {
+      this.finish(request, true); this.changed(); this.pump(); return;
     }
     if (action === 'reload' && this.state === 'stopped') {
       this.clearTimer(); this.#deck = request.candidate; this.index = null; this.autoSuspended = false;
@@ -153,13 +178,15 @@ class SlideshowController extends EventEmitter {
     if (action !== 'launch' && action !== 'stop' && this.state !== 'playing') {
       this.finish(request, false, 'NOT_PLAYING'); this.pump(); return;
     }
-    this.clearTimer();
+    // Reload labels preserve a live Auto deadline. Its tick may queue Next
+    // behind this operation, but never overlaps the physical feedback callback.
+    if (action !== 'feedback') this.clearTimer();
     // Capture execution-time state after all preceding navigation commits. A
     // candidate is immutable from enqueue onward, but occurrence selection must
     // follow the frame actually on screen when this request reaches the head.
     const targetDeck = action === 'reload' ? request.candidate : this.#deck;
     const currentId = this.index === null ? null : this.#deck.slides[this.index].id;
-    const index = action === 'reload' ? Math.max(0, targetDeck.slides.findIndex(slide => slide.id === currentId)) :
+    const index = modeChange || action === 'feedback' ? this.index : action === 'reload' ? Math.max(0, targetDeck.slides.findIndex(slide => slide.id === currentId)) :
       action === 'launch' ? 0 : action === 'stop' ? null :
       (this.index + (action === 'previous' ? -1 : 1) + targetDeck.slides.length) % targetDeck.slides.length;
     const generation = this.generation;
@@ -175,12 +202,16 @@ class SlideshowController extends EventEmitter {
       if (request.done || request.cancelled || generation !== this.generation) return;
       const signal = request.controller.signal;
       this.operations.add(request);
+      if (modeChange || action === 'feedback') return this.renderer.feedback(Object.freeze({
+        ...(modeChange ? { mode: targetMode } : { reload: request.feedback }), signal }));
       return action === 'stop' ? this.renderer.black(Object.freeze({ signal })) :
         this.renderer.show(Object.freeze({ deckId: targetDeck.id, slide: targetDeck.slides[index], index, transition: this.transition, signal }));
     }).then(() => {
       this.operationSettled(request);
       if (request.done || generation !== this.generation) { this.pump(); return; }
       if (request.cancelled) { this.finish(request, false, 'CANCELLED'); this.pump(); return; }
+      if (action === 'feedback') { this.finish(request, true); this.changed(); this.pump(); return; }
+      if (modeChange) this.mode = targetMode;
       if (action === 'reload') this.#deck = targetDeck;
       this.index = index; this.state = action === 'stop' ? 'stopped' : 'playing'; this.autoSuspended = false;
       this.armTimer(); this.finish(request, true); this.changed(); this.pump();
@@ -188,7 +219,8 @@ class SlideshowController extends EventEmitter {
       this.operationSettled(request);
       if (request.done || generation !== this.generation) { this.pump(); return; }
       if (request.cancelled) { this.finish(request, false, 'CANCELLED'); this.pump(); return; }
-      this.autoSuspended = true; this.finish(request, false, 'RENDER_FAILED'); this.changed(); this.pump();
+      if (action !== 'feedback') this.autoSuspended = true;
+      this.finish(request, false, 'RENDER_FAILED'); this.changed(); this.pump();
     });
   }
   operationSettled(request) {
