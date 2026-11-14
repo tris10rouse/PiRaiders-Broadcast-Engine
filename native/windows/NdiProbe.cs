@@ -319,7 +319,11 @@ internal static class NdiProbe
         {
             CheckDeadline(); VideoFrame frame = new VideoFrame();
             int type = CaptureVideo(Receiver, ref frame, IntPtr.Zero, IntPtr.Zero, 100);
-            if (type != Video) continue;
+            if (type != Video)
+            {
+                Require(type == 0 || type == 100, "CAPTURE_ERROR");
+                continue;
+            }
             try
             {
                 ValidateFrame(frame);
@@ -357,6 +361,10 @@ internal static class NdiProbe
                 try { drained++; } finally { ReleaseVideo(Receiver, ref frame); }
                 quietSince = -1; continue;
             }
+            // A connection-lost notification is not video silence. Reset the
+            // observation and require a subsequent healthy none/status interval.
+            if (type == 4) { quietSince = -1; continue; }
+            Require(type == 0 || type == 100, "CAPTURE_ERROR");
             if (GetConnections(Receiver) != 0) { quietSince = -1; continue; }
             if (quietSince < 0) quietSince = watch.ElapsedMilliseconds;
             if (watch.ElapsedMilliseconds - quietSince >= durationMs)
