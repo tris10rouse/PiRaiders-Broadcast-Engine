@@ -1,6 +1,6 @@
 # Real Windows output proof: pinned components and gates
 
-Research checkpoint, 2026-11-14. These components have **not yet been executed** in the PiRaiders Windows CI pipeline. Existing AMCP/NDI stand-ins and Chromium output are not proof of real CasparCG/NDI integration. Do not enable production deployment or publish a release from this document.
+Research checkpoint, 2026-11-14. The pinned Caspar/Mesa components have now executed on disposable Windows CI and produced a verified actual1080p red mixed PNG. Complete managed playback proof remains in progress; NDI has not been installed or tested. Existing AMCP/NDI stand-ins and Chromium output are not proof of real CasparCG/NDI integration. Do not enable production deployment or publish a release from this document.
 
 ## Candidate pins
 
@@ -40,7 +40,7 @@ A small native dynamically linked test receiver must receive actual NDI frames a
 Real nonproduction Windows10 testing and later explicit off-air hardware authorization remain separate gates. No current user-action blocker has been established by this research; implement and evaluate the disposable software proof first.
 
 
-## Executable first step — Windows verification pending
+## Executable first step — Windows verification in progress
 
 The dedicated Real Caspar Windows software proof workflow implements the image-consumer step above without an NDI runtime or consumer. Run `node scripts/prepare-caspar-proof.cjs` then `node scripts/smoke-caspar-windows.cjs` on a disposable Windows runner after locked dependency installation and JobHost build. Downloads are SHA-256 checked before extraction; Mesa stays app-local, native output is discarded rather than forwarded, internal logging is disabled using the actual `disabled` attribute, CEF logging is disabled and its cache-path is empty, OSC clients are disabled, and only synthetic PNGs/fixed-field result JSON become artifacts. AMCP still binds all IPv4 interfaces on the disposable runner; this is no production isolation solution.
 
@@ -48,3 +48,6 @@ The probe checks actual mixed pixels through `ADD 1 IMAGE` after native renderer
 
 
 First actual Windows attempt (source183fb4, diagnosticdf27c7b) downloaded/verified both pins and loaded Mesa OpenGL4.6 core, but Caspar's capability check rejected startup before AMCP or any presentation URL existed. [Diagnostic CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43619109266) remains an honest failure, not output evidence. The next attempt requests child-only MESA_GL_VERSION_OVERRIDE=4.5COMPAT. Pinned [Mesa26.2.6 profile-selection source](https://github.com/chaotic-cx/mesa-mirror/blob/mesa-26.2.6/src/mesa/main/version.c#L146) documents COMPAT as selecting compatibility context; it is not a patch to Caspar's capability checks. Actual pixel assertions remain mandatory, and root cause is not considered proven until runtime evidence supports it. Bounded startup diagnostics are captured only before managed-host construction/private URL creation; URLs are omitted, later native output stays discarded.
+
+
+Compatibility-profile result: source238f27 passed real Caspar startup and actual1080p mixer-red PNG capture, then failed managed CEF initialization at the authentication boundary. Corrected source87c33 request counters confirmed template200×5 then bootstrap403×1, zero upgrades: https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43620130276 . These failures were retained, not skipped. The narrow independently reviewed bootstrap compatibility contract is in PRESENTATION_PROTOCOL.md; final full Caspar/CEF pixels/window tests and all latest-head checks remain required. The production-window probe injects the policy clock while supervising real processes; this must not be confused with NDI packet timing or target-PC elapsed-time validation.

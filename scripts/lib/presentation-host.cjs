@@ -52,6 +52,15 @@ async function createPresentationHost(raw = {}) {
       (!requireOrigin || req.headers.origin === origin) && (req.headers.origin === undefined || req.headers.origin === origin) &&
       (site === undefined || site === 'same-origin' || site === 'none');
   }
+  // Caspar's CEF disables web security and omits Origin on same-origin fetch.
+  // This POST-only alternate proof requires browser-controlled Fetch Metadata,
+  // a non-safelisted marker and the private bearer; wrong Origins never fall back.
+  // WebSocket admission continues to require trusted(req, true).
+  function bootstrapTrusted(req) {
+    return trusted(req,true) || (trusted(req) && req.headers.origin === undefined &&
+      req.headers['x-piraiders-bootstrap'] === '1' && req.headers['sec-fetch-site'] === 'same-origin' &&
+      req.headers['sec-fetch-mode'] === 'cors' && req.headers['sec-fetch-dest'] === 'empty');
+  }
   function cookie(req) {
     const entries = typeof req.headers.cookie === 'string' ? req.headers.cookie.split(';').map(value => value.trim()).filter(value => value.startsWith(cookieName + '=')) : [];
     return entries.length === 1 && sameSecret(entries[0].slice(cookieName.length + 1), cookieValue);
@@ -246,7 +255,7 @@ async function createPresentationHost(raw = {}) {
     if (!trusted(req)) { empty(res,403); return; }
     if (req.url === '/piraiders/session') {
       if (req.method !== 'POST') { res.setHeader('Allow','POST'); empty(res,405); return; }
-      if (!trusted(req,true) || !sameSecret(req.headers.authorization, 'Bearer ' + token)) { empty(res,403); return; }
+      if (!bootstrapTrusted(req) || !sameSecret(req.headers.authorization, 'Bearer ' + token)) { empty(res,403); return; }
       if (req.headers['transfer-encoding'] !== undefined || (req.headers['content-length'] !== undefined && req.headers['content-length'] !== '0')) {
         res.setHeader('Connection','close'); empty(res,400); return;
       }
