@@ -37,6 +37,7 @@ test('proof protocol uses real bounded TCP and never exposes native echoed priva
 test('proof rejects wrong or stale mixed-frame pixels and verifies descendants transitively',()=>{
   const data=Buffer.alloc(1920*1080*4);for(let i=0;i<data.length;i+=4)data.set([240,20,20,255],i);
   const bytes=PNG.sync.write({width:1920,height:1080,data});checkPixels(bytes,[240,20,20]);assert.throws(()=>checkPixels(bytes,[0,0,0]),/MIXED_PIXELS/);
+  assert.throws(()=>checkPixels(PNG.sync.write({width:1920,height:1080,data:Buffer.alloc(data.length)}),[0,0,0]),/ALPHA_UNVERIFIED/);
   assert.deepEqual(descendants([{ProcessId:3,ParentProcessId:2},{ProcessId:2,ParentProcessId:1},{ProcessId:8,ParentProcessId:7}],1).sort(),[1,2,3]);
   const config=configuration(5250);assert.match(config,/<log-path disabled="true">/);assert.match(config,/<auto-load>false<\/auto-load>/);assert.doesNotMatch(config,/<address>/);assert.throws(()=>configuration(0));
 });
