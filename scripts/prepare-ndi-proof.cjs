@@ -16,9 +16,10 @@ function peMachine(bytes){
 }
 async function filesUnder(dir){const all=[];for(const e of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,e.name);if(e.isDirectory())all.push(...await filesUnder(file));else if(e.isFile())all.push(file);}return all;}
 function windowsMetadata(file){
+  // Use the runner's installed PowerShell7 consistently with its module path.
   // Pass paths as process arguments, never interpolate them into PowerShell.
   const script=path.join(__dirname,'ndi-proof-metadata.ps1');
-  return JSON.parse(execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script,file],{encoding:'utf8',timeout:30000,windowsHide:true,maxBuffer:65536}));
+  return JSON.parse(execFileSync('pwsh.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script,file],{encoding:'utf8',timeout:30000,windowsHide:true,maxBuffer:65536}));
 }
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');

@@ -8,7 +8,7 @@ The persistent SPX process is a labeled Node stand-in in this focused probe; sep
 
 ## Reproduction on a disposable Windows x64 computer
 
-Use `npm run setup`, `node scripts/build-ndi-probe.cjs`, `node scripts/prepare-caspar-proof.cjs`, `node scripts/prepare-ndi-proof.cjs`, then `node scripts/smoke-ndi-windows.cjs`. The preparation installs the official NDI runtime into the private build tools directory; use a disposable test computer, not a stadium PC. No NDI Tools or firewall changes are required by these scripts. Installation failure fails the proof rather than falling back to simulated NDI.
+Use Node22+ and PowerShell7 (both preinstalled on the Actions runner), then `npm run setup`, `node scripts/build-ndi-probe.cjs`, `node scripts/prepare-caspar-proof.cjs`, `node scripts/prepare-ndi-proof.cjs`, then `node scripts/smoke-ndi-windows.cjs`. The preparation installs the official NDI runtime into the private build tools directory; use a disposable test computer, not a stadium PC. No NDI Tools or firewall changes are required by these scripts. Installation failure fails the proof rather than falling back to simulated NDI.
 
 The official installer URL is `https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20Runtime.exe`, pinned SHA256 `7ee73eedb56402bca5100868353dbab4e944b6c37d2d9881580698a3b61346cd`. The pin is corroborated by Microsoft's winget NDI.NDIRuntime 6.3.2.0 manifest at commit `87a75bbd0101d13899cd4c7198703c17da16694f`. Require exact downloaded hash and valid Windows Authenticode signature; record observed signer, installer/file versions, DLL hash/x64 PE identity and SDK-reported version separately. A package display version is not an asserted DLL/SDK version. Existing Caspar/Mesa pins and logging caveats remain in WINDOWS_OUTPUT_PROOF.md.
 
