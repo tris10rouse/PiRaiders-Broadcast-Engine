@@ -112,4 +112,4 @@ Real Windows recovery implementation2988969558b5ab336e919e98a6cfe0240be62581 pas
 
 ## Current BE-002 verification increment · 2026-11-14
 
-PR21 is merged: actual Caspar/CEF mixed pixels and crash recovery passed Windows CI. Native NDI SDK receiver proof is now implemented for isolated Windows CI, including fresh received frames, stable identity/reconnect and a real wall-clock sender window. Final-head execution is pending; see [acceptance and limits](docs/design/WINDOWS_NDI_PROOF.md). Default launcher/event integration and the user-testable release remain open.
+PR21 is merged: actual Caspar/CEF mixed pixels and crash recovery passed Windows CI. Native NDI SDK receiver proof is now implemented for isolated Windows CI, including fresh received frames, stable identity/reconnect and a real wall-clock sender window. Both implementation Windows runs passed actual received pixels, same-identity crash recovery and wall-clock shutdown (PR22); final documentation-head checks are required before merge. See [acceptance and limits](docs/design/WINDOWS_NDI_PROOF.md). Default launcher/event integration and the user-testable release remain open.
