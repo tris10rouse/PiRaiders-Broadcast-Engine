@@ -49,13 +49,13 @@ async function main(){
   async function prepare(name,colors){const sourceDir=path.join(fixtures,name);await fs.mkdir(sourceDir);for(let i=0;i<colors.length;i++)await fs.writeFile(path.join(sourceDir,'0'+i+'.png'),image(colors[i]));return stageSnapshot({sourceDir,cacheDir:path.join(toolRoot,'snapshots'),quietMs:0});}
   const initial=await prepare('initial',[[240,20,20],[20,20,240]]),replacement=await prepare('replacement',[[20,220,20]]);
   let now=Date.now(),session,runtime,mesaStartupObserved=false,phase='START',captureCount=0;
-  const start=now+16*60000,end=start+3600000,children=[],hosts=new Set();let activeHost,report;
+  const start=now+16*60000,end=start+3600000,children=[],hosts=new Set();let activeHost,report,startupBytes=0;const startup=[],nativeExits=[];
   function contained(command,args,options){
     const child=spawn(JOB_HOST,[command,...args],{cwd:options.cwd,env:{...process.env,GALLIUM_DRIVER:'llvmpipe',LIBGL_ALWAYS_SOFTWARE:'1'},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
-    child.stdin.on('error',()=>{});hosts.add(child);child.once('exit',()=>hosts.delete(child));
+    child.stdin.on('error',()=>{});hosts.add(child);child.once('exit',(code,signal)=>{hosts.delete(child);nativeExits.push({code,signal});});
     // Never persist or forward raw Caspar/CEF output. Only retain a boolean
     // observation of the software renderer; bound carry across UTF-8 chunks.
-    for(const stream of [child.stdout,child.stderr]){let carry='';stream.on('data',chunk=>{const value=carry+chunk.toString('utf8');if(/Initialized OpenGL[^\r\n]*Mesa/i.test(value))mesaStartupObserved=true;carry=value.slice(-512);});}
+    for(const stream of [child.stdout,child.stderr]){let carry='';stream.on('data',chunk=>{const text=chunk.toString('utf8');if((phase==='START'||phase==='COLOR_MIXER')&&startupBytes<16384){const part=text.slice(0,16384-startupBytes);startupBytes+=part.length;startup.push(part);}const value=carry+text;if(/Initialized OpenGL[^\r\n]*Mesa/i.test(value))mesaStartupObserved=true;carry=value.slice(-512);});}
     if(command.toLowerCase().endsWith('casparcg.exe'))activeHost=child;
     return child;
   }
@@ -111,6 +111,9 @@ async function main(){
     assert.ok(hosts.size>=1,'Persistent service survives window end');
     report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:6,realRossTalk:true,windowEndProcessTreeGone:true,persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch{
+    // This bounded capture stops BEFORE host construction/private URL creation.
+    // It contains only disposable pre-auth startup; URLs are omitted as well.
+    if(phase==='START'||phase==='COLOR_MIXER')console.error(JSON.stringify({event:'caspar-preauth-startup-diagnostic',nativeExits,startup:startup.join('').replace(/https?:\/\/[^\s<>"']+/g,'[URL omitted]')}));
     // Fixed phase only: never include protocol text, URL or native exceptions.
     throw Error('CASPAR_PROOF_FAILED_'+phase);
   }finally{
