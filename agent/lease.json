@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 15,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-14T01:35:51.344Z",
-  "lastHeartbeat": "2026-11-14T01:49:10.404Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-14T01:49:10.404Z"
+  "status": "active",
+  "owner": "codex-native-slideshow-2026-11-14T01:54:41.452Z-7b3acf406d3918",
+  "fence": 16,
+  "task": "BE-004 native SPX slideshow rendering and browser validation",
+  "workBranch": "feature/be-004-native-slideshow-template",
+  "acquiredAt": "2026-11-14T01:54:41.452Z",
+  "lastHeartbeat": "2026-11-14T01:54:41.452Z",
+  "expiresAt": "2026-11-14T03:24:41.452Z",
+  "releasedAt": null
 }
