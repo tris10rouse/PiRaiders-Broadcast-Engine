@@ -6,7 +6,7 @@
   "task": "BE-002 native NDI receiver and real Windows sender-window proof",
   "workBranch": "feature/be-002-ndi-software-proof",
   "acquiredAt": "2026-11-14T19:40:35.151Z",
-  "lastHeartbeat": "2026-11-14T20:09:13.502Z",
-  "expiresAt": "2026-11-14T21:39:13.502Z",
+  "lastHeartbeat": "2026-11-14T20:12:18.161Z",
+  "expiresAt": "2026-11-14T21:42:18.161Z",
   "releasedAt": null
 }
