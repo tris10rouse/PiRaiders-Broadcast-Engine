@@ -24,7 +24,7 @@ NDI loads Processing.NDI.Lib.x64.dll from the application directory or NDI_RUNTI
 
 Upstream Caspar2.5.1 logs full AMCP arguments at info, HTML failedUrl at warning, original producer URLs in print(), and producer paths in telemetry. The managed program URL contains a bootstrap capability. Parent stdout redaction alone cannot protect Caspar's own file logs. Before actual URL loading:
 
-- Disable internal file logging using the source-supported log-path disable option.
+- Disable internal file logging using the source-supported log-path **disabled="true"** attribute (env.cpp reads `disabled`, not the misleading `disable` example).
 - Redact capabilities from complete captured UTF-8 lines and all protocol/diagnostic paths. Bound line buffering; drop overlong raw fragments rather than exposing partial secrets. Publish no raw Caspar logs.
 - Disable OSC sending to AMCP clients with osc.disable-send-to-amcp-clients=true, omit predefined OSC clients, and avoid exporting INFO producer paths. Consider one-time/private credential handoff before production use.
 - Do not invent a loopback-only AMCP XML setting: stock server's AsyncEventServer binds tcp::endpoint(tcp::v4(),port), i.e.0.0.0.0. Isolated disposable CI can use an ephemeral port and local clients, but that is not a loopback-only listener. Production needs a reviewed binding patch/rebuild or explicitly approved firewall isolation; channel LOCK is not network isolation.
@@ -38,3 +38,10 @@ Run actual launcher/JobHost/window supervisor, Caspar and the managed HTML templ
 A small native dynamically linked test receiver must receive actual NDI frames and validate synthetic colors through Launch/Next/Previous/Reload. Stop must yield black while frames continue under the same identity. Window end must stop sender/process tree; subsequent startup must recover. Test missing DLL, startup failure and interrupted shutdown. Retain only sanitized software provenance and results. This is software integration, not GPU performance, external receiver, DMP/D8VIDEO-P, board routing or stadium evidence.
 
 Real nonproduction Windows10 testing and later explicit off-air hardware authorization remain separate gates. No current user-action blocker has been established by this research; implement and evaluate the disposable software proof first.
+
+
+## Executable first step — Windows verification pending
+
+The dedicated Real Caspar Windows software proof workflow implements the image-consumer step above without an NDI runtime or consumer. Run `node scripts/prepare-caspar-proof.cjs` then `node scripts/smoke-caspar-windows.cjs` on a disposable Windows runner after locked dependency installation and JobHost build. Downloads are SHA-256 checked before extraction; Mesa stays app-local, native output is discarded rather than forwarded, internal logging is disabled using the actual `disabled` attribute, CEF logging is disabled and its cache-path is empty, OSC clients are disabled, and only synthetic PNGs/fixed-field result JSON become artifacts. AMCP still binds all IPv4 interfaces on the disposable runner; this is no production isolation solution.
+
+The probe checks actual mixed pixels through `ADD 1 IMAGE` after native renderer ACKs, not only command acceptance. It checks process containment/window end with real Caspar/CEF, while the persistent SPX service is a disclosed Node stand-in. It records a Mesa startup observation and requested llvmpipe configuration, not a measured GL_RENDERER string. Script unit tests exercise streamed-byte/hash/size failures, real protocol failure/timeout/privacy boundaries and wrong-frame rejection. Passing those local tests alone does not establish Windows execution. Actual NDI frames, stable sender identity, real-target startup/recovery/performance and hardware tests remain separate acceptance gates.

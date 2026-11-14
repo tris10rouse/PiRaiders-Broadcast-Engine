@@ -1,0 +1,53 @@
+name: Real Caspar Windows software proof
+
+on:
+  push:
+    branches: [master, 'feature/be-002-caspar-software-proof']
+  pull_request:
+    paths:
+      - '.github/workflows/caspar-software-proof.yml'
+      - 'scripts/**'
+      - 'native/**'
+      - 'ASSETS/templates/piraiders/**'
+      - 'package*.json'
+      - 'tests/caspar-proof.test.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  actual-caspar-cef-mixer:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build real Windows containment helper
+        run: npm run build:windows-host
+      - name: Download, hash-check and deploy pinned CI-only Caspar and app-local Mesa
+        run: node scripts/prepare-caspar-proof.cjs
+      - name: Prove actual managed CEF frames through the Caspar mixer and window shutdown
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/smoke-caspar-windows.cjs
+      - name: Retain synthetic pixels and sanitized software evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-caspar-software-evidence
+          path: build/caspar-proof-evidence
+          if-no-files-found: warn
+          retention-days: 14
