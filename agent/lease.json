@@ -6,7 +6,7 @@
   "task": "BE-005 atomic prepared-deck activation",
   "workBranch": "feature/be-005-atomic-reload",
   "acquiredAt": "2026-11-14T05:57:26.745Z",
-  "lastHeartbeat": "2026-11-14T06:06:39.787Z",
-  "expiresAt": "2026-11-14T07:36:39.787Z",
+  "lastHeartbeat": "2026-11-14T06:14:13.313Z",
+  "expiresAt": "2026-11-14T07:44:13.313Z",
   "releasedAt": null
 }
