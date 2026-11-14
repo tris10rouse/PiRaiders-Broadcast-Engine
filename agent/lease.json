@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "codex-reload-recovery-2026-11-14T11:44:32.721Z-arhnqfbaawc",
+  "status": "idle",
+  "owner": null,
   "fence": 21,
-  "task": "BE-004/BE-005 complete managed Reload and feedback verification",
-  "workBranch": "feature/be-005-managed-reload-feedback",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-14T11:44:32.721Z",
-  "lastHeartbeat": "2026-11-14T12:10:52.690Z",
-  "expiresAt": "2026-11-14T13:40:52.690Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-14T12:13:24.880Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-14T12:13:24.880Z"
 }
