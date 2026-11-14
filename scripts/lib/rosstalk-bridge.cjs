@@ -8,14 +8,16 @@ function failure(code) { return Object.assign(Error('RossTalk ' + code), { code 
 
 /** Explicitly constructed transport boundary; never starts a listener on import. */
 class RossTalkBridge extends EventEmitter {
-  constructor(config, { handleCommand, allowEphemeral = false, clock = () => performance.now() } = {}) {
+  constructor(config, { handleCommand, allowEphemeral = false, prioritizeStop = false, clock = () => performance.now() } = {}) {
     super();
-    this.config = normalizeRossTalkConfig(config, { allowEphemeral });
+    if (typeof prioritizeStop !== 'boolean') throw Error('Invalid priority Stop option');
+    this.config = normalizeRossTalkConfig(config, { allowEphemeral, allowExtendedTimeout: prioritizeStop });
     if (typeof handleCommand !== 'function') throw Error('An explicit playback command handler is required');
-    Object.assign(this, { handleCommand, clock });
+    Object.assign(this, { handleCommand, clock, prioritizeStop });
     this.allowed = new Set(this.config.allowedSenders);
     this.state = 'idle'; this.closed = false; this.faulted = false;
     this.peers = new Set(); this.queue = []; this.inFlight = null; this.sequence = 0;
+    this.operations = new Set(); this.priorityStop = null; this.callbackTimeouts = 0;
     this.counts = { accepted: 0, completed: 0, rejected: 0, failed: 0, timedOut: 0, cancelled: 0 };
   }
   start() {
@@ -46,7 +48,9 @@ class RossTalkBridge extends EventEmitter {
   }
   address() { return this.server?.address() || null; }
   snapshot() { return { state: this.state, faulted: this.faulted, connections: this.peers.size,
-    queued: this.queue.length, inFlight: this.inFlight !== null, ...this.counts }; }
+    queued: this.queue.length, inFlight: this.inFlight !== null,
+    outstandingCallbacks: this.operations.size, stopPending: this.priorityStop !== null,
+    stopFollowers: this.priorityStop?.followers.length || 0, callbackTimeouts: this.callbackTimeouts, ...this.counts }; }
   accept(socket) {
     socket.on('error', () => {}); // Network errors never expose raw messages.
     let source;
@@ -67,7 +71,7 @@ class RossTalkBridge extends EventEmitter {
     socket.on('end', () => {
       peer.ended = true;
       if (peer.framer.bufferedBytes) this.reject(peer, 0, 'TRUNCATED_FRAME');
-      if (!peer.pending) socket.end();
+      if (!peer.pending || (this.prioritizeStop && !this.config.acknowledgements)) socket.end();
     });
     socket.once('close', () => { this.peers.delete(peer); });
   }
@@ -102,8 +106,14 @@ class RossTalkBridge extends EventEmitter {
         const sequence = ++this.sequence;
         const parsed = parseRossTalkLine(line, this.config.commandMap);
         if (!parsed.ok) { this.reject(peer, sequence, parsed.code); this.endPeer(peer); return; }
+        if (this.prioritizeStop && parsed.command.action === 'stop') {
+          this.admitStop({ ...parsed.command, sequence, peer, received: this.clock(), settled: false });
+          continue;
+        }
         if (this.queue.length >= this.config.maxQueue) {
-          this.reject(peer, sequence, 'BUSY'); this.endPeer(peer); return;
+          this.reject(peer, sequence, 'BUSY');
+          if (this.prioritizeStop) continue;
+          this.endPeer(peer); return;
         }
         const request = { ...parsed.command, sequence, peer, received: this.clock(), settled: false };
         peer.pending++; this.counts.accepted++; this.queue.push(request);
@@ -113,6 +123,7 @@ class RossTalkBridge extends EventEmitter {
     }
   }
   pump() {
+    if (this.prioritizeStop) { this.pumpPriority(); return; }
     if (this.closed || this.faulted || this.inFlight || !this.queue.length) return;
     const request = this.queue.shift(); this.inFlight = request;
     request.controller = new AbortController();
@@ -146,6 +157,89 @@ class RossTalkBridge extends EventEmitter {
     if (this.inFlight === request) this.inFlight = null;
     this.pump();
   }
+  accepted(request) {
+    request.peer.pending++; this.counts.accepted++;
+    this.emit('command', { sequence: request.sequence, action: request.action, gpi: request.gpi });
+  }
+  cancelNormalQueue() {
+    for (const request of this.queue.splice(0)) this.settlePriority(request, 'cancelled', 'CANCELLED');
+  }
+  admitStop(request) {
+    this.cancelNormalQueue();
+    if (this.closed || this.faulted) return;
+    if (this.inFlight && !this.inFlight.settled) {
+      this.inFlight.controller.abort();
+      this.settlePriority(this.inFlight, 'cancelled', 'CANCELLED');
+    }
+    if (this.closed || this.faulted) return;
+    const previous = this.priorityStop;
+    if (previous) {
+      if (!previous.outcome && previous.followers.length >= this.config.maxQueue) {
+        this.reject(request.peer, request.sequence, 'BUSY'); return;
+      }
+      this.accepted(request);
+      if (this.closed || this.faulted) { this.settlePriority(request,'cancelled','CLOSED'); return; }
+      if (previous.outcome) this.settlePriority(request, previous.outcome.status, previous.outcome.code);
+      else previous.followers.push(request);
+      return;
+    }
+    this.accepted(request);
+    if (this.closed || this.faulted) { this.settlePriority(request,'cancelled','CLOSED'); return; }
+    request.followers = []; request.isStop = true;
+    this.priorityStop = request;
+    this.startPriority(request);
+  }
+  pumpPriority() {
+    if (this.closed || this.faulted || this.operations.size || !this.queue.length) return;
+    const request = this.queue.shift(); this.inFlight = request;
+    this.startPriority(request);
+  }
+  startPriority(request) {
+    request.controller = new AbortController(); request.actualDone = false;
+    this.operations.add(request);
+    request.timer = setTimeout(() => {
+      if (request.actualDone || this.closed || this.faulted) return;
+      this.callbackTimeouts++;
+      this.faulted = true; request.controller.abort();
+      this.settlePriority(request, 'timeout', 'HANDLER_TIMEOUT');
+      this.emit('fault', { code: 'HANDLER_TIMEOUT' });
+      void this.close().catch(() => {});
+    }, this.config.handlerTimeoutMs);
+    Promise.resolve().then(() => {
+      // A Stop can preempt a just-admitted callback before its microtask starts.
+      if (request.settled || this.closed || this.faulted) return;
+      return this.handleCommand(Object.freeze({ sequence: request.sequence, action: request.action,
+        gpi: request.gpi, signal: request.controller.signal }));
+    }).then(() => this.finishPriorityCallback(request, 'completed'),
+      () => this.finishPriorityCallback(request, 'failed', 'HANDLER_FAILED'));
+  }
+  settlePriority(request, status, code) {
+    if (request.settled) return;
+    request.settled = true;
+    if (status === 'completed') this.counts.completed++;
+    else if (status === 'failed') this.counts.failed++;
+    else if (status === 'timeout') this.counts.timedOut++;
+    else this.counts.cancelled++;
+    this.reply(request.peer, request.sequence, status === 'completed', code || request.action);
+    const elapsed = this.clock() - request.received;
+    this.emit('result', { sequence: request.sequence, action: request.action, gpi: request.gpi, status,
+      ...(code ? { code } : {}), durationMs: Number.isFinite(elapsed) ? Math.max(0, elapsed) : 0 });
+    request.peer.pending--;
+    if (request.peer.ended && !request.peer.pending && !request.peer.socket.destroyed) request.peer.socket.end();
+    // Logical cancellation must never clear the physical callback's deadline.
+  }
+  finishPriorityCallback(request, status, code) {
+    if (request.actualDone) return;
+    request.actualDone = true; clearTimeout(request.timer); this.operations.delete(request);
+    this.settlePriority(request, status, code);
+    if (request.isStop) {
+      request.outcome = {status,code};
+      for (const follower of request.followers.splice(0)) this.settlePriority(follower,status,code);
+    }
+    if (this.inFlight === request) this.inFlight = null;
+    if (!this.operations.size) this.priorityStop = null;
+    this.pumpPriority();
+  }
   terminalFault(code) {
     if (this.faulted || this.closed) return;
     this.faulted = true; this.emit('fault', { code }); void this.close().catch(() => {});
@@ -156,9 +250,19 @@ class RossTalkBridge extends EventEmitter {
     this.closePromise = new Promise((resolve, rejected) => { finish = resolve; reject = rejected; });
     this.closed = true; this.state = 'closing'; this.cancelStart?.();
     const pending = this.queue.splice(0);
-    for (const request of pending) this.settle(request, 'cancelled', 'CLOSED');
-    if (this.inFlight) {
-      const request = this.inFlight; request.controller.abort(); this.settle(request, 'cancelled', 'CLOSED');
+    if (this.prioritizeStop) {
+      for (const request of pending) this.settlePriority(request, 'cancelled', 'CLOSED');
+      for (const request of this.operations) {
+        request.controller.abort(); clearTimeout(request.timer);
+        this.settlePriority(request, 'cancelled', 'CLOSED');
+      }
+      if (this.priorityStop) for (const follower of this.priorityStop.followers.splice(0)) this.settlePriority(follower,'cancelled','CLOSED');
+      this.operations.clear(); this.inFlight = null; this.priorityStop = null;
+    } else {
+      for (const request of pending) this.settle(request, 'cancelled', 'CLOSED');
+      if (this.inFlight) {
+        const request = this.inFlight; request.controller.abort(); this.settle(request, 'cancelled', 'CLOSED');
+      }
     }
     for (const peer of this.peers) peer.socket.destroy();
     const done = error => {
