@@ -64,3 +64,8 @@ Workspace `/workspace/PiRaiders-Broadcast-Engine`; `work/` is untracked scratch,
 Before EVERY GitHub mutation freshly read master AGENTS.md and LOCKING_PROTOCOL.md, exact coordination HEAD and lease pinned to it. Other unexpired owner means read-only/end. Acquire fresh unique owner/fence through base-tree/sole-parent commit/atomic non-force expected-head update. Verify owner/fence/expiry before Git writes, renew within15minutes and before batches, fail closed, release on completion/error. Root alone publishes; subagents reviewed read-only. Never reuse a stale run's owner/fence or force-push.
 
 Owner paused old Build PiRaiders Engine; never resume it. Private automation lookup on2026-11-14 confirmed current Develop PiRaiders Windows release enabled hourly with inherited managed workspace. This is scheduled execution, not continuous worker-liveness or future-success evidence. Pause only at the genuine evaluation-release gate. AGENTS still requires human approval for production deployment, network changes, signing and release publication.
+
+
+## Native NDI proof diagnostic increment · 2026-11-15
+
+PR32 merged at191798534a0742c2b0b26de41cf0de80a4ed08f1 after all4 final Foundation checks passed. Active branch feature/be-002-ndi-proof-diagnostics adds per-receiver error buffers/roles, distinct crash phases and safe assertion/system-code categories; all original frame/connection, identity and timeout requirements remain. Portable diagnostic/NDI tests5/5 pass; Windows CI is required and the earlier two master failures remain unresolved. Inspect the final open PR and its exact checks before continuing.

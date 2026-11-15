@@ -154,3 +154,8 @@ PR30 mergedfa62457 after sourcee18e477 passed10 final checks with identical tree
 
 
 PR31 mergedd302ee5 after source1bafbc0 passed9 checks with identical treea623a51. Both actual extracted Windows ZIPs verified the single CMD/bundled Node/HMAC/SPX/Game Day path, Unicode image identity and independent parent-death cleanup. Full output from the extracted artifact, native deadline under frozen SPX, source exchange importer and evaluation setup/preflight/soak/checklist remain open.
+
+
+## Native NDI proof diagnostic increment · 2026-11-15
+
+Native NDI verification is under investigation: two post-merge master attempts failed at different stages. The current increment adds fixed, private-data-safe failure diagnostics; it does not relax receiver, process ownership or deadline assertions. See WINDOWS_NDI_PROOF.md and the checkpoint.

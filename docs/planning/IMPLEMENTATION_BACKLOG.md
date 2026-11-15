@@ -152,3 +152,8 @@ PR29 merged9b93a3e after final sourcee0060b8 passed8 checks with identical tree5
 
 
 PR30 mergedfa62457 after sourcee18e477 passed10 final checks with identical tree3fb1c54. Actual full-application Windows runs43751326206/43751321505 received11 NDI frames each and verified offline recovery, real window/SPX persistence and active parent-death nested cleanup. Next BE-008 increment explicitly packages the persistent entry/examples and validates the actual extracted CMD/SPX path while retaining legacy component smoke. This remains a development ZIP; extracted output, native hung-SPX deadline, source import/setup/preflight/soak and evaluation checklist remain release gates.
+
+
+## Native NDI proof diagnostic increment · 2026-11-15
+
+BE-002 next acceptance: separate deliberate missing-runtime diagnostics from the active receiver and identify crash enumeration/selection/termination failures without raw native output. Require final-SHA Windows proofs before merge; retain both prior failed attempts as unresolved evidence.
