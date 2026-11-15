@@ -2,6 +2,7 @@
 
 ## 2026-11-15 · Persistent SPX application parent (in progress)
 
+- Keep generation-admission fixture termination explicitly injected while retaining separate real Windows containment tests. Disposable cleanup observations treat incomplete live CIM fields as unknown, preserve strict identity validation and require confirmed disappearance within the original deadline; fixed reasons/counts aid diagnosis. Final corrected Windows results remain required.
 - Add a dedicated Windows parent API/developer CLI that preserves SPX across events, requires existing config and proves current-child startup with fresh HMAC before browser opening. Fence ready observers/restarts and late browser completion, bound startup and close, rotate secrets and retain native stop retry. Add actual SPX integration and Windows-only JobHost/parent-death tests. Package selection and full nested output proof remain separate.
 
 ## 2026-11-15 · SPX-hosted Game Day

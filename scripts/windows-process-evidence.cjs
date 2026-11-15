@@ -5,15 +5,26 @@
 const {execFileSync}=require('node:child_process');
 const path=require('node:path');
 const PROCESS_QUERY="$ErrorActionPreference='Stop'; ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process -ErrorAction Stop | Select-Object ProcessId,ParentProcessId,ExecutablePath,@{Name='CreationUtcTicks';Expression={if($null -eq $_.CreationDate){$null}else{$_.CreationDate.ToUniversalTime().Ticks.ToString([System.Globalization.CultureInfo]::InvariantCulture)}}})";
-function fail(){throw Error('PROCESS_IDENTITY_UNVERIFIED');}
+const failures=new WeakMap();
+function fail(reason){const error=Error('PROCESS_IDENTITY_UNVERIFIED');failures.set(error,reason);throw error;}
+function identityReason(error){return failures.get(error)||null;}
 function index(rows){
-  if(!Array.isArray(rows)||rows.length>65536)fail();
+  if(!Array.isArray(rows)||rows.length>65536)fail('TABLE_INVALID');
   const result=new Map();
-  for(const row of rows){if(!row||!Number.isSafeInteger(row.ProcessId)||row.ProcessId<0||!Number.isSafeInteger(row.ParentProcessId)||row.ParentProcessId<0||result.has(row.ProcessId))fail();result.set(row.ProcessId,row);}
+  for(const row of rows){
+    if(!row||!Number.isSafeInteger(row.ProcessId)||row.ProcessId<0||!Number.isSafeInteger(row.ParentProcessId)||row.ParentProcessId<0)fail('ROW_INVALID');
+    if(result.has(row.ProcessId))fail('DUPLICATE_PID');
+    result.set(row.ProcessId,row);
+  }
   return result;
 }
 function identity(row){
-  if(!row||!Number.isSafeInteger(row.ProcessId)||row.ProcessId<=0||!Number.isSafeInteger(row.ParentProcessId)||row.ParentProcessId<0||typeof row.CreationUtcTicks!=='string'||!/^[1-9][0-9]{0,18}$/.test(row.CreationUtcTicks)||BigInt(row.CreationUtcTicks)>3155378975999999999n||typeof row.ExecutablePath!=='string'||!path.win32.isAbsolute(row.ExecutablePath)||row.ExecutablePath.includes('\0'))fail();
+  if(!row)fail('IDENTITY_MISSING');
+  if(!Number.isSafeInteger(row.ProcessId)||row.ProcessId<=0||!Number.isSafeInteger(row.ParentProcessId)||row.ParentProcessId<0)fail('ROW_INVALID');
+  if(row.CreationUtcTicks===null||row.CreationUtcTicks===undefined||row.CreationUtcTicks==='')fail('CREATION_MISSING');
+  if(typeof row.CreationUtcTicks!=='string'||!/^[1-9][0-9]{0,18}$/.test(row.CreationUtcTicks)||BigInt(row.CreationUtcTicks)>3155378975999999999n)fail('CREATION_INVALID');
+  if(row.ExecutablePath===null||row.ExecutablePath===undefined||row.ExecutablePath==='')fail('IMAGE_MISSING');
+  if(typeof row.ExecutablePath!=='string'||!path.win32.isAbsolute(row.ExecutablePath)||row.ExecutablePath.includes('\0'))fail('IMAGE_INVALID');
   return Object.freeze({ProcessId:row.ProcessId,ParentProcessId:row.ParentProcessId,CreationUtcTicks:row.CreationUtcTicks,ExecutablePath:path.win32.normalize(row.ExecutablePath).toLowerCase()});
 }
 function processTable(){
@@ -33,24 +44,42 @@ function descendants(rows,parent){
   }}
   return Object.freeze([...found.values()]);
 }
-function treeState(rows,captured){
-  const byPid=index(rows);if(!Array.isArray(captured)||!captured.length)fail();
+function capturedIdentities(captured){
+  if(!Array.isArray(captured)||!captured.length)fail('CAPTURE_INVALID');
   const unique=new Map();for(const row of captured){
     const value=identity(row),key=value.ProcessId+':'+value.CreationUtcTicks,previous=unique.get(key);
-    if(previous&&(previous.ExecutablePath!==value.ExecutablePath||previous.ParentProcessId!==value.ParentProcessId))fail();
+    if(previous&&(previous.ExecutablePath!==value.ExecutablePath||previous.ParentProcessId!==value.ParentProcessId))fail('CAPTURE_CONTRADICTION');
     unique.set(key,value);
   }
-  const result={tracked:unique.size,surviving:0,reused:0,gone:0};
+  return unique;
+}
+function evaluate(rows,captured,allowUnknown){
+  // Captured evidence must be complete and coherent even when a new CIM query
+  // is incomplete. Retrying a live observation cannot hide a corrupt capture.
+  const unique=capturedIdentities(captured),byPid=index(rows);
+  const result={tracked:unique.size,surviving:0,reused:0,gone:0},reasons=new Set();let unknown=0;
   for(const old of unique.values()){
     const row=byPid.get(old.ProcessId);if(!row){result.gone++;continue;}
-    const current=identity(row);
+    let current;
+    try{current=identity(row);}catch(error){
+      const reason=identityReason(error);
+      if(!allowUnknown||!['IMAGE_MISSING','CREATION_MISSING'].includes(reason))throw error;
+      // Get-CimInstance is not atomic with process teardown: a still-enumerated
+      // PID can temporarily have null fields. It is UNKNOWN, never gone/reused.
+      unknown++;reasons.add(reason);continue;
+    }
     if(current.CreationUtcTicks!==old.CreationUtcTicks){
-      if(BigInt(current.CreationUtcTicks)<BigInt(old.CreationUtcTicks))fail();
+      if(BigInt(current.CreationUtcTicks)<BigInt(old.CreationUtcTicks))fail('CREATION_BACKWARDS');
       result.reused++;continue;
     }
-    if(current.ExecutablePath!==old.ExecutablePath||current.ParentProcessId!==old.ParentProcessId)fail();
+    if(current.ExecutablePath!==old.ExecutablePath||current.ParentProcessId!==old.ParentProcessId)fail('LIVE_CONTRADICTION');
     result.surviving++;
   }
-  return Object.freeze(result); // Bounded counts only: no paths, IDs or private capabilities in diagnostics.
+  if(allowUnknown){result.unknown=unknown;result.reasons=Object.freeze([...reasons].sort());}
+  return Object.freeze(result); // Fixed counts/reasons only; no IDs, paths or private capabilities.
 }
-module.exports={PROCESS_QUERY,processTable,descendants,treeState};
+function treeState(rows,captured){return evaluate(rows,captured,false);}
+// This function does not retry or own a timer. Callers retain their original
+// cleanup deadline and require BOTH surviving===0 and unknown===0 to pass.
+function observeTree(rows,captured){return evaluate(rows,captured,true);}
+module.exports={PROCESS_QUERY,processTable,descendants,treeState,observeTree,identityReason};

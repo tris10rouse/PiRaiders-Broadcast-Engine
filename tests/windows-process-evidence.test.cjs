@@ -3,7 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
-const {processTable,descendants,treeState}=require('../scripts/windows-process-evidence.cjs');
+const {processTable,descendants,treeState,observeTree,identityReason}=require('../scripts/windows-process-evidence.cjs');
 const stamp=638987654321000000n & ~127n;
 function row(pid,parent,offset=pid,image='C:\\proof\\child.exe'){return{ProcessId:pid,ParentProcessId:parent,CreationUtcTicks:String(stamp+BigInt(offset)),ExecutablePath:image};}
 const root=row(10,1,0,'C:\\proof\\host.exe');
@@ -47,6 +47,35 @@ test('contradictory captured generation or live ancestry cannot be silently over
     assert.throws(()=>treeState([changed],captured),{message:'PROCESS_IDENTITY_UNVERIFIED'});
   }
 });
+test('incomplete fresh CIM fields remain unknown until a later complete observation proves disappearance',()=>{
+  const child=row(20,10,1),captured=descendants([root,child],10);
+  for(const missing of [{...child,ExecutablePath:null},{...child,CreationUtcTicks:null},{...child,ExecutablePath:undefined},{...child,CreationUtcTicks:''}]){
+    const state=observeTree([missing],captured);
+    assert.equal(state.unknown,1);assert.equal(state.gone,1);assert.equal(state.reused,0);assert.equal(state.surviving,0);
+    assert.equal(state.tracked,state.unknown+state.gone+state.reused+state.surviving);
+    assert.ok(['IMAGE_MISSING','CREATION_MISSING'].includes(state.reasons[0]));assert.ok(Object.isFrozen(state)&&Object.isFrozen(state.reasons));
+    assert.equal(observeTree([child],captured).surviving,1,'complete same generation is still alive');
+    assert.equal(observeTree([],captured).unknown,0);assert.equal(observeTree([],captured).gone,2);
+    assert.equal(observeTree([row(20,99,2)],captured).reused,1);
+  }
+});
+test('live observation retries cannot mask captured corruption or known contradictions',()=>{
+  const child=row(20,10,1),captured=descendants([root,child],10),incomplete=[{...child,ExecutablePath:null}];
+  for(const bad of [[{...child,CreationUtcTicks:null}],captured.concat({...child,ParentProcessId:99})])assert.throws(()=>observeTree(incomplete,bad),error=>identityReason(error)!==null);
+  for(const bad of [[{...child,ExecutablePath:'relative.exe'}],[{...child,CreationUtcTicks:'invalid'}],[{...child,ParentProcessId:99}],[row(20,10,0)],[child,child]])assert.throws(()=>observeTree(bad,captured),error=>identityReason(error)!==null);
+  assert.equal(identityReason(new Error('PRIVATE raw query contents')),null);
+});
+test('sustained unknown observation cannot pass a bounded polling deadline',async()=>{
+  const captured=descendants([root,row(20,10,1)],10),observations=[{...row(20,10,1),ExecutablePath:null}];let polls=0,last;
+  async function boundedCheck(){const deadline=Date.now()+35;do{polls++;last=observeTree(observations,captured);if(last.surviving===0&&last.unknown===0)return;await wait(5);}while(Date.now()<deadline);throw Error('CLEANUP_DEADLINE');}
+  await assert.rejects(boundedCheck(),/CLEANUP_DEADLINE/);assert.ok(polls>=1);assert.equal(last.unknown,1);assert.equal(last.gone,1);
+});
+test('failure diagnostics distinguish missing, malformed and contradictory evidence without row contents',()=>{
+  const captured=descendants([root,row(20,10,1)],10);
+  for(const [rows,reason]of [[[{...row(20,10,1),ExecutablePath:null}],'IMAGE_MISSING'],[[{...row(20,10,1),CreationUtcTicks:null}],'CREATION_MISSING'],[[{...row(20,10,1),ExecutablePath:'private-relative.exe'}],'IMAGE_INVALID'],[[{...row(20,10,1),ParentProcessId:99}],'LIVE_CONTRADICTION']]){
+    assert.throws(()=>treeState(rows,captured),error=>error.message==='PROCESS_IDENTITY_UNVERIFIED'&&identityReason(error)===reason);
+  }
+});
 test('same Windows image case/slash aliases preserve generation identity',()=>{
   const captured=descendants([root,row(20,10,1,'C:/Proof/CHILD.exe')],10);
   assert.equal(treeState([row(20,10,1,'c:\\proof\\child.exe')],captured).surviving,1);
@@ -60,6 +89,6 @@ test('real Windows enumeration identifies a live child and proves its exit by ge
   assert.ok(captured.some(value=>value.ProcessId===child.pid));assert.equal(treeState(processTable(),captured).surviving,captured.length);
   child.kill();await exited;
   const deadline=Date.now()+10000;let remaining;
-  do{remaining=treeState(processTable(),captured).surviving;if(!remaining)break;await wait(100);}while(Date.now()<deadline);
+  do{const state=observeTree(processTable(),captured);remaining=state.surviving+state.unknown;if(!remaining)break;await wait(100);}while(Date.now()<deadline);
   assert.equal(remaining,0);
 });

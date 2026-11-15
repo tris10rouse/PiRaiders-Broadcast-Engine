@@ -90,7 +90,10 @@ test('exhausted restart budget exposes a terminal fixed fault instead of an inde
  const f=await fixture(t),app=f.create({supervisorOptions:{maxRestarts:0}}),faults=[];app.on('fault',value=>faults.push(value));await app.start({browser:false});f.children[0].kill();await until(()=>app.snapshot().state==='faulted');assert.deepEqual(faults,[{code:'APP_PROCESS_FAILED'}]);assert.equal(f.calls.length,1);assert.equal(app.snapshot().lastError,'SPX_PROCESS_FAULT');await app.close();
 });
 test('ready observer invalidates an old generation before browser authorization',async t=>{
- const f=await fixture(t),app=f.create({supervisorOptions:{restartDelayMs:20,maxRestarts:1}});
+ // Real Node generation-admission test with an explicitly injected non-tree
+ // termination boundary. Native cleanup failure/retry and actual JobHost cases
+ // remain separate; taskkill must not race this already-killed stand-in.
+ const f=await fixture(t),app=f.create({platform:'linux',supervisorOptions:{restartDelayMs:20,maxRestarts:1}});
  let observed=0;app.on('status',value=>{if(value.event==='ready'&&!observed++){f.children[0].kill();}});
  await assert.rejects(app.start(),{code:'APP_IDENTITY_STALE'});assert.equal(observed,1);assert.equal(f.opened.length,0);assert.equal(app.snapshot().browserOpened,false);assert.equal(app.snapshot().closed,true);await wait(40);assert.equal(f.calls.length,1,'stale startup cancels queued restart');
 });

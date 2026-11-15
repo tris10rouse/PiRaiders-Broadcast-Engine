@@ -8,7 +8,7 @@ const {execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
-const {processTable:table,descendants,treeState}=require('./windows-process-evidence.cjs');
+const {processTable:table,descendants,observeTree,identityReason}=require('./windows-process-evidence.cjs');
 const {configuration,checkPixels}=require('./smoke-caspar-windows.cjs');
 const {spawnSupervisedProcess}=require('./lib/windows-job-process.cjs');
 const {CasparConsole}=require('./lib/caspar-console.cjs');
@@ -30,8 +30,8 @@ function image(rgb){const data=Buffer.alloc(160*90*4);for(let i=0;i<data.length;
 async function filesUnder(dir){const out=[];for(const e of await fs.readdir(dir,{withFileTypes:true})){const f=path.join(dir,e.name);if(e.isDirectory())out.push(...await filesUnder(f));else if(e.isFile())out.push(f);}return out;}
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
-  let processEvidence=null;const processChecks={};
-  function treeGone(captured){processEvidence=treeState(table(),captured);processChecks[phase]=processEvidence;return processEvidence.surviving===0;}
+  let processEvidence=null;const processChecks={},processUnknownObservations={};
+  function treeGone(captured){processEvidence=observeTree(table(),captured);processChecks[phase]=processEvidence;if(processEvidence.unknown)processUnknownObservations[phase]=(processUnknownObservations[phase]||0)+1;return processEvidence.surviving===0&&processEvidence.unknown===0;}
   const root=path.resolve(process.argv[2]||path.join('build','caspar-proof-tools'));
   const tools=JSON.parse(await fs.readFile(path.join(root,'tools.json'),'utf8')),bin=tools.casparDirectory;
   const evidence=path.resolve('build','caspar-console-evidence');await fs.rm(evidence,{recursive:true,force:true});await fs.mkdir(evidence,{recursive:true});
@@ -71,8 +71,8 @@ async function main(){
     await request('PLAY 1-10 [HTML] "'+session.getProgramURL()+'"');await until(()=>session.snapshot().presentation.renderer.ready,'RESTART_CEF',60000);assert.notEqual(session.snapshot().presentation.renderer.epoch,oldEpoch);assert.equal(session.snapshot().presentation.controller.state,'stopped');await capture('restart-black',[0,0,0]);await command(port,'GPI 1',{prefix:'OK ',timeoutMs:30000});await capture('restart-launch-red',[240,20,20]);
     phase='WINDOW_END';const ending=descendants(table(),activeHost.pid);now=end;await runtime.reconcile();assert.equal(runtime.sender,null);await until(()=>treeGone(ending),'WINDOW_TREE',10000);
     for(const file of await filesUnder(bin))if(/\.(?:log|txt|json|config)$/i.test(file)){if((await fs.stat(file)).size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');const b=await fs.readFile(file);if(b.includes(Buffer.from(token))||b.includes(Buffer.from(token,'utf16le')))throw Error('PRIVATE_URL_PERSISTED');}
-    report={event:'caspar-private-console-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance:tools.provenance,actualConsoleAMCP:true,utf16Input:true,correlatedStatus:true,emptyTcpControllers:true,listenerEnumerationPositiveControl:true,noOwnedRootTcpListenerBeforeAndAfterRestart:true,actualManagedCEF:true,fullFrameOpaqueBlackVerified:true,actualMixedImages:captures,realRossTalk:true,rootCrashRecovery:true,freshStoppedEpoch:true,windowEndTreeGone:true,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
-  }catch(error){console.error(JSON.stringify({event:'caspar-console-fixed-failure',phase,processEvidence,processChecks,code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',captures}));throw Error('CONSOLE_PROOF_FAILED');}
+    report={event:'caspar-private-console-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance:tools.provenance,actualConsoleAMCP:true,utf16Input:true,correlatedStatus:true,emptyTcpControllers:true,listenerEnumerationPositiveControl:true,noOwnedRootTcpListenerBeforeAndAfterRestart:true,actualManagedCEF:true,fullFrameOpaqueBlackVerified:true,actualMixedImages:captures,realRossTalk:true,rootCrashRecovery:true,freshStoppedEpoch:true,windowEndTreeGone:true,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
+  }catch(error){console.error(JSON.stringify({event:'caspar-console-fixed-failure',phase,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',captures}));throw Error('CONSOLE_PROOF_FAILED');}
   finally{const results=await Promise.allSettled([runtime?.close(),session?.close()]);for(const client of clients)client.close();for(const child of hosts)child.stdin?.end();if(listenerProbe.listening)await new Promise((resolve,reject)=>listenerProbe.close(error=>error?reject(error):resolve()));if(results.some(r=>r.status==='rejected'))throw Error('CONSOLE_PROOF_CLEANUP');}
   await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }

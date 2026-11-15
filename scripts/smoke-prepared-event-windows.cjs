@@ -11,7 +11,7 @@ const {spawn,execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
-const {processTable:table,descendants,treeState}=require('./windows-process-evidence.cjs');
+const {processTable:table,descendants,observeTree,identityReason}=require('./windows-process-evidence.cjs');
 const appRoot=path.resolve(__dirname,'..');
 const {createPreparedEventRuntime}=require(path.join(appRoot,'scripts/lib/prepared-event-runtime.cjs'));
 const {spawnSupervisedProcess,JOB_HOST}=require(path.join(appRoot,'scripts/lib/windows-job-process.cjs'));
@@ -27,8 +27,8 @@ function image(rgb){const data=Buffer.alloc(160*90*4);for(let i=0;i<data.length;
 async function filesUnder(dir){const all=[];let entries;try{entries=await fs.readdir(dir,{withFileTypes:true});}catch(error){if(error.code==='ENOENT')return all;throw error;}for(const entry of entries){const file=path.join(dir,entry.name);if(entry.isDirectory())all.push(...await filesUnder(file));else if(entry.isFile())all.push(file);}return all;}
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
-  let processEvidence=null;const processChecks={};
-  function treeGone(captured){processEvidence=treeState(table(),captured);processChecks[phase]=processEvidence;return processEvidence.surviving===0;}
+  let processEvidence=null;const processChecks={},processUnknownObservations={};
+  function treeGone(captured){processEvidence=observeTree(table(),captured);processChecks[phase]=processEvidence;if(processEvidence.unknown)processUnknownObservations[phase]=(processUnknownObservations[phase]||0)+1;return processEvidence.surviving===0&&processEvidence.unknown===0;}
   const root=path.resolve(process.argv[2]||path.join(appRoot,'build','caspar-proof-tools'));
   const evidence=path.resolve(appRoot,'build','prepared-event-proof-evidence');await fs.rm(evidence,{recursive:true,force:true});await fs.mkdir(evidence,{recursive:true});
   const tools=JSON.parse(await fs.readFile(path.join(root,'tools.json'),'utf8'));
@@ -182,7 +182,7 @@ async function main(){
     const closeDurationMs=Date.now()-closeStarted;assert.ok(!ending.released,'CLOSED_BEFORE_PREPARATION_SETTLEMENT');assert.equal(runtime.snapshot().closed,true);const afterCloseSpawnCount=spawnCount;
     ending.release();await until(()=>!runtime.snapshot().preparing,'PREPARATION_RELEASED',10000);await wait(300);assert.equal(spawnCount,afterCloseSpawnCount,'LATE_PREPARATION_RESTARTED_SERVICE');assert.equal(runtime.snapshot().deckId,accepted,'LATE_PREPARATION_PROMOTED_DECK');
     const lateQuiet=await probe.request('quiet',{durationMs:1500,timeoutMs:20000},25000);assert.equal(lateQuiet.connections,0);
-    report={event:'prepared-event-private-ndi-windows-proof-passed',processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,
+    report={event:'prepared-event-private-ndi-windows-proof-passed',processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,
       casparProvenance:tools.provenance,ndiProvenance:ndi.provenance,runtimeVersion:probe.info.runtimeVersion,
       actualPreparedEventRuntime:true,localManualProvider:true,actualMediaCaptureDecode:true,actualCasparCEF:true,
       actualPrivateConsole:true,consoleConfigValidated,consoleVersions,consolePlays,privateGenerationCount,
@@ -194,7 +194,7 @@ async function main(){
       persistentSPXStandIn:true,sameMachineOnly:true,lanTransportTested:false,windows10Tested:false,stadiumHardwareTested:false,
       noAllRootTcpAssertion:true,privateCapabilitiesExcludedFromDiagnostics:true};
   }catch(error){
-    console.error(JSON.stringify({event:'prepared-event-proof-fixed-failure',phase,processEvidence,processChecks,code:/^[A-Z_][A-Z_0-9]{0,79}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',fixedReceiverErrors:[...fixedReceiverErrors],nativeExits,framesVerified:frameEvidence.map(value=>value.name)}));
+    console.error(JSON.stringify({event:'prepared-event-proof-fixed-failure',phase,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),code:/^[A-Z_][A-Z_0-9]{0,79}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',fixedReceiverErrors:[...fixedReceiverErrors],nativeExits,framesVerified:frameEvidence.map(value=>value.name)}));
     throw Error('PREPARED_EVENT_PROOF_FAILED');
   }finally{
     openReloadSocket?.destroy();
