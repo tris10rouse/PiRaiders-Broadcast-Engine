@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-game-day-web-2026-11-15T11:44:40.734Z-k5bx903zbk9",
-  "fence": 28,
-  "task": "BE-007 finish secure SPX-hosted Game Day interface",
+  "owner": "codex-pr28-ci-2026-11-15T17:47:53.827Z-21a09l77ovr",
+  "fence": 29,
+  "task": "BE-007 resolve final Game Day CI regressions",
   "workBranch": "feature/be-007-game-day-web",
-  "acquiredAt": "2026-11-15T11:44:40.734Z",
-  "lastHeartbeat": "2026-11-15T12:31:20.191Z",
-  "expiresAt": "2026-11-15T14:01:20.191Z",
+  "acquiredAt": "2026-11-15T17:47:53.827Z",
+  "lastHeartbeat": "2026-11-15T17:47:53.827Z",
+  "expiresAt": "2026-11-15T19:17:53.827Z",
   "releasedAt": null
 }
