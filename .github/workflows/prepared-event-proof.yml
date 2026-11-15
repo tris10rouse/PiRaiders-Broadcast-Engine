@@ -1,0 +1,57 @@
+name: Integrated prepared event Windows proof
+
+on:
+  push:
+    branches: [master, 'feature/be-006-prepared-event-runtime']
+  pull_request:
+    paths:
+      - '.github/workflows/prepared-event-proof.yml'
+      - 'scripts/**'
+      - 'native/**'
+      - 'tests/**'
+      - 'ASSETS/templates/piraiders/**'
+      - 'package*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  actual-prepared-private-ndi:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build Windows containment and SDK receiver
+        run: |
+          npm run build:windows-host
+          node scripts/build-ndi-probe.cjs
+      - name: Prepare pinned Caspar and app-local CI Mesa
+        run: node scripts/prepare-caspar-proof.cjs
+      - name: Verify and install pinned private CI-only NDI runtime
+        run: node scripts/prepare-ndi-proof.cjs
+      - name: Exercise actual prepared runtime Console and NDI with real-window failure recovery
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/smoke-prepared-event-windows.cjs
+      - name: Retain synthetic received pixels and sanitized runtime evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared-event-private-ndi-evidence
+          path: build/prepared-event-proof-evidence
+          if-no-files-found: warn
+          retention-days: 14
