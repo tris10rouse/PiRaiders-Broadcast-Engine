@@ -23,3 +23,8 @@ The blocked-owner bench retains strict generation identity, confirmed disappeara
 ## Scope and rollback
 
 No new dependency or native binary is redistributed. Reverting this increment restores the earlier JS scheduling boundary and removes the additional native policy/sampling protocol. The first evaluation release remains gated by extracted actual output, reproducible licensed component setup, source exchange import, diagnostics/preflight and soak. Same-machine Windows CI does not establish Windows10, external NDI/LAN, Daktronics, DMP or stadium compatibility.
+
+
+## Executed Windows evidence
+
+PR34 final source74608634fafe6f48f786e1f45d01a64fcc20c670 passed all nine checks and merged with identical source tree. Foundation runs43767615582/43767605695 executed all five native cases successfully (including the blocked-owner stand-ins and real cutoff reuse). Windows440/442 passes/two documented fixture skips and Chromium44/44 passed. Full-app run43767615575 received11 real NDI frame cases through the default native boundaries. Native clock-policy inputs are simulated only in the compiled policy harness; process containment/deadline tests actually execute on Windows. Actual target sleep, Windows10, extracted output and stadium hardware remain unverified.

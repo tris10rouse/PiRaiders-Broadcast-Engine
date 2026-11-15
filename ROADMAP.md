@@ -164,3 +164,8 @@ Native NDI verification is under investigation: two post-merge master attempts f
 ## Independent native event deadline increment
 
 BE-002/BE-006 acceptance and clock contract: [native event deadline](docs/design/NATIVE_EVENT_DEADLINE.md). The trusted Windows prepared-event sender retains one immutable native elapsed-time cap across sender restarts and enforces it independently of blocked SPX. Portable checks are available; actual final-SHA Windows/native/output/package checks are required before merge.
+
+
+## Verified native deadline milestone
+
+[PR34](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/34) merged9eb7a54 after final source7460863 passed all nine checks with identical tree9722e81. Windows440/442 passes(two documented skips), Chromium44/44 and all five new native tests passed; full application received11 actual NDI frame cases. Independent prepared-event deadline across sender restarts is integrated. Next: explicit renderer configuration and actual full output from the extracted ZIP, followed by source exchange/setup/preflight/soak and evaluation checklist. See CODEX_CHECKPOINT.md for exact acceptance and evidence limits.
