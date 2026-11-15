@@ -6,7 +6,7 @@
   "task": "Record verified Windows application handoff checkpoint",
   "workBranch": "docs/agent-checkpoint-2026-11-15",
   "acquiredAt": "2026-11-15T17:47:53.827Z",
-  "lastHeartbeat": "2026-11-15T20:31:12.031Z",
-  "expiresAt": "2026-11-15T22:01:12.032Z",
+  "lastHeartbeat": "2026-11-15T20:43:25.427Z",
+  "expiresAt": "2026-11-15T22:13:25.427Z",
   "releasedAt": null
 }
