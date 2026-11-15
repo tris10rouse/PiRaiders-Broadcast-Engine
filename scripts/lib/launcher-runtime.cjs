@@ -4,11 +4,14 @@ const { ProcessSupervisor } = require('./process-supervisor.cjs');
 const { normalizeWindow, senderAllowed, nextBoundary } = require('./production-window.cjs');
 const { ServiceHealthMonitor } = require('./service-health-monitor.cjs');
 
-/** Owns local processes, not NDI discovery, receiver state or board routing. */
+/** Owns local processes, not NDI discovery, receiver state or board routing.
+ * Trusted manageSpx:false leaves the application-owned SPX service untouched.
+ */
 class LauncherRuntime extends EventEmitter {
   constructor(settings, { clock = Date.now, schedule = setTimeout, cancel = clearTimeout,
-    pollMs = 1000, supervisorOptions = {}, healthOptions = {}, onSenderRetiring } = {}) {
+    pollMs = 1000, supervisorOptions = {}, healthOptions = {}, onSenderRetiring, manageSpx = true } = {}) {
     super();
+    if (typeof manageSpx !== 'boolean') throw Error('manageSpx must be a boolean');
     this.window = normalizeWindow(settings?.productionWindow);
     if (!Array.isArray(settings.services) || settings.services.length !== 2 ||
         new Set(settings.services.map(s => s.name)).size !== 2 ||
@@ -22,10 +25,11 @@ class LauncherRuntime extends EventEmitter {
     if (onSenderRetiring !== undefined && typeof onSenderRetiring !== 'function') throw Error('onSenderRetiring must be a function');
     this.onSenderRetiring = onSenderRetiring;
     Object.assign(this, { clock, schedule, cancel, pollMs, supervisorOptions });
-    this.health = new ServiceHealthMonitor(settings.services, healthOptions);
+    const ownedServices = settings.services.filter(service => manageSpx || service.name !== 'spx');
+    this.health = new ServiceHealthMonitor(ownedServices, healthOptions);
     this.health.on('status', data => this.emit('service-health', data));
     this.senderSpec = settings.services.find(s => s.name === 'casparcg');
-    this.spx = this.supervise([settings.services.find(s => s.name === 'spx')]);
+    this.spx = manageSpx ? this.supervise([settings.services.find(s => s.name === 'spx')]) : null;
     this.sender = null;
     this.closed = false;
     this.started = false;
@@ -71,7 +75,7 @@ class LauncherRuntime extends EventEmitter {
     if (this.closed) return Promise.reject(Error('Launcher is closed'));
     if (this.started) return this.reconcile();
     this.started = true;
-    this.spx.start();
+    this.spx?.start();
     return this.reconcile().finally(() => this.arm());
   }
   reconcile() {
@@ -119,8 +123,9 @@ class LauncherRuntime extends EventEmitter {
     if (this.timer !== null) this.cancel(this.timer);
     this.timer = null;
     this.closePromise = this.queue.catch(() => {}).then(async () => {
-      const results = await Promise.allSettled([this.spx.stop(), this.sender?.stop()]);
-      for (const [index, name] of ['spx', 'casparcg'].entries()) {
+      const owned = [...(this.spx ? [['spx', this.spx]] : []), ['casparcg', this.sender]];
+      const results = await Promise.allSettled(owned.map(([, supervisor]) => supervisor?.stop()));
+      for (const [index, [name]] of owned.entries()) {
         this.health.deactivate(name, results[index].status === 'fulfilled' ? 'stopped' : 'unhealthy',
           results[index].status === 'fulfilled' ? undefined : 'SHUTDOWN_FAILED');
       }

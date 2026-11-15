@@ -1,8 +1,12 @@
 # PiRaiders engineering changelog
 
+## 2026-11-15 · Persistent application ownership (in progress)
+
+- Add trusted sender-only event ownership while preserving standalone defaults. Event startup, health and shutdown omit unowned SPX, including filesystem checks at source/cached preparation and Reload. Retain sender stop failures for retry. New tests keep a real independent Node HTTP service alive through simulated event recovery, window end, close and replacement. Game Day UI/shared command admission remain planned; Windows final-head validation is required before merge.
+
 ## 2026-11-15 · Local prepared event runtime
 
-- Add strict local/manual event profiles, generated private Caspar settings and prepared-runtime orchestration. Stage before startup; preserve accepted offline content; create a fresh stopped presentation per sender generation; fence Auto and media before independent window/close/fault shutdown. Add reentrancy-safe lifecycle hooks and unit/real browser integration. Browser tests simulate OS boundaries; both integrated Windows private Console/Caspar/NDI runs received ten actual frames and verified crash recovery, offline cached content, real-clock shutdown and receiver silence. Final diagnostics expose fixed Reload failure categories while preserving accepted content. PR24 still requires final-head CI before merge; the application evaluation release remains open.
+- Add strict local/manual event profiles, generated private Caspar settings and prepared-runtime orchestration. Stage before startup; preserve accepted offline content; create a fresh stopped presentation per sender generation; fence Auto and media before independent window/close/fault shutdown. Add reentrancy-safe lifecycle hooks and unit/real browser integration. Browser tests simulate OS boundaries; both integrated Windows private Console/Caspar/NDI runs received ten actual frames and verified crash recovery, offline cached content, real-clock shutdown and receiver silence. Final diagnostics expose fixed Reload failure categories while preserving accepted content. [PR24](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/24) merged08d75c9 after all nine final-head checks passed; the application evaluation release remains open.
 
 
 ## 2026-11-15 · Private CasparCG control increment
