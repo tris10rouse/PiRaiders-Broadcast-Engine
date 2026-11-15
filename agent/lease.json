@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-finish-event-runtime-2026-11-15T06:40:19.028Z-aj5nd5g0aub",
   "fence": 27,
-  "task": "BE-007 separate persistent SPX application from event sender ownership",
-  "workBranch": "feature/be-007-sender-ownership",
+  "task": "BE-007 shared trusted desktop and RossTalk command admission",
+  "workBranch": "feature/be-007-shared-command-admission",
   "acquiredAt": "2026-11-15T06:40:19.028Z",
-  "lastHeartbeat": "2026-11-15T07:06:32.615Z",
-  "expiresAt": "2026-11-15T08:36:32.615Z",
+  "lastHeartbeat": "2026-11-15T07:07:43.413Z",
+  "expiresAt": "2026-11-15T08:37:43.413Z",
   "releasedAt": null
 }
