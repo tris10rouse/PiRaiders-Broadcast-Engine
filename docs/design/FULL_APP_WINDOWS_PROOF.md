@@ -1,6 +1,6 @@
 # Full-application Windows output proof
 
-Status: implementation prepared; actual final-commit Windows execution is required. This is a software integration proof, not an evaluation release or hardware approval.
+Status: verified twice on disposable Windows Actions at e18e4774d75eef486835822733296116f03b48e5; PR30 mergedfa62457 with identical tested tree. Runs43751326206/43751321505 each verified11 actual frames and13 captures. This is a software integration proof, not an evaluation release or hardware approval.
 
 ## Acceptance
 

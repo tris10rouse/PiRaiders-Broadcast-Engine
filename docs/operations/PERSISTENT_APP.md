@@ -1,6 +1,6 @@
 # Persistent Windows application parent
 
-This increment adds a trusted Node API and developer CLI. It is not the default packaged launcher or an evaluation release. SPX stays alive across events; event runtimes own their Caspar/private presentation/RossTalk services separately. The workstation operator uses Game Day. The Daktronics iPad operator never sees this UI.
+This increment adds a trusted Node API and developer CLI. The development ZIP packaging increment selects this entry after its final Windows extraction checks pass; it is not an evaluation release. SPX stays alive across events; event runtimes own their Caspar/private presentation/RossTalk services separately. The workstation operator uses Game Day. The Daktronics iPad operator never sees this UI.
 
 ## Acceptance
 
@@ -18,7 +18,7 @@ Run from a prepared checkout with the existing machine/catalog policy described 
 node scripts/piraiders-app.cjs C:\PiRaiders\machine\piraiders-app.json
 ```
 
-The default machine path is `<appRoot>/config/piraiders-app.json`. Optional `--no-browser` retains all startup ownership checks and leaves browser opening to the caller. Node22+ and the built Windows JobHost are required for default native activation. This entry is intentionally not yet selected by the development ZIP's existing command file; the packaging increment must explicitly include it and test the extracted artifact. Do not copy a development checkout into production.
+The default machine path is `<appRoot>/config/piraiders-app.json`. Optional `--no-browser` retains all startup ownership checks and leaves browser opening to the caller. Node22+ and the built Windows JobHost are required for default native activation. The packaging increment explicitly includes this entry and selects it from the single root CMD; its actual extracted artifact must pass final Windows CI. Legacy component CLI remains inside app/scripts. Do not copy a development checkout into production.
 
 The parent owns exactly one supervised SPX service, not a fake event sender. It supplies a fresh 32-byte secret through the owned process environment on each start. The secret never crosses HTTP or enters argv, URLs, public status or logs. Startup uses a fresh random nonce and exact bounded JSON HMAC response. This proves key possession under the owned child lifetime; it does not prove OS socket/PID enumeration, output readiness or hardware reception.
 

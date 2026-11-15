@@ -4,6 +4,12 @@ This file is the interim source of truth for actionable work items. GitHub Issue
 
 Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. Use one focused feature branch/PR per independently testable unit. Mark work complete only with test evidence and a rollback path.
 
+## Current implementation state · 2026-11-15
+
+- PR28–30 merged verified Game Day, persistent SPX ownership and actual full-application Windows output. PR30's two real runs each received11 frames, recovered offline, enforced a real window with SPX preserved and removed the nested tree on actual CLI-parent death. These are software proofs, not target hardware approval.
+- Active BE-008 increment selects the persistent entry in one development ZIP launcher and tests the actual extracted CMD/bundled Node/SPX path. Keep final Windows build/extraction checks before merge; no owner testing is requested yet.
+- Remaining evaluation gates: extracted output and reproducible licensed Mesa/NDI setup, independent native deadline under a frozen SPX, source exchange import, preflight/diagnostics, soak and precise nonproduction installation/checklist. Hardware/off-air/signing/formal release remain separate.
+
 ## Agent coordination prerequisite
 
 - [x] **BE-000 · Prevent overlapping hourly AI development sessions**: an isolated GitHub coordination branch with versioned, expiring leases, owner fencing tokens, fast-forward-only atomic ref changes, heartbeat, fail-closed behavior, agent instructions and CI unit tests. Verify actual GitHub claim/release during this PR; GitHub Actions concurrency also serializes CI for the same ref.
@@ -143,3 +149,6 @@ PR28 confirmed merged7b3f437 after tested4e1be730 passed all8 checks with identi
 
 
 PR29 merged9b93a3e after final sourcee0060b8 passed8 checks with identical tree531c203. Windows416 baseline passes/two documented skips, Chromium44/44; actual persistent SPX/JobHost ownership integration passes. Next coherent increment is actual full-application Windows output proof, documented in docs/design/FULL_APP_WINDOWS_PROOF.md; portable5/5 tests are not Windows output evidence. Packaging, independent native deadline, exchange importer and BE-008 release hardening remain open.
+
+
+PR30 mergedfa62457 after sourcee18e477 passed10 final checks with identical tree3fb1c54. Actual full-application Windows runs43751326206/43751321505 received11 NDI frames each and verified offline recovery, real window/SPX persistence and active parent-death nested cleanup. Next BE-008 increment explicitly packages the persistent entry/examples and validates the actual extracted CMD/SPX path while retaining legacy component smoke. This remains a development ZIP; extracted output, native hung-SPX deadline, source import/setup/preflight/soak and evaluation checklist remain release gates.

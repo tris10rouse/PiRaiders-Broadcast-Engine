@@ -1,0 +1,28 @@
+{
+  "general": {
+    "port": 5656,
+    "hostname": "127.0.0.1",
+    "launchBrowser": false,
+    "loglevel": "info",
+    "dataroot": "DATAROOT",
+    "logfolder": "LOG",
+    "username": "",
+    "password": "",
+    "apikey": "",
+    "langfile": "english.json",
+    "resolution": "HD",
+    "recents": [],
+    "renderer": "normal",
+    "preview": "none",
+    "templatesource": "spx-ip-address"
+  },
+  "casparcg": {
+    "servers": []
+  },
+  "osc": {
+    "enable": false
+  },
+  "globalExtras": {
+    "CustomControls": []
+  }
+}

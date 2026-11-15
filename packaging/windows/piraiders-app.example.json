@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "spxConfigFile": "config.json",
+  "catalogDirectory": "events",
+  "mediaRoot": "media",
+  "cacheRoot": "cache",
+  "runtimeRoot": "event-runtime",
+  "caspar": {
+    "executable": "C:/PiRaiders-Components/CasparCG/casparcg.exe",
+    "cwd": "C:/PiRaiders-Components/CasparCG"
+  },
+  "output": {
+    "type": "none"
+  },
+  "rossTalk": {
+    "host": "127.0.0.1",
+    "port": 7788,
+    "allowedSenders": [
+      "127.0.0.1"
+    ],
+    "commandMap": {
+      "1": "launch",
+      "2": "next",
+      "3": "previous",
+      "4": "auto",
+      "5": "reload",
+      "6": "manual",
+      "8": "stop"
+    },
+    "acknowledgements": true
+  }
+}

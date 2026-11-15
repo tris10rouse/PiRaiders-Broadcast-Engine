@@ -10,7 +10,9 @@ const SOURCE_DIRECTORIES = new Set(['routes', 'utils', 'views', 'static', 'ASSET
 const TEMPLATES = [
   ['packaging/windows/Launch-PiRaiders.cmd', 'Launch-PiRaiders.cmd'],
   ['packaging/windows/README-WINDOWS.md', 'README-WINDOWS.md'],
-  ['packaging/windows/piraiders-launcher.example.json', 'app/config/piraiders-launcher.example.json']
+  ['packaging/windows/piraiders-launcher.example.json', 'app/config/piraiders-launcher.example.json'],
+  ['packaging/windows/piraiders-app.example.json', 'app/config/piraiders-app.example.json'],
+  ['packaging/windows/spx-app.example.json', 'app/config/spx-app.example.json']
 ];
 
 function relativePath(value) {
@@ -44,7 +46,7 @@ function sensitiveSource(relative) {
 function allowedSource(relative) {
   relativePath(relative);
   if (sensitiveSource(relative)) return false;
-  if (SOURCE_ROOT_FILES.has(relative) || relative === 'scripts/piraiders-launcher.cjs') return true;
+  if (SOURCE_ROOT_FILES.has(relative) || ['scripts/piraiders-launcher.cjs', 'scripts/piraiders-app.cjs'].includes(relative)) return true;
   if (relative.startsWith('scripts/lib/')) return relative !== 'scripts/lib/agent-lease-state.mjs';
   return relative.includes('/') && SOURCE_DIRECTORIES.has(relative.split('/')[0]);
 }
@@ -171,7 +173,7 @@ function buildWindowsBundle() {
     fs.mkdirSync(path.join(bundle, 'app'), { recursive: true });
     const selected = copySourceFiles(root, path.join(bundle, 'app'), tracked);
     for (const required of ['server.js', 'package.json', 'package-lock.json', 'LICENSE.txt', 'locales/english.json',
-      'static/js/ograf_functions.js', 'scripts/piraiders-launcher.cjs']) {
+      'static/js/ograf_functions.js', 'scripts/piraiders-launcher.cjs', 'scripts/piraiders-app.cjs']) {
       if (!selected.includes(required)) throw Error('Required runtime source missing: ' + required);
     }
     for (const [source, destination] of TEMPLATES) copyFile(root, source, bundle, destination);
