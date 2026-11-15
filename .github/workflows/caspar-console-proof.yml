@@ -1,0 +1,55 @@
+name: Private Caspar console Windows proof
+
+on:
+  push:
+    branches: [master, 'feature/be-002-private-caspar-control']
+  pull_request:
+    paths:
+      - '.github/workflows/caspar-console-proof.yml'
+      - 'scripts/**'
+      - 'native/**'
+      - 'tests/**'
+      - 'ASSETS/templates/piraiders/**'
+      - 'package*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  actual-private-console:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build real Windows containment helper
+        run: npm run build:windows-host
+      - name: Verify private stdin bytes and blocked-input tree cleanup
+        run: node --test tests/windows-stdin.test.cjs
+      - name: Prepare pinned private CI-only Caspar and Mesa
+        run: node scripts/prepare-caspar-proof.cjs
+      - name: Prove private console AMCP and actual CEF mixer frames without a TCP controller
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/smoke-caspar-console-windows.cjs
+      - name: Retain only synthetic pixels and sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: caspar-private-console-evidence
+          path: build/caspar-console-evidence
+          if-no-files-found: warn
+          retention-days: 14
