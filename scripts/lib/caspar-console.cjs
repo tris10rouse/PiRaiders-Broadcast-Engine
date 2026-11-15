@@ -41,7 +41,9 @@ class CasparConsole extends EventEmitter{
       if(this.buffer.length+limit-offset>this.maxLineBytes)return this.fail('CONSOLE_LINE_LIMIT');
       this.buffer=Buffer.concat([this.buffer,bytes.subarray(offset,limit)]);
       if(end<0)return;
-      let line=this.buffer;if(line[line.length-1]===13)line=line.subarray(0,line.length-1);
+      // Windows CRT Unicode text output can expand AMCP CRLF to CRCRLF.
+      // Accept only the two documented forms; extra control bytes still fail.
+      let line=this.buffer;for(let n=0;n<2&&line[line.length-1]===13;n++)line=line.subarray(0,line.length-1);
       this.buffer=Buffer.alloc(0);offset=end+1;
       const text=line.toString('utf8');
       if(!text.startsWith('#RES '))continue;
