@@ -1,9 +1,13 @@
 # PiRaiders engineering changelog
 
-## 2026-11-15 · Persistent SPX application parent (in progress)
+## 2026-11-15 · Full application Windows output proof (in progress)
+
+- Add an actual CLI/SPX/Game Day/default nested JobHost/Caspar/NDI software proof with real browser/TCP controls, eleven SDK frame captures, offline recovery, real window boundaries and active parent-death cleanup. Preserve uncertainty as unknown until confirmed within fixed deadlines. Portable selector/privacy/birth-boundary tests pass5/5; actual Windows execution remains required. No evaluation-release claim.
+
+## 2026-11-15 · Persistent SPX application parent
 
 - Keep generation-admission fixture termination explicitly injected while retaining separate real Windows containment tests. Disposable cleanup observations treat incomplete live CIM fields as unknown, preserve strict identity validation and require confirmed disappearance within the original deadline; fixed reasons/counts aid diagnosis. Final corrected Windows results remain required.
-- Add a dedicated Windows parent API/developer CLI that preserves SPX across events, requires existing config and proves current-child startup with fresh HMAC before browser opening. Fence ready observers/restarts and late browser completion, bound startup and close, rotate secrets and retain native stop retry. Add actual SPX integration and Windows-only JobHost/parent-death tests. Package selection and full nested output proof remain separate.
+- Add a dedicated Windows parent API/developer CLI that preserves SPX across events, requires existing config and proves current-child startup with fresh HMAC before browser opening. Fence ready observers/restarts and late browser completion, bound startup and close, rotate secrets and retain native stop retry. Add actual SPX integration and Windows-only JobHost/parent-death tests. [PR29](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/29) merged9b93a3e after8 final-head checks; Windows416 baseline passes/two documented skips and44 browser tests pass. Package selection and full nested output proof remain separate.
 
 ## 2026-11-15 · SPX-hosted Game Day
 

@@ -140,3 +140,6 @@ BE-007 persistent parent increment: dedicated scripts/piraiders-app.cjs owns act
 
 
 PR28 confirmed merged7b3f437 after tested4e1be730 passed all8 checks with identical tree4fd9b0f6. Foundation43744116238/43744112460 and native43744116246/43744116250/43744116220/43744116237 all passed. Game Day HTTP/UI and generation-aware software proof are integrated; local Chromium44/44 passes. No first Windows evaluation release or target hardware compatibility follows.
+
+
+PR29 merged9b93a3e after final sourcee0060b8 passed8 checks with identical tree531c203. Windows416 baseline passes/two documented skips, Chromium44/44; actual persistent SPX/JobHost ownership integration passes. Next coherent increment is actual full-application Windows output proof, documented in docs/design/FULL_APP_WINDOWS_PROOF.md; portable5/5 tests are not Windows output evidence. Packaging, independent native deadline, exchange importer and BE-008 release hardening remain open.
