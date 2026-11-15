@@ -72,6 +72,7 @@ async function main(){
     await runtime.start();assert.equal(runtime.sender,null);
     now=start-15*60000;await runtime.reconcile();
     await until(async()=>{try{await command(port,'VERSION',{prefix:'201 ',timeoutMs:1000});return true;}catch{return false;}},'CASPAR_STARTUP',60000);
+    phase='ENUMERATE_START';
     children.push(...descendants(processTable(),activeHost.pid));
     phase='COLOR_MIXER';await command(port,'PLAY 1-10 RED');
     async function capture(name,rgb){
@@ -135,7 +136,7 @@ async function main(){
     report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:8,actualPNGAndJPEG:true,bootstrapOriginProof:bootstrapFields.originMatches?'matching-origin':'same-origin-metadata',privateCapabilityInReferrer:false,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realRossTalk:true,windowEndProcessTreeGone:true,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){
     const renderer=session?.snapshot().presentation.renderer;
-    console.error(JSON.stringify({event:'caspar-proof-fixed-diagnostic',phase,nativeExits,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',httpCounts,bootstrapFields,upgrades,nativeFlags:[...nativeFlags],renderer:renderer?{ready:renderer.ready,connected:renderer.connected,presentation:renderer.presentation,lastError:renderer.lastError}:null}));
+    console.error(JSON.stringify({event:'caspar-proof-fixed-diagnostic',phase,nativeExits,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),systemErrorCode:['ETIMEDOUT','ENOENT','EACCES','EPERM','EINVAL'].includes(error.code)?error.code:null,errorKind:error.name==='AssertionError'?'assertion':'component',code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',httpCounts,bootstrapFields,upgrades,nativeFlags:[...nativeFlags],renderer:renderer?{ready:renderer.ready,connected:renderer.connected,presentation:renderer.presentation,lastError:renderer.lastError}:null}));
     // This bounded capture stops BEFORE host construction/private URL creation.
     // It contains only disposable pre-auth startup; URLs are omitted as well.
     if(phase==='START'||phase==='COLOR_MIXER')console.error(JSON.stringify({event:'caspar-preauth-startup-diagnostic',nativeExits,startup:startup.join('').replace(/https?:\/\/[^\s<>"']+/g,'[URL omitted]')}));
