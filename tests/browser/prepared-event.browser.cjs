@@ -125,7 +125,7 @@ test('prepared runtime joins actual TCP/native browser playback, cache Reload, r
   await wire.command(4);assert.equal(f.runtime.snapshot().mode,'manual');await wait(650);assert.equal(f.runtime.snapshot().index,1,'MANUAL_MODE_HOLDS');
   const firstDeck=f.runtime.snapshot().deckId;await f.writeDeck([20,220,20]);await wire.command(5);
   const accepted=f.runtime.snapshot().deckId;assert.notEqual(accepted,firstDeck);await pixels(page,[20,220,20]);
-  await fs.writeFile(path.join(f.sourceDir,'01.png'),'corrupt candidate');await wire.command(5,false);
+  await fs.writeFile(path.join(f.sourceDir,'01.png'),'corrupt candidate');await wire.command(5,false);assert.equal(f.runtime.snapshot().lastError,'RESOLVER_FAILED','SANITIZED_RELOAD_DIAGNOSTIC');
   assert.equal(f.runtime.snapshot().deckId,accepted,'FAILED_RELOAD_LAST_GOOD');await pixels(page,[20,220,20]);
   await wire.command(8);await pixels(page,[0,0,0]);assert.equal(f.caspar().exitObserved,false,'STOP_KEEPS_SENDER');
   await fs.rm(f.sourceDir,{recursive:true});

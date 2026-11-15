@@ -1,8 +1,8 @@
 # PiRaiders engineering changelog
 
-## 2026-11-15 · Local prepared event runtime (in progress)
+## 2026-11-15 · Local prepared event runtime
 
-- Add strict local/manual event profiles, generated private Caspar settings and prepared-runtime orchestration. Stage before startup; preserve accepted offline content; create a fresh stopped presentation per sender generation; fence Auto and media before independent window/close/fault shutdown. Add reentrancy-safe lifecycle hooks and unit/real browser integration. OS boundaries are simulated in browser tests; integrated Windows Console/NDI validation is pending.
+- Add strict local/manual event profiles, generated private Caspar settings and prepared-runtime orchestration. Stage before startup; preserve accepted offline content; create a fresh stopped presentation per sender generation; fence Auto and media before independent window/close/fault shutdown. Add reentrancy-safe lifecycle hooks and unit/real browser integration. Browser tests simulate OS boundaries; both integrated Windows private Console/Caspar/NDI runs received ten actual frames and verified crash recovery, offline cached content, real-clock shutdown and receiver silence. Final diagnostics expose fixed Reload failure categories while preserving accepted content. PR24 still requires final-head CI before merge; the application evaluation release remains open.
 
 
 ## 2026-11-15 · Private CasparCG control increment

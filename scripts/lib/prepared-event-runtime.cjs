@@ -122,8 +122,8 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     return child;
   }
   launcher=new LauncherRuntime({productionWindow:profile.productionWindow,services:[{name:'spx',command:profile.spx.executable,args:profile.spx.args,cwd:profile.spx.cwd},{name:'casparcg',command:profile.caspar.executable,args:[path.join(directory,'caspar.config'),'--log-severity=disable','--disable-logging'],cwd:profile.caspar.cwd}]},{clock,schedule,cancel,supervisorOptions:{...supervisorOptions,spawnProcess:ownedSpawn},onSenderRetiring:()=>{retire();}});
-  launcher.on('fault',()=>{lastError='SERVICE_FAULT';});
-  function snapshot(){syncAccepted(current);const p=current?.session?.snapshot().presentation;return Object.freeze({eventId:profile.eventId,state,lastError,windowAllowed:launcher.allowed(),generation:stamp,ready:!!current&&gate(current),deckId:accepted.deck.id,mode:p?.controller?.mode||lastMode,index:p?.controller?.index??null,output:profile.output.type,preparing:flight!==null,closed});}
+  launcher.on('fault',value=>{if(value?.name==='spx'||!current?.ready)lastError='SERVICE_FAULT';});
+  function snapshot(){syncAccepted(current);const owned=current?.session?.snapshot(),p=owned?.presentation;return Object.freeze({eventId:profile.eventId,state,lastError:lastError||owned?.lastError||null,windowAllowed:launcher.allowed(),generation:stamp,ready:!!current&&gate(current),deckId:accepted.deck.id,mode:p?.controller?.mode||lastMode,index:p?.controller?.index??null,output:profile.output.type,preparing:flight!==null,closed});}
   function close(){
     if(closePromise)return closePromise;
     let resolveClose,rejectClose;
