@@ -6,7 +6,7 @@
   "task": "BE-006 verify and finish prepared event runtime PR24",
   "workBranch": "feature/be-006-prepared-event-runtime",
   "acquiredAt": "2026-11-15T06:40:19.028Z",
-  "lastHeartbeat": "2026-11-15T06:40:19.028Z",
-  "expiresAt": "2026-11-15T08:10:19.028Z",
+  "lastHeartbeat": "2026-11-15T06:45:35.206Z",
+  "expiresAt": "2026-11-15T08:15:35.206Z",
   "releasedAt": null
 }
