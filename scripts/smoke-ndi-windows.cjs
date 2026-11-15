@@ -10,7 +10,7 @@ const {spawn,execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
-const {processTable:table,descendants,treeState}=require('./windows-process-evidence.cjs');
+const {processTable:table,descendants,observeTree,identityReason}=require('./windows-process-evidence.cjs');
 const {configuration,command}=require('./smoke-caspar-windows.cjs');
 const {requestProbe}=require('./ndi-proof-client.cjs');
 const {JOB_HOST}=require('./lib/windows-job-process.cjs');
@@ -30,8 +30,8 @@ function image(rgb){const data=Buffer.alloc(160*90*4);for(let i=0;i<data.length;
 async function filesUnder(dir){const all=[];for(const entry of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,entry.name);if(entry.isDirectory())all.push(...await filesUnder(file));else if(entry.isFile())all.push(file);}return all;}
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
-  let processEvidence=null;const processChecks={};
-  function treeGone(captured){processEvidence=treeState(table(),captured);processChecks[phase]=processEvidence;return processEvidence.surviving===0;}
+  let processEvidence=null;const processChecks={},processUnknownObservations={};
+  function treeGone(captured){processEvidence=observeTree(table(),captured);processChecks[phase]=processEvidence;if(processEvidence.unknown)processUnknownObservations[phase]=(processUnknownObservations[phase]||0)+1;return processEvidence.surviving===0&&processEvidence.unknown===0;}
   const root=path.resolve(process.argv[2]||path.join('build','caspar-proof-tools'));
   const evidence=path.resolve('build','ndi-proof-evidence');await fs.rm(evidence,{recursive:true,force:true});await fs.mkdir(evidence,{recursive:true});
   const tools=JSON.parse(await fs.readFile(path.join(root,'tools.json'),'utf8'));
@@ -168,9 +168,9 @@ async function main(){
       const stat=await fs.stat(file);if(stat.size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');
       const bytes=await fs.readFile(file);if(bytes.includes(Buffer.from(programToken))||bytes.includes(Buffer.from(programToken,'utf16le')))throw Error('PRIVATE_URL_PERSISTED');
     }
-    report={event:'real-ndi-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:tools.provenance,ndiProvenance:ndi.provenance,runtimeVersion:probe.info.runtimeVersion,actualNdiSdkReceiver:true,actualNdiConsumer:true,sourceIdentityStable:true,sourceIdentityHash:expectedIdentity,frameEvidence,missingRuntimeRejected:true,actualPNGAndJPEG:true,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realWallClockWindow:window,processStoppedAt,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,quietAfterDrain:{connections:quiet.connections,durationMs:quiet.quietDurationMs,drainedFrames:quiet.drainedFrames},persistentSPXStandIn:true,sameMachineOnly:true,lanTransportTested:false,windows10Tested:false,stadiumHardwareTested:false};
+    report={event:'real-ndi-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:tools.provenance,ndiProvenance:ndi.provenance,runtimeVersion:probe.info.runtimeVersion,actualNdiSdkReceiver:true,actualNdiConsumer:true,sourceIdentityStable:true,sourceIdentityHash:expectedIdentity,frameEvidence,missingRuntimeRejected:true,actualPNGAndJPEG:true,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realWallClockWindow:window,processStoppedAt,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,quietAfterDrain:{connections:quiet.connections,durationMs:quiet.quietDurationMs,drainedFrames:quiet.drainedFrames},persistentSPXStandIn:true,sameMachineOnly:true,lanTransportTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){
-    console.error(JSON.stringify({event:'ndi-proof-fixed-diagnostic',phase,processEvidence,processChecks,code:/^[A-Z_][A-Z_0-9]{0,79}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',fixedReceiverErrors:[...fixedReceiverErrors],nativeExits,framesVerified:frameEvidence.map(f=>f.name)}));
+    console.error(JSON.stringify({event:'ndi-proof-fixed-diagnostic',phase,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),code:/^[A-Z_][A-Z_0-9]{0,79}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',fixedReceiverErrors:[...fixedReceiverErrors],nativeExits,framesVerified:frameEvidence.map(f=>f.name)}));
     if(phase==='START')console.error(JSON.stringify({event:'ndi-preauth-caspar-startup',text:casparStartup.replace(/https?:\/\/[^\s<>"']+/g,'[URL omitted]')}));
     throw Error('NDI_PROOF_FAILED_'+phase);
   }finally{
