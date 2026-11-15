@@ -117,3 +117,7 @@ PR21 is merged: actual Caspar/CEF mixed pixels and crash recovery passed Windows
 ## Private process control · 2026-11-15
 
 Current BE-002 increment adds opt-in bounded native stdin forwarding and correlated private Console AMCP, with explicit empty TCP controllers. It preserves default NUL behavior and SPX. Real Windows containment/Console/CEF acceptance is in [PRIVATE_CASPAR_CONTROL.md](docs/design/PRIVATE_CASPAR_CONTROL.md); both implementation Windows runs passed native input/failure cleanup and actual private Console/CEF output; final documentation-head CI remains required before merge. This is a prerequisite to PreparedEventRuntime and does not activate the default launcher.
+
+## Local event runtime integration · 2026-11-15
+
+BE-006 now has an opt-in strict local/manual profile and prepared-runtime implementation: actual validated immutable snapshots before binds/spawns, private Console bootstrapping, fresh stopped sessions on sender restart, accepted-deck retention and synchronous epoch/Auto fencing before independent native stop. Default SPX launcher and external Caspar settings are preserved. Unit and real TCP/Chromium integration run locally; integrated Windows Console+NDI proof and final CI remain pending. Game Day UI/source-provider/release integration remains open.

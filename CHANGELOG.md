@@ -1,5 +1,10 @@
 # PiRaiders engineering changelog
 
+## 2026-11-15 · Local prepared event runtime (in progress)
+
+- Add strict local/manual event profiles, generated private Caspar settings and prepared-runtime orchestration. Stage before startup; preserve accepted offline content; create a fresh stopped presentation per sender generation; fence Auto and media before independent window/close/fault shutdown. Add reentrancy-safe lifecycle hooks and unit/real browser integration. OS boundaries are simulated in browser tests; integrated Windows Console/NDI validation is pending.
+
+
 ## 2026-11-15 · Private CasparCG control increment
 
 - Add opt-in bounded Windows stdin forwarding with independent EOF detection and a correlated Console AMCP adapter that captures native output privately. Add blocked-input/descendant-cleanup tests and a dedicated actual Caspar/CEF Windows proof. Defaults remain NUL. Both implementation Windows runs passed all seven native cases and seven actual Console/CEF captures, positive-controlled root listener absence, full-frame Stop black and crash recovery. [PR23](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/23) requires passing final-head checks before merge.

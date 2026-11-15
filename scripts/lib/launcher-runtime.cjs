@@ -7,7 +7,7 @@ const { ServiceHealthMonitor } = require('./service-health-monitor.cjs');
 /** Owns local processes, not NDI discovery, receiver state or board routing. */
 class LauncherRuntime extends EventEmitter {
   constructor(settings, { clock = Date.now, schedule = setTimeout, cancel = clearTimeout,
-    pollMs = 1000, supervisorOptions = {}, healthOptions = {} } = {}) {
+    pollMs = 1000, supervisorOptions = {}, healthOptions = {}, onSenderRetiring } = {}) {
     super();
     this.window = normalizeWindow(settings?.productionWindow);
     if (!Array.isArray(settings.services) || settings.services.length !== 2 ||
@@ -19,6 +19,8 @@ class LauncherRuntime extends EventEmitter {
       if (typeof service.command !== 'string' || !service.command || !Array.isArray(service.args) || !service.args.every(arg => typeof arg === 'string')) throw Error('Invalid service specification');
     }
     if (!Number.isInteger(pollMs) || pollMs < 1 || pollMs > 1000) throw Error('pollMs must be 1 through 1000');
+    if (onSenderRetiring !== undefined && typeof onSenderRetiring !== 'function') throw Error('onSenderRetiring must be a function');
+    this.onSenderRetiring = onSenderRetiring;
     Object.assign(this, { clock, schedule, cancel, pollMs, supervisorOptions });
     this.health = new ServiceHealthMonitor(settings.services, healthOptions);
     this.health.on('status', data => this.emit('service-health', data));
@@ -33,13 +35,15 @@ class LauncherRuntime extends EventEmitter {
   }
   allowed() { return !this.closed && senderAllowed(this.window, this.clock()); }
   supervise(specs, canStart = () => !this.closed) {
-    const supervisor = new ProcessSupervisor(specs, { ...this.supervisorOptions, canStart });
+    const supervisor = new ProcessSupervisor(specs, { ...this.supervisorOptions, canStart,
+      onStopping: () => this.retireSender(supervisor, 'stopping') });
     for (const event of ['starting', 'started', 'exited', 'restarting', 'inhibited', 'fault']) {
       supervisor.on(event, data => {
         // A confirmed stop can precede the old host's JS exit callback. Old
         // sender events must never invalidate a replacement's health generation.
         const current = data.name === 'spx' ? this.spx : this.sender;
         if (current === supervisor) {
+          if (['exited', 'fault', 'inhibited'].includes(event)) this.retireSender(supervisor, event);
           if (event === 'starting') this.health.deactivate(data.name, 'starting');
           if (event === 'started') this.health.activate(data.name, data.pid);
           if (event === 'exited') this.health.deactivate(data.name, 'stopped', 'PROCESS_EXITED');
@@ -49,6 +53,19 @@ class LauncherRuntime extends EventEmitter {
       });
     }
     return supervisor;
+  }
+  retireSender(supervisor, reason) {
+    if (!supervisor || supervisor !== this.sender || !this.onSenderRetiring) return;
+    const failed = () => {
+      // Fixed diagnostics only; even a throwing observer cannot impede shutdown.
+      try { this.emit('fault', { name: 'casparcg', error: 'SENDER_RETIRING_HOOK_FAILED' }); } catch {}
+    };
+    try {
+      const result = this.onSenderRetiring(Object.freeze({ reason }));
+      if (result && typeof result.then === 'function') {
+        failed(); Promise.resolve(result).catch(() => {});
+      }
+    } catch { failed(); }
   }
   start() {
     if (this.closed) return Promise.reject(Error('Launcher is closed'));
@@ -99,7 +116,6 @@ class LauncherRuntime extends EventEmitter {
   close() {
     if (this.closePromise) return this.closePromise;
     this.closed = true;
-    this.health.close();
     if (this.timer !== null) this.cancel(this.timer);
     this.timer = null;
     this.closePromise = this.queue.catch(() => {}).then(async () => {
@@ -116,6 +132,9 @@ class LauncherRuntime extends EventEmitter {
       this.sender = null;
     });
     this.queue = this.closePromise;
+    // Reserve the queued shutdown promise before synchronous retirement observers.
+    this.retireSender(this.sender, 'closing');
+    this.health.close();
     return this.closePromise;
   }
 }

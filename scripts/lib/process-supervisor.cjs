@@ -4,12 +4,13 @@ const { execFile } = require('node:child_process');
 const { spawnSupervisedProcess } = require('./windows-job-process.cjs');
 const { terminateProcessTree } = require('./windows-process-tree.cjs');
 class ProcessSupervisor extends EventEmitter {
-  constructor(specs, { spawnProcess, schedule = setTimeout, cancel = clearTimeout, restartDelayMs = 1500, maxRestarts = 3, windowMs = 60000, platform = process.platform, execFileProcess = execFile, canStart = () => true } = {}) {
+  constructor(specs, { spawnProcess, schedule = setTimeout, cancel = clearTimeout, restartDelayMs = 1500, maxRestarts = 3, windowMs = 60000, platform = process.platform, execFileProcess = execFile, canStart = () => true, onStopping } = {}) {
     super();
     if (!Array.isArray(specs) || !specs.length || new Set(specs.map(s => s.name)).size !== specs.length) throw Error('Invalid/duplicate services');
     for (const s of specs) if (!s.name || !s.command || !Array.isArray(s.args) || !s.args.every(a => typeof a === 'string')) throw Error('Invalid service specification');
+    if (onStopping !== undefined && typeof onStopping !== 'function') throw Error('onStopping must be a function');
     const spawnService = spawnProcess || ((command, args, options) => spawnSupervisedProcess(command, args, options, { platform }));
-    Object.assign(this, { specs, spawnProcess: spawnService, schedule, cancel, restartDelayMs, maxRestarts, windowMs, platform, execFileProcess, canStart });
+    Object.assign(this, { specs, spawnProcess: spawnService, schedule, cancel, restartDelayMs, maxRestarts, windowMs, platform, execFileProcess, canStart, onStopping });
     this.children = new Map(); this.timers = new Map(); this.failures = new Map(); this.stopping = false; this.inhibited = new Set();
   }
   start() { if (this.stopping) throw Error('Stopping'); for (const spec of this.specs) this.launch(spec); }
@@ -56,9 +57,23 @@ class ProcessSupervisor extends EventEmitter {
   }
   stop() {
     if (this.stopPromise) return this.stopPromise;
+    let resolveStop, rejectStop;
+    const stopping = new Promise((resolve, reject) => { resolveStop = resolve; rejectStop = reject; });
+    // Reserve admission before callbacks: observers can synchronously retry stop.
+    this.stopPromise = stopping;
     this.stopping = true;
     for (const timer of this.timers.values()) this.cancel(timer);
     this.timers.clear();
+    // Synchronous invalidation only: user callbacks must never gate native kill.
+    if (this.onStopping) {
+      const failed = () => { try { this.emit('fault', { name: this.specs[0].name, error: 'STOPPING_HOOK_FAILED' }); } catch {} };
+      try {
+        const result = this.onStopping();
+        if (result && typeof result.then === 'function') {
+          failed(); Promise.resolve(result).catch(() => {});
+        }
+      } catch { failed(); }
+    }
     const pending = [...this.children.entries()].map(async ([name, child]) => {
       try {
         await terminateProcessTree(child, { platform: this.platform, execFileProcess: this.execFileProcess });
@@ -68,15 +83,17 @@ class ProcessSupervisor extends EventEmitter {
         throw error;
       }
     });
-    this.stopPromise = Promise.allSettled(pending).then(results => {
+    Promise.allSettled(pending).then(results => {
       const failures = results.filter(result => result.status === 'rejected');
       if (failures.length) {
         // Keep unconfirmed children tracked and permit a later retry.
         this.stopPromise = null;
-        throw new AggregateError(failures.map(result => result.reason), 'One or more services failed to stop');
+        rejectStop(new AggregateError(failures.map(result => result.reason), 'One or more services failed to stop'));
+      } else {
+        resolveStop();
       }
     });
-    return this.stopPromise;
+    return stopping;
   }
 }
 module.exports = { ProcessSupervisor };
