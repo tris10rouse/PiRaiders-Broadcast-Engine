@@ -6,7 +6,7 @@
   "task": "BE-007 separate persistent SPX application from event sender ownership",
   "workBranch": "feature/be-007-sender-ownership",
   "acquiredAt": "2026-11-15T06:40:19.028Z",
-  "lastHeartbeat": "2026-11-15T06:58:00.891Z",
-  "expiresAt": "2026-11-15T08:28:00.891Z",
+  "lastHeartbeat": "2026-11-15T07:06:32.615Z",
+  "expiresAt": "2026-11-15T08:36:32.615Z",
   "releasedAt": null
 }
