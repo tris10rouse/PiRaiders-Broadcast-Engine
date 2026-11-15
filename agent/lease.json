@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-pr28-ci-2026-11-15T17:47:53.827Z-21a09l77ovr",
   "fence": 29,
-  "task": "BE-007 resolve final Game Day CI regressions",
-  "workBranch": "feature/be-007-game-day-web",
+  "task": "BE-007 persistent SPX application parent",
+  "workBranch": "feature/be-007-persistent-app",
   "acquiredAt": "2026-11-15T17:47:53.827Z",
-  "lastHeartbeat": "2026-11-15T18:06:23.939Z",
-  "expiresAt": "2026-11-15T19:36:23.939Z",
+  "lastHeartbeat": "2026-11-15T18:07:39.986Z",
+  "expiresAt": "2026-11-15T19:37:39.987Z",
   "releasedAt": null
 }
