@@ -1,10 +1,14 @@
 # PiRaiders engineering changelog
 
-## 2026-11-15 · SPX-hosted Game Day (in progress)
+## 2026-11-15 · Persistent SPX application parent (in progress)
+
+- Add a dedicated Windows parent API/developer CLI that preserves SPX across events, requires existing config and proves current-child startup with fresh HMAC before browser opening. Fence ready observers/restarts and late browser completion, bound startup and close, rotate secrets and retain native stop retry. Add actual SPX integration and Windows-only JobHost/parent-death tests. Package selection and full nested output proof remain separate.
+
+## 2026-11-15 · SPX-hosted Game Day
 
 - Separate missing/corrupt browser-test response budgets from the deliberately short timeout case, preserving every failure/last-good assertion and production defaults.
 - Fix wrap-prone mobile SPX navigation and retain geometry/screenshots before layout assertions. Strengthen disposable Windows cleanup evidence with PID plus exact creation ticks and image, excluding stale parent IDs and distinguishing PID reuse from true survivors; actual final Windows results remain required.
-- Add actual event preparation/playback UI and guarded SPX router with local Host/Origin/session/CSRF/CSP boundaries, precise recovery and startup-identity proof. Preserve original graphics navigation/default behavior. Fresh review resolved Stop priority, narrow-layout reachability and403 recovery; real SPX/browser tests cover validated media activation outside prewarm and corrupt replacement retention. Final CI and Windows application packaging remain open.
+- Add actual event preparation/playback UI and guarded SPX router with local Host/Origin/session/CSRF/CSP boundaries, precise recovery and startup-identity proof. Preserve original graphics navigation/default behavior. Fresh review resolved Stop priority, narrow-layout reachability and403 recovery; real SPX/browser tests cover validated media activation outside prewarm and corrupt replacement retention. [PR28](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/28) merged7b3f437 after8 final-head checks passed, including actual Caspar/Console/NDI and Windows/Ubuntu. Windows application packaging remains open.
 
 ## 2026-11-15 · Local Game Day backend
 

@@ -134,3 +134,9 @@ BE-007 actual web integration (2026-11-15): PR27 merged62e94e9 after all8 checks
 
 
 PR28 final-CI recovery (2026-11-15): Windows Foundation/private Console/NDI checks passed on a8aa4d8; Ubuntu exposed a wrapped footer target, and Caspar cleanup failed with numeric-PID-only evidence. Keep PR draft until the single-fragment mobile navigation fix and exact process-generation cleanup evidence pass all final-head checks. Generation proof preserves genuine survivor failures and fixed diagnostic counts; it changes no production containment or timeout. Full application launcher/package and exchange importer remain subsequent release gates.
+
+
+BE-007 persistent parent increment: dedicated scripts/piraiders-app.cjs owns actual SPX for application lifetime, requires unchanged existing machine/SPX config, proves a fresh owned generation before fixed-loopback browser dispatch, bounds startup/close and preserves failed native-stop retry. Acceptance and rollback are in docs/operations/PERSISTENT_APP.md. Add actual HTTP/SPX tests and native Windows close/parent-death generation evidence; final-head CI required before merge. This is not yet the ZIP command entry or a user-testable release. Full nested application output/component setup, package/install checklist, source exchange importer and BE-008 hardening remain open.
+
+
+PR28 confirmed merged7b3f437 after tested4e1be730 passed all8 checks with identical tree4fd9b0f6. Foundation43744116238/43744112460 and native43744116246/43744116250/43744116220/43744116237 all passed. Game Day HTTP/UI and generation-aware software proof are integrated; local Chromium44/44 passes. No first Windows evaluation release or target hardware compatibility follows.
