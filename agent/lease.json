@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-finish-event-runtime-2026-11-15T06:40:19.028Z-aj5nd5g0aub",
   "fence": 27,
-  "task": "BE-006 verify and finish prepared event runtime PR24",
-  "workBranch": "feature/be-006-prepared-event-runtime",
+  "task": "BE-007 separate persistent SPX application from event sender ownership",
+  "workBranch": "feature/be-007-sender-ownership",
   "acquiredAt": "2026-11-15T06:40:19.028Z",
-  "lastHeartbeat": "2026-11-15T06:52:46.619Z",
-  "expiresAt": "2026-11-15T08:22:46.619Z",
+  "lastHeartbeat": "2026-11-15T06:53:43.485Z",
+  "expiresAt": "2026-11-15T08:23:43.485Z",
   "releasedAt": null
 }
