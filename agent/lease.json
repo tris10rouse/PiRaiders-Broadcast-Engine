@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-finish-event-runtime-2026-11-15T06:40:19.028Z-aj5nd5g0aub",
   "fence": 27,
-  "task": "BE-007 shared trusted desktop and RossTalk command admission",
-  "workBranch": "feature/be-007-shared-command-admission",
+  "task": "BE-007 bounded Game Day manager and local event catalog",
+  "workBranch": "feature/be-007-game-day-backend",
   "acquiredAt": "2026-11-15T06:40:19.028Z",
-  "lastHeartbeat": "2026-11-15T07:21:40.909Z",
-  "expiresAt": "2026-11-15T08:51:40.909Z",
+  "lastHeartbeat": "2026-11-15T07:24:01.339Z",
+  "expiresAt": "2026-11-15T08:54:01.339Z",
   "releasedAt": null
 }
