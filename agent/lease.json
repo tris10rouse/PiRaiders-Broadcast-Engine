@@ -6,7 +6,7 @@
   "task": "BE-006 local event profile and prepared runtime lifecycle",
   "workBranch": "feature/be-006-prepared-event-runtime",
   "acquiredAt": "2026-11-15T00:42:17.000Z",
-  "lastHeartbeat": "2026-11-15T01:48:58.479Z",
-  "expiresAt": "2026-11-15T03:18:58.479Z",
+  "lastHeartbeat": "2026-11-15T01:58:02.294Z",
+  "expiresAt": "2026-11-15T03:28:02.294Z",
   "releasedAt": null
 }
