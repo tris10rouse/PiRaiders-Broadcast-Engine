@@ -1,0 +1,65 @@
+name: Full application Windows output proof
+
+on:
+  push:
+    branches: [master, 'feature/be-007-full-app-proof']
+  pull_request:
+    paths:
+      - '.github/workflows/full-app-proof.yml'
+      - 'server.js'
+      - 'scripts/**'
+      - 'native/**'
+      - 'tests/**'
+      - 'views/**'
+      - 'static/**'
+      - 'ASSETS/templates/piraiders/**'
+      - 'package*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  actual-full-app-private-ndi:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build actual Windows containment and SDK receiver
+        run: |
+          npm run build:windows-host
+          node scripts/build-ndi-probe.cjs
+      - name: Prepare pinned Caspar and app-local CI Mesa
+        run: node scripts/prepare-caspar-proof.cjs
+      - name: Verify and install pinned private CI-only NDI runtime
+        run: node scripts/prepare-ndi-proof.cjs
+      - name: Install pinned headless browser for actual workstation controls
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Prove actual CLI SPX Game Day and nested native output ownership
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          GALLIUM_DRIVER: llvmpipe
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          MESA_GL_VERSION_OVERRIDE: 4.5COMPAT
+        run: node scripts/smoke-full-app-windows.cjs
+      - name: Retain synthetic received pixels and sanitized application evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-app-private-ndi-evidence
+          path: build/full-app-proof-evidence
+          if-no-files-found: warn
+          retention-days: 14
