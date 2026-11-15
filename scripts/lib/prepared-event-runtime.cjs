@@ -6,7 +6,7 @@ const {preparedCasparConfig}=require('./prepared-caspar-config.cjs');
 const {stageSnapshot,loadSnapshot}=require('./media-snapshot.cjs');
 const {createRossTalkSession}=require('./rosstalk-session.cjs');
 const {LauncherRuntime}=require('./launcher-runtime.cjs');
-const {spawnSupervisedProcess}=require('./windows-job-process.cjs');
+const {spawnSupervisedProcess,createNativeWindowPolicy,WINDOW_EXPIRED_EXIT_CODE}=require('./windows-job-process.cjs');
 const {CasparConsole}=require('./caspar-console.cjs');
 function safeRoot(value){return typeof value==='string'&&value.length<=4096&&!/[\x00-\x1f\x7f]/.test(value)&&path.isAbsolute(value);}
 function safePrivateRoots(value){return Array.isArray(value)&&Object.getPrototypeOf(value)===Array.prototype&&value.length<=3&&Reflect.ownKeys(value).length===value.length+1&&Array.from({length:value.length},(_,index)=>Object.getOwnPropertyDescriptor(value,String(index))).every(item=>item&&Object.hasOwn(item,'value')&&item.enumerable&&safeRoot(item.value));}
@@ -39,19 +39,21 @@ async function paths(profile,{source=profile.media.startup.mode==='source',manag
 async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child=>new CasparConsole(child),clock=Date.now,schedule=setTimeout,cancel=clearTimeout,supervisorOptions={},stage=stageSnapshot,load=loadSnapshot,sessionFactory=createRossTalkSession,manageSpx=true,sourceRoot,privateRoots=[],canPrepare=()=>true}={}){
   if(typeof manageSpx!=='boolean'||typeof canPrepare!=='function'||(sourceRoot!==undefined&&!safeRoot(sourceRoot))||!safePrivateRoots(privateRoots)||(privateRoots.length&&sourceRoot===undefined))throw failure('EVENT_OPTIONS_INVALID');
   privateRoots=Object.freeze(privateRoots.map(value=>path.resolve(value)));
-  let profile,initial,directory;
+  let profile,initial,directory,nativeWindowPolicy;
   try{
     profile=normalizePreparedEventProfile(raw);
     if(process.platform!=='win32'&&typeof spawnProcess!=='function')throw failure('WINDOWS_REQUIRED');
     try{await paths(profile,{manageSpx,sourceRoot,privateRoots});}catch(error){throw failure(error.code==='NDI_RUNTIME_MISSING'?'NDI_RUNTIME_MISSING':'PROFILE_PATHS');}
+    // Capture native UTC/boot deadline once; sender restarts never resample it.
+    if(!spawnProcess)nativeWindowPolicy=await createNativeWindowPolicy(profile.productionWindow);
     initial=profile.media.startup.mode==='cached'?await load(profile.media.startup.snapshotDir):await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir});
     await fs.mkdir(profile.caspar.runtimeDir,{recursive:true});
     directory=await fs.mkdtemp(path.join(profile.caspar.runtimeDir,'event-'));
     for(const child of ['media','log','data','template'])await fs.mkdir(path.join(directory,child));
     await fs.writeFile(path.join(directory,'caspar.config'),preparedCasparConfig(profile,directory),{flag:'wx'});
   }catch(error){if(directory)await fs.rm(directory,{recursive:true,force:true}).catch(()=>{});throw failure(['PROFILE_INVALID','PROFILE_PATHS','NDI_RUNTIME_MISSING','WINDOWS_REQUIRED'].includes(error.code)?error.code:'EVENT_PREPARE_FAILED');}
-  const spawn=spawnProcess||((exe,args,options,privateInput)=>spawnSupervisedProcess(exe,args,options,{forwardStdin:privateInput}));
-  let launcher,closed=false,started=false,startPromise,closePromise,state='prepared',lastError=null,stamp=0,current=null,standby=null;
+  const spawn=spawnProcess||((exe,args,options,privateInput)=>spawnSupervisedProcess(exe,args,options,{forwardStdin:privateInput,...(privateInput?{productionWindow:nativeWindowPolicy}:{})}));
+  let launcher,windowExpired=false,closed=false,started=false,startPromise,closePromise,state='prepared',lastError=null,stamp=0,current=null,standby=null;
   let accepted=initial,lastMode=profile.playback.mode,flight=null,candidate=null;
   const retiring=new Set(),creating=new Set();let retirementFailed=false;
   function syncAccepted(gen){
@@ -75,7 +77,7 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
       if(terminate)try{gen.console.close();}catch{try{gen.child.stdin?.end();}catch{}lastError='CONSOLE_CLOSE_FAILED';}
     }
     if(standby){const pending=standby;standby=null;try{track(pending.session.close());}catch{track(Promise.reject(failure('SESSION_CLOSE_FAILED')));}}
-    if(!closed)state='waiting';
+    if(!closed)state=windowExpired?'expired':'waiting';
   }
   async function prepare(gen,{signal}){
     syncAccepted(gen);
@@ -128,6 +130,9 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     const privateInput=exe===profile.caspar.executable;
     const child=spawn(exe,args,{...options,env:{...process.env,...(privateInput&&profile.output.type==='ndi'?{NDI_RUNTIME_DIR_V6:profile.output.runtimeDirectory}:{})}},privateInput);
     if(privateInput){
+      // Native expiry is terminal for this prepared event even if a backward
+      // wall-clock adjustment would otherwise authorize a supervisor restart.
+      child.once('exit',code=>{if(code===WINDOW_EXPIRED_EXIT_CODE&&!closed){windowExpired=true;lastError='PRODUCTION_WINDOW_EXPIRED';retire();state='expired';void launcher.reconcile().catch(()=>{lastError='EVENT_CLOSE_FAILED';});}});
       let client;try{client=consoleFactory(child);if(!client||!['request','close','on'].every(key=>typeof client[key]==='function'))throw failure('EVENT_CONSOLE_FAILED');}catch{try{child.stdin?.end();}catch{}throw failure('EVENT_CONSOLE_FAILED');}
       const gen=standby||{session:null};standby=null;Object.assign(gen,{stamp:++stamp,initial:false,child,console:client,ready:false});current=gen;state='starting';
       client.on('fault',()=>{if(current===gen){lastError='CONSOLE_FAULT';retire(true);}});
@@ -135,8 +140,8 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     }
     return child;
   }
-  launcher=new LauncherRuntime({productionWindow:profile.productionWindow,services:[{name:'spx',command:profile.spx.executable,args:profile.spx.args,cwd:profile.spx.cwd},{name:'casparcg',command:profile.caspar.executable,args:[path.join(directory,'caspar.config'),'--log-severity=disable','--disable-logging'],cwd:profile.caspar.cwd}]},{clock,schedule,cancel,manageSpx,supervisorOptions:{...supervisorOptions,spawnProcess:ownedSpawn},onSenderRetiring:()=>{retire();}});
-  launcher.on('fault',value=>{if(value?.name==='spx'||!current?.ready)lastError='SERVICE_FAULT';});
+  launcher=new LauncherRuntime({productionWindow:profile.productionWindow,services:[{name:'spx',command:profile.spx.executable,args:profile.spx.args,cwd:profile.spx.cwd},{name:'casparcg',command:profile.caspar.executable,args:[path.join(directory,'caspar.config'),'--log-severity=disable','--disable-logging'],cwd:profile.caspar.cwd}]},{clock:()=>windowExpired?NaN:clock(),schedule,cancel,manageSpx,supervisorOptions:{...supervisorOptions,spawnProcess:ownedSpawn},onSenderRetiring:()=>{retire();}});
+  launcher.on('fault',value=>{if(!windowExpired&&(value?.name==='spx'||!current?.ready))lastError='SERVICE_FAULT';});
   function snapshot(){syncAccepted(current);const owned=current?.session?.snapshot(),p=owned?.presentation;return Object.freeze({eventId:profile.eventId,state,lastError:lastError||owned?.lastError||null,windowAllowed:launcher.allowed(),generation:stamp,ready:!!current&&gate(current),deckId:accepted.deck.id,slideCount:accepted.deck.slides.length,sourceName:profile.output.type==='ndi'?profile.output.name:null,mode:p?.controller?.mode||lastMode,index:p?.controller?.index??null,output:profile.output.type,preparing:flight!==null,closed});}
   function close(){
     if(closePromise)return closePromise;
@@ -156,7 +161,7 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     if(startPromise)return startPromise;
     startPromise=(async()=>{
       const initialGen={stamp:0,initial:true,session:null,ready:false};
-      try{initialGen.session=await session(initialGen);if(closed){await initialGen.session.close();throw failure('EVENT_CLOSED');}standby=initialGen;started=true;await launcher.start();if(!current)state='waiting';}
+      try{initialGen.session=await session(initialGen);if(closed){await initialGen.session.close();throw failure('EVENT_CLOSED');}standby=initialGen;started=true;await launcher.start();if(!current)state=windowExpired?'expired':'waiting';}
       catch{lastError='EVENT_START_FAILED';await close().catch(()=>{});throw failure(lastError);}
     })();return startPromise;
   }

@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -25,6 +26,7 @@ internal static class JobHost
     private const uint WaitObject0 = 0;
     private const uint WaitTimeout = 258;
     private const int FailureExitCode = 252;
+    private const int WindowExpiredExitCode = 251;
     private static int parentGone;
 
     private static int Main(string[] args)
@@ -35,12 +37,39 @@ internal static class JobHost
         StdinForwarder forwarding = null;
         try
         {
-            bool forwardStdin = args.Length > 0 && args[0] == "--forward-stdin";
-            int targetIndex = forwardStdin ? 1 : 0;
+            // Read-only native clock protocol: no target, job or forwarding
+            // thread is created in this exact mode. Sample Tick64 before UTC.
+            if (args.Length > 0 && args[0] == "--sample-clock")
+            {
+                if (args.Length != 1) throw new ArgumentException("Invalid clock sample arguments");
+                ulong tick = GetTickCount64(); long utc = UtcMilliseconds();
+                Console.WriteLine("PIRAIDERS_CLOCK_V1 " + tick.ToString(CultureInfo.InvariantCulture) + " " + utc.ToString(CultureInfo.InvariantCulture));
+                return 0;
+            }
+            bool forwardStdin = false;
+            NativeProductionWindow window = null;
+            int targetIndex = 0;
+            while (targetIndex < args.Length && args[targetIndex].StartsWith("--", StringComparison.Ordinal))
+            {
+                if (args[targetIndex] == "--forward-stdin" && !forwardStdin)
+                { forwardStdin = true; targetIndex++; }
+                else if (args[targetIndex] == "--production-window" && window == null && targetIndex + 4 < args.Length)
+                {
+                    long begin = ParseMilliseconds(args[targetIndex + 1]), end = ParseMilliseconds(args[targetIndex + 2]);
+                    ulong anchorTick = ParseTick(args[targetIndex + 3]), deadlineTick = ParseTick(args[targetIndex + 4]);
+                    window = new NativeProductionWindow(begin, end, anchorTick, deadlineTick);
+                    targetIndex += 5;
+                }
+                else throw new ArgumentException("Invalid containment option");
+            }
             if (args.Length <= targetIndex || !IsAbsolutePath(args[targetIndex]) || !File.Exists(args[targetIndex]))
                 throw new ArgumentException("An existing absolute target executable is required");
             for (int i = 0; i < args.Length; i++)
                 if (args[i].IndexOf('\0') >= 0) throw new ArgumentException("NUL is not a valid argument");
+
+            // Optional event-only policy is immutable for this host generation.
+            // Never create/execute a target outside its admitted UTC interval.
+            if (window != null && !window.Allows(UtcMilliseconds(), GetTickCount64())) return WindowExpiredExitCode;
 
             // No SECURITY_ATTRIBUTES: this unnamed job handle is not inheritable.
             job = CreateJobObjectW(IntPtr.Zero, null);
@@ -90,6 +119,11 @@ internal static class JobHost
                 StopJobAndWait(job, (uint)FailureExitCode);
                 return FailureExitCode;
             }
+            if (window != null && !window.Allows(UtcMilliseconds(), GetTickCount64()))
+            {
+                StopJobAndWait(job, (uint)WindowExpiredExitCode);
+                return WindowExpiredExitCode;
+            }
             if (ResumeThread(process.hThread) == UInt32.MaxValue) ThrowWin32("ResumeThread");
             CloseHandle(process.hThread);
             process.hThread = IntPtr.Zero;
@@ -97,6 +131,13 @@ internal static class JobHost
 
             while (true)
             {
+                // This independent native loop runs even if the owning Node
+                // event loop is blocked while keeping its lifetime pipe open.
+                if (window != null && !window.Allows(UtcMilliseconds(), GetTickCount64()))
+                {
+                    StopJobAndWait(job, (uint)WindowExpiredExitCode);
+                    return WindowExpiredExitCode;
+                }
                 if (Interlocked.CompareExchange(ref parentGone, 0, 0) != 0)
                 {
                     StopJobAndWait(job, (uint)FailureExitCode);
@@ -139,6 +180,24 @@ internal static class JobHost
             if (forwarding != null) forwarding.Dispose();
         }
     }
+
+    private static ulong ParseTick(string value)
+    {
+        ulong parsed;
+        if (value != null && UInt64.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out parsed) && parsed <= 9007199254740991UL) return parsed;
+        throw new ArgumentException("Invalid native deadline tick");
+    }
+
+    private static long ParseMilliseconds(string value)
+    {
+        long result;
+        if (value.Length > 16 || !Int64.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out result) || result.ToString(CultureInfo.InvariantCulture) != value)
+            throw new ArgumentException("Invalid production-window milliseconds");
+        return result;
+    }
+
+    private static long UtcMilliseconds()
+    { return (DateTime.UtcNow.Ticks - 621355968000000000L) / TimeSpan.TicksPerMillisecond; }
 
     private static void WatchParent()
     {
@@ -476,6 +535,7 @@ internal static class JobHost
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool TerminateJobObject(IntPtr job, uint code);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, ExactSpelling = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool CreateProcessW(string application, StringBuilder commandLine, IntPtr processAttributes, IntPtr threadAttributes, [MarshalAs(UnmanagedType.Bool)] bool inheritHandles, uint flags, IntPtr environment, string directory, ref STARTUPINFOEX startup, out PROCESS_INFORMATION process);
+    [DllImport("kernel32.dll")] private static extern ulong GetTickCount64();
     [DllImport("kernel32.dll", SetLastError = true)] private static extern uint ResumeThread(IntPtr thread);
     [DllImport("kernel32.dll", SetLastError = true)] private static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetExitCodeProcess(IntPtr process, out uint code);
@@ -491,4 +551,30 @@ internal static class JobHost
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool InitializeProcThreadAttributeList(IntPtr list, int count, int flags, ref IntPtr size);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool UpdateProcThreadAttribute(IntPtr list, uint flags, IntPtr attribute, IntPtr value, IntPtr size, IntPtr previousValue, IntPtr returnSize);
     [DllImport("kernel32.dll")] private static extern void DeleteProcThreadAttributeList(IntPtr list);
+}
+
+// Pure policy also compiled directly into the Windows test harness. No clock
+// injection or policy mutation is exposed through the production CLI.
+internal sealed class NativeProductionWindow
+{
+    private const long MinimumUtcMs = -62135596800000L;
+    private const long MaximumUtcMs = 253402300799999L;
+    private const long MaximumSpanMs = 25L * 60L * 60L * 1000L;
+    private readonly long beginMs, endMs;
+    private readonly ulong anchorTick, deadlineTick;
+    internal NativeProductionWindow(long begin, long end, ulong anchor, ulong deadline)
+    {
+        if (begin < MinimumUtcMs || end > MaximumUtcMs || end <= begin || end - begin > MaximumSpanMs || anchor > 9007199254740991UL || deadline > 9007199254740991UL || deadline < anchor)
+            throw new ArgumentException("Invalid production-window bounds");
+        beginMs = begin; endMs = end; anchorTick = anchor; deadlineTick = deadline;
+    }
+    internal bool Allows(long utcNow, ulong monotonicNow)
+    {
+        // UTC forward/end and rollback below prewarm both fail closed. Tick64
+        // includes system sleep; rollback within the interval cannot extend the
+        // event-level absolute deadline. Every host generation uses the same
+        // anchor/deadline; restart never computes a new remaining lifetime.
+        // A backwards monotonic value also closes.
+        return utcNow >= beginMs && utcNow < endMs && monotonicNow >= anchorTick && monotonicNow < deadlineTick;
+    }
 }

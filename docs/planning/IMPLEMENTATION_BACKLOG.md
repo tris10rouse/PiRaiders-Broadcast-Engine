@@ -157,3 +157,8 @@ PR30 mergedfa62457 after sourcee18e477 passed10 final checks with identical tree
 ## Native NDI proof diagnostic increment · 2026-11-15
 
 BE-002 next acceptance: separate deliberate missing-runtime diagnostics from the active receiver and identify crash enumeration/selection/termination failures without raw native output. Require final-SHA Windows proofs before merge; retain both prior failed attempts as unresolved evidence.
+
+
+## Active native deadline acceptance
+
+BE-002/BE-006: sample the native boot clock once per prepared event, retain the absolute cutoff across crashes, keep UTC admission and fail-closed full-job retirement independent of JavaScript. Preserve persistent SPX/legacy behavior and expiry/close fences. See NATIVE_EVENT_DEADLINE.md. Do not mark complete until actual native blocked-owner/restart and default full-app Windows output tests pass at the final SHA.

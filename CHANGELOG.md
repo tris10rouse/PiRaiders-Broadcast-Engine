@@ -1,5 +1,9 @@
 # PiRaiders engineering changelog
 
+## 2026-11-15 · Independent prepared-event sender deadline
+
+- Add trusted native clock sampling and one immutable event-wide cutoff shared by every Caspar sender generation. Enforce UTC and boot-clock bounds before execution and during native supervision, including when Node is blocked. Preserve persistent SPX and legacy defaults; terminal expiry and close fences prevent rearming. Portable tests pass; final native Windows verification is required before merge.
+
 ## 2026-11-15 · Native NDI failure diagnostics
 
 - Separate the deliberate missing-DLL receiver from active-receiver diagnostics, and identify crash enumeration, selection, termination and recovery failures with fixed safe categories. Native frame/connection, ownership and timeout requirements remain unchanged. Actual Windows verification is required; the two prior master failures remain unresolved.
