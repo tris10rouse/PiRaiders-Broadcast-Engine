@@ -36,3 +36,8 @@ Observed installer and DLL signatures were Valid, signer Vizrt AG. Installer/DLL
 Local syntax79, baseline247/256 passes with nine Windows-only skips, and actual Chromium27/27 passed. Final documentation-head Windows/Ubuntu, native browser/package, actual Caspar and actual NDI checks remain required before merge; PR22 records their final status. No hardware, LAN or Windows10 claim is added.
 
 Rollback removes the unreferenced proof files/workflow; default launcher and SPX behavior are unchanged.
+
+
+## Native NDI proof diagnostic increment · 2026-11-15
+
+Acceptance: distinguish intentional missing-runtime failure from the active receiver; report fixed crash enumeration, root selection, termination and recovery phases; preserve safe assertion labels and allowlisted OS error categories without raw arguments, paths, output or private URLs. Keep native connection/fresh-frame, strict process identity, cleanup and timing assertions unchanged. Master run43758140180 and its single retry failed at different stages; neither cause is established. This diagnostic increment must pass final-SHA Windows CI before merge and does not establish a failure fix or release readiness.

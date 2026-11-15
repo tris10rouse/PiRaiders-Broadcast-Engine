@@ -1,5 +1,9 @@
 # PiRaiders engineering changelog
 
+## 2026-11-15 · Native NDI failure diagnostics
+
+- Separate the deliberate missing-DLL receiver from active-receiver diagnostics, and identify crash enumeration, selection, termination and recovery failures with fixed safe categories. Native frame/connection, ownership and timeout requirements remain unchanged. Actual Windows verification is required; the two prior master failures remain unresolved.
+
 ## 2026-11-15 · Persistent application development ZIP
 
 - Set process-query PowerShell output explicitly to BOM-free UTF8 and add a real Windows Unicode executable-path round-trip regression; this addresses a missing encoding contract exposed by extracted-path validation. Actual final Windows evidence passed in both Foundation runs.
