@@ -7,7 +7,7 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
 ## Current implementation state · 2026-11-15
 
 - PR28–30 merged verified Game Day, persistent SPX ownership and actual full-application Windows output. PR30's two real runs each received11 frames, recovered offline, enforced a real window with SPX preserved and removed the nested tree on actual CLI-parent death. These are software proofs, not target hardware approval.
-- Active BE-008 increment selects the persistent entry in one development ZIP launcher and tests the actual extracted CMD/bundled Node/SPX path. Keep final Windows build/extraction checks before merge; no owner testing is requested yet.
+- PR31 selects the persistent entry in one development ZIP launcher and verifies the actual extracted CMD/bundled Node/SPX path on Windows. Final source1bafbc0 passed9 checks and mergedd302ee5 with identical tree. No owner testing is requested yet.
 - Remaining evaluation gates: extracted output and reproducible licensed Mesa/NDI setup, independent native deadline under a frozen SPX, source exchange import, preflight/diagnostics, soak and precise nonproduction installation/checklist. Hardware/off-air/signing/formal release remain separate.
 
 ## Agent coordination prerequisite
