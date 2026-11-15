@@ -6,7 +6,7 @@
   "task": "BE-002 resume contained private stdin and real Caspar console proof",
   "workBranch": "feature/be-002-private-caspar-control",
   "acquiredAt": "2026-11-15T00:42:17.000Z",
-  "lastHeartbeat": "2026-11-15T00:42:17.000Z",
-  "expiresAt": "2026-11-15T02:12:17.000Z",
+  "lastHeartbeat": "2026-11-15T00:45:05.379Z",
+  "expiresAt": "2026-11-15T02:15:05.379Z",
   "releasedAt": null
 }
