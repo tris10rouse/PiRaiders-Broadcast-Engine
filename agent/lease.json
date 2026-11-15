@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-pr28-ci-2026-11-15T17:47:53.827Z-21a09l77ovr",
   "fence": 29,
-  "task": "BE-007 persistent SPX application parent",
-  "workBranch": "feature/be-007-persistent-app",
+  "task": "BE-007 actual full-application Windows output proof",
+  "workBranch": "feature/be-007-full-app-proof",
   "acquiredAt": "2026-11-15T17:47:53.827Z",
-  "lastHeartbeat": "2026-11-15T18:55:17.755Z",
-  "expiresAt": "2026-11-15T20:25:17.755Z",
+  "lastHeartbeat": "2026-11-15T18:58:14.493Z",
+  "expiresAt": "2026-11-15T20:28:14.494Z",
   "releasedAt": null
 }
