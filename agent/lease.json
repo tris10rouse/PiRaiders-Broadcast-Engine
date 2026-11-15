@@ -6,7 +6,7 @@
   "task": "BE-007 bounded Game Day manager and local event catalog",
   "workBranch": "feature/be-007-game-day-backend",
   "acquiredAt": "2026-11-15T06:40:19.028Z",
-  "lastHeartbeat": "2026-11-15T07:24:01.339Z",
-  "expiresAt": "2026-11-15T08:54:01.339Z",
+  "lastHeartbeat": "2026-11-15T07:40:35.604Z",
+  "expiresAt": "2026-11-15T09:10:35.604Z",
   "releasedAt": null
 }
