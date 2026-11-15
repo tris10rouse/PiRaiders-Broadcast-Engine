@@ -1,10 +1,10 @@
 # PiRaiders engineering changelog
 
-## 2026-11-15 · Persistent application development ZIP (in progress)
+## 2026-11-15 · Persistent application development ZIP
 
-- Set process-query PowerShell output explicitly to BOM-free UTF8 and add a real Windows Unicode executable-path round-trip regression; this addresses a missing encoding contract exposed by extracted-path validation. Actual final Windows evidence remains required.
-- Resolve expected and observed executable paths before selecting the extracted CLI generation, retaining strict ambiguity/unknown refusals after Windows exposed a raw-spelling mismatch. Portable alias/namespace regression passes; actual corrected Windows validation remains required.
-- Explicitly package the persistent parent and machine/SPX examples behind one root CMD. Retain the legacy component CLI and smoke, while adding actual extracted bundled-Node/HMAC/SPX/Game Day and generation-aware parent-death validation with the outer bench root held alive. No component binaries or operator config are bundled. Final Windows build/extraction remains required.
+- Set process-query PowerShell output explicitly to BOM-free UTF8 and add a real Windows Unicode executable-path round-trip regression; this addresses a missing encoding contract exposed by extracted-path validation. Actual final Windows evidence passed in both Foundation runs.
+- Resolve expected and observed executable paths before selecting the extracted CLI generation, retaining strict ambiguity/unknown refusals after Windows exposed a raw-spelling mismatch. Portable alias/namespace regression and actual corrected Windows validation pass.
+- Explicitly package the persistent parent and machine/SPX examples behind one root CMD. Retain the legacy component CLI and smoke, while adding actual extracted bundled-Node/HMAC/SPX/Game Day and generation-aware parent-death validation with the outer bench root held alive. No component binaries or operator config are bundled. [PR31](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/31) mergedd302ee5 after9 final checks; both actual Windows archives passed startup/Unicode/independent parent-death tests. This remains a development artifact.
 
 ## 2026-11-15 · Full application Windows output proof
 

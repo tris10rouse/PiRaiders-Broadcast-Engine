@@ -1,6 +1,6 @@
 # PiRaiders Broadcast Engine: Roadmap
 
-Updated: 2026-11-15 · Status: actual full-application Windows Caspar/CEF/NDI software proof verified; persistent SPX/Game Day merged; application-entry development packaging active; first evaluation release remains gated · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
+Updated: 2026-11-15 · Status: actual full-application Windows Caspar/CEF/NDI software proof verified; persistent SPX/Game Day merged; application-entry development ZIP verified; first evaluation release remains gated · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
 
 ## Product contract
 
@@ -16,7 +16,7 @@ PiRaiders is a Windows broadcast-graphics application built as a maintained fork
 | 3. Event preparation | Sheet-selected ordered Board media, ID-resolved local bytes, staged updates and manual reload | Correct year/event/button membership and sequence; cache validation; last-frame hold/rollback; offline operation | Validated local/manual preparation/activation, full decode, offline cache and rollback implemented; ordered Apps Script exchange reader/importer remains open |
 | 4. Scheduled lifecycle | Read event metadata, prepare in advance, transmit in production window | No NDI off-window, pre-roll configurable, manual overrides, recovery after reboot | Explicit local/manual production windows and default15-minute prewarm implemented; real short-window shutdown/recovery verified; source scheduling and independent native hung-SPX deadline remain open |
 | 5. Integrated UI | SPX-preserving controller plus Game Day, Library, diagnostics | User-approved mockup; original SPX template/rundown workflows regression-tested | Actual Game Day and persistent SPX parent merged (PR28–29); original graphics workflows retained; Library/source adapter and diagnostics/settings remain open |
-| 6. Production hardening | Install/update, Windows auto-start, logs, security, long-run stability | 4h soak, disconnect/reconnect, rapid RossTalk, offline + cache corruption tests | Development ZIP/native containment tests exist; persistent entry packaging active; reproducible component setup, independent deadline, diagnostics/preflight,4h soak and evaluation checklist remain open |
+| 6. Production hardening | Install/update, Windows auto-start, logs, security, long-run stability | 4h soak, disconnect/reconnect, rapid RossTalk, offline + cache corruption tests | Development ZIP/native containment tests exist; persistent entry packaging verified (PR31); reproducible component setup, independent deadline, diagnostics/preflight,4h soak and evaluation checklist remain open |
 | 7. Graphics ecosystem | More SPX/OGraf templates, external authoring, data graphics | Compatibility suite and vetted template imports; license review for code reuse | Backlog |
 
 ## Decisions locked
@@ -151,3 +151,6 @@ PR29 merged9b93a3e after final sourcee0060b8 passed8 checks with identical tree5
 
 
 PR30 mergedfa62457 after sourcee18e477 passed10 final checks with identical tree3fb1c54. Actual full-application Windows runs43751326206/43751321505 received11 NDI frames each and verified offline recovery, real window/SPX persistence and active parent-death nested cleanup. Next BE-008 increment explicitly packages the persistent entry/examples and validates the actual extracted CMD/SPX path while retaining legacy component smoke. This remains a development ZIP; extracted output, native hung-SPX deadline, source import/setup/preflight/soak and evaluation checklist remain release gates.
+
+
+PR31 mergedd302ee5 after source1bafbc0 passed9 checks with identical treea623a51. Both actual extracted Windows ZIPs verified the single CMD/bundled Node/HMAC/SPX/Game Day path, Unicode image identity and independent parent-death cleanup. Full output from the extracted artifact, native deadline under frozen SPX, source exchange importer and evaluation setup/preflight/soak/checklist remain open.
