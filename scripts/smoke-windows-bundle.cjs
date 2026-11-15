@@ -11,6 +11,7 @@ const { once } = require('node:events');
 const { setTimeout: delay } = require('node:timers/promises');
 const { performance } = require('node:perf_hooks');
 const { verifyManifest } = require('./lib/windows-bundle.cjs');
+const { processTable, descendants, treeState, observeTree } = require('./windows-process-evidence.cjs');
 
 async function reservePort() {
   const server = net.createServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -40,6 +41,21 @@ function get(port, urlPath) {
     const timer = setTimeout(() => request.destroy(Error('Fixture HTTP timeout')), 3000);
     request.once('error', reject); request.once('close', () => clearTimeout(timer));
   });
+}
+
+// Select the unique outermost bundled Node generation under our containment
+// host. SPX and its nested workers must not be mistaken for the actual CLI.
+function findOwnedAppParent(rows, outerPid, nodeExecutable) {
+  const tree=descendants(rows,outerPid),byPid=new Map(tree.map(row=>[row.ProcessId,row]));
+  const image=path.win32.normalize(nodeExecutable).toLowerCase();
+  const nodes=tree.filter(row=>row.ExecutablePath===image);
+  const parents=nodes.filter(row=>{let cursor=byPid.get(row.ParentProcessId),seen=new Set();while(cursor){
+    if(seen.has(cursor.ProcessId))throw Error('APP_TREE_CYCLE');seen.add(cursor.ProcessId);
+    if(cursor.ExecutablePath===image)return false;cursor=byPid.get(cursor.ParentProcessId);
+  }return true;});
+  assert.equal(parents.length,1,'one exact bundled Node CLI parent must own SPX');
+  assert.ok(nodes.length>=2,'actual CLI parent and actual SPX are distinct owned processes');
+  return Object.freeze({parent:parents[0],tree});
 }
 
 async function smokeWindowsBundle(archive) {
@@ -78,6 +94,9 @@ async function smokeWindowsBundle(archive) {
     for (const key of Object.keys(env)) if (/^path$/i.test(key) || /^node_(?:options|path)$/i.test(key) || /^npm_/i.test(key)) delete env[key];
     env.Path = [path.join(process.env.SystemRoot, 'System32'), process.env.SystemRoot].join(';');
     env.PIRAIDERS_SMOKE_ENTRY = path.join(root, 'Launch-PiRaiders.cmd');
+    env.PIRAIDERS_SMOKE_NODE = path.join(root, 'runtime', 'node.exe');
+    env.PIRAIDERS_SMOKE_LEGACY_ENTRY = path.join(app, 'scripts', 'piraiders-launcher.cjs');
+    env.PIRAIDERS_SMOKE_LEGACY_CONFIG = path.join(app, 'config', 'piraiders-launcher.json');
     for (const notice of ['PNGJS-LICENSE.txt', 'JPEG-JS-LICENSE.txt']) {
       assert.ok(fs.statSync(path.join(root, 'licenses', notice)).size > 500);
     }
@@ -223,10 +242,14 @@ main().catch(() => { console.error('Bundled media validation failed'); process.e
     assert.match(mediaOutput, /media-snapshot-smoke-passed/);
     process.stdout.write(mediaOutput);
 
-    const start = () => {
+    const start = (mode = 'app') => {
       const events = [], errors = [];
       const child = spawn(path.join(app, 'build', 'windows', 'PiRaiders.JobHost.exe'), [powershell,
-        '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '& $env:PIRAIDERS_SMOKE_ENTRY; exit $LASTEXITCODE'], {
+        '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', mode === 'legacy'
+          ? '& $env:PIRAIDERS_SMOKE_NODE $env:PIRAIDERS_SMOKE_LEGACY_ENTRY $env:PIRAIDERS_SMOKE_LEGACY_CONFIG; exit $LASTEXITCODE'
+          : mode === 'app-held'
+            ? '& $env:PIRAIDERS_SMOKE_ENTRY --no-browser; $appExit=$LASTEXITCODE; Start-Sleep -Seconds 60; exit $appExit'
+            : '& $env:PIRAIDERS_SMOKE_ENTRY --no-browser; exit $LASTEXITCODE'], {
         cwd: work, env, windowsHide: true, shell: false, stdio: ['pipe', 'pipe', 'pipe']
       });
       let text = '', buffered = '';
@@ -266,6 +289,41 @@ main().catch(() => { console.error('Bundled media validation failed'); process.e
         resolution: 'HD', recents: [], renderer: 'normal', preview: 'none', templatesource: 'spx-ip-address' },
       casparcg: { servers: [] }, osc: { enable: false }, globalExtras: { CustomControls: [] }
     }));
+    // The single packaged command now runs the actual persistent parent. No
+    // native spawner, runtime factory, HMAC response or application API is mocked.
+    fs.mkdirSync(path.join(app, 'events'));
+    const appMachineFile = path.join(app, 'config', 'piraiders-app.json');
+    fs.writeFileSync(appMachineFile, JSON.stringify({schemaVersion:1,spxConfigFile:'config.json',catalogDirectory:'events',
+      mediaRoot:'media',cacheRoot:'cache',runtimeRoot:'event-runtime',
+      caspar:{executable:'components/casparcg.exe',cwd:'components'},output:{type:'none'},
+      rossTalk:{host:'127.0.0.1',port:7788,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',8:'stop'}}}));
+    const spxConfigBytes = fs.readFileSync(path.join(app, 'config.json'));
+    const appRunning = start('app-held'); outer = appRunning.child;
+    await waitUntil(() => {
+      if (appRunning.errors.length || outer.exitCode !== null) throw Error('Extracted persistent application startup failed');
+      return appRunning.events.some(event => event.component === 'piraiders-app' && event.event === 'controller-available' &&
+        event.url === 'http://127.0.0.1:' + spxPort + '/game-day' && event.browserOpened === false);
+    }, 'actual persistent application HMAC startup', 30000);
+    const gameDay = await get(spxPort, '/game-day'); assert.equal(gameDay.status, 200); assert.match(gameDay.body, /name="piraiders-csrf"/);
+    assert.deepEqual(JSON.parse((await get(spxPort, '/game-day/api/events')).body), {ok:true,events:[]});
+    assert.equal((await get(spxPort, '/shows')).status, 200, 'actual bundled SPX graphics remains available');
+    assert.deepEqual(fs.readFileSync(path.join(app, 'config.json')), spxConfigBytes, 'application startup must not rewrite SPX config');
+    const {tree:benchTree,parent:appParent}=findOwnedAppParent(processTable(),outer.pid,fs.realpathSync.native(path.join(root,'runtime','node.exe')));
+    const appTree=descendants(benchTree,appParent.ProcessId);
+    const benchRoots=benchTree.filter(row=>row.ParentProcessId===outer.pid&&row.ExecutablePath===path.win32.normalize(fs.realpathSync.native(powershell)).toLowerCase());
+    assert.equal(benchRoots.length,1,'identify held outer PowerShell bench root');
+    assert.equal(treeState(processTable(),[appParent]).surviving,1,'verify CLI generation immediately before crash');
+    execFileSync('taskkill.exe',['/PID',String(appParent.ProcessId),'/F'],{stdio:'ignore',windowsHide:true,timeout:15000});
+    let appProcessEvidence;
+    await waitUntil(() => {appProcessEvidence=observeTree(processTable(),appTree);return appProcessEvidence.surviving===0&&appProcessEvidence.unknown===0;}, 'actual persistent parent death removes all owned generations', 15000);
+    // The outer fallback cannot explain this result: its actual root remains
+    // alive after inner cleanup, rather than exiting and killing the whole job.
+    assert.equal(treeState(processTable(),benchRoots).surviving,1,'outer bench must remain alive through inner cleanup');
+    assert.equal(outer.exitCode,null,'outer containment host remains alive');
+    await assert.rejects(get(spxPort, '/game-day'));
+    assert.deepEqual(fs.readFileSync(path.join(app, 'config.json')), spxConfigBytes, 'parent death must not rewrite SPX config');
+    await stopOuter(outer);
+
     const stateFile = path.join(work, 'simulator-pid.json'), commandsFile = path.join(work, 'amcp-commands.json');
     const fixture = path.join(work, 'amcp-stand-in.cjs');
     fs.writeFileSync(fixture, `
@@ -288,7 +346,7 @@ setTimeout(()=>process.exit(2),45000);
         { name: 'casparcg', executable: '../runtime/node.exe', args: [fixture, stateFile, commandsFile, String(amcpPort)], cwd: '.', health: { protocol: 'casparcg-amcp', port: amcpPort } }
       ]
     }));
-    const running = start(); outer = running.child;
+    const running = start('legacy'); outer = running.child;
     await waitUntil(() => {
       if (running.errors.length) throw running.errors[0];
       if (outer.exitCode !== null) throw Error('Extracted launcher exited: ' + running.output());
@@ -316,7 +374,7 @@ setTimeout(()=>process.exit(2),45000);
     for (const pid of hosts) await waitUntil(() => !alive(pid), 'contained service host exit');
     await assert.rejects(get(spxPort, '/api/v1/version'));
     console.log(JSON.stringify({ event: 'windows-bundle-smoke-passed', sourceCommit: manifest.commitSHA,
-      node: manifest.node.version, actualBundledSPX: true, casparcg: 'AMCP simulator only',
+      node: manifest.node.version, actualBundledSPX: true, actualPersistentAppEntry: true, actualStartupHMAC: true, actualCLIParentDeathContainment: true, independentParentDeathWhileBenchAlive:true, processIdentityEvidence:'pid-creation-utc-ticks-and-image', appProcessEvidence, casparcg: 'AMCP simulator only',
       pathSpacesAndUnicode: true, noSystemNode: true, manifestVerified: true, senderWindowEnd: true, bundledMediaSnapshots: true, nativeSlideshowAssets: true }));
     return manifest;
   } finally {
@@ -326,4 +384,4 @@ setTimeout(()=>process.exit(2),45000);
 }
 if (require.main === module) smokeWindowsBundle(path.resolve(process.argv[2] || 'build/windows/PiRaiders-Development-win-x64.zip'))
   .catch(error => { console.error('Windows bundle smoke failed:', error.message); process.exitCode = 1; });
-module.exports = { smokeWindowsBundle };
+module.exports = { smokeWindowsBundle, findOwnedAppParent };

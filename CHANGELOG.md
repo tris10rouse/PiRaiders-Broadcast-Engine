@@ -1,9 +1,13 @@
 # PiRaiders engineering changelog
 
-## 2026-11-15 · Full application Windows output proof (in progress)
+## 2026-11-15 · Persistent application development ZIP (in progress)
 
-- Refine the full-app proof to select only directly contained sender roots while retaining same-image subprocesses in cleanup evidence. Add safe fixed assertion labels and precise initial phases after the first Windows run stopped before frames. Final native evidence remains required.
-- Add an actual CLI/SPX/Game Day/default nested JobHost/Caspar/NDI software proof with real browser/TCP controls, eleven SDK frame captures, offline recovery, real window boundaries and active parent-death cleanup. Preserve uncertainty as unknown until confirmed within fixed deadlines. Portable selector/privacy/birth-boundary tests pass5/5; actual Windows execution remains required. No evaluation-release claim.
+- Explicitly package the persistent parent and machine/SPX examples behind one root CMD. Retain the legacy component CLI and smoke, while adding actual extracted bundled-Node/HMAC/SPX/Game Day and generation-aware parent-death validation with the outer bench root held alive. No component binaries or operator config are bundled. Final Windows build/extraction remains required.
+
+## 2026-11-15 · Full application Windows output proof
+
+- Refine the full-app proof to select only directly contained sender roots while retaining same-image subprocesses in cleanup evidence. Add safe fixed assertion labels and precise initial phases after the first Windows run stopped before frames; both corrected final native runs passed.
+- Add an actual CLI/SPX/Game Day/default nested JobHost/Caspar/NDI software proof with real browser/TCP controls, eleven SDK frame captures, offline recovery, real window boundaries and active parent-death cleanup. Preserve uncertainty as unknown until confirmed within fixed deadlines. [PR30](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/30) mergedfa62457 after10 final checks, including two actual full-app Windows runs with11 received frames each. Portable proof7/7 passes; extracted artifact and release hardening remain open. No evaluation-release claim.
 
 ## 2026-11-15 · Persistent SPX application parent
 

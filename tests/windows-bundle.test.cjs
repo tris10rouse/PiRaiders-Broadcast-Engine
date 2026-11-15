@@ -24,11 +24,12 @@ test('tracked runtime selection keeps SPX formats/locales while excluding operat
   const root = fixture(t);
   const allowed = ['server.js', 'package.json', 'package-lock.json', 'LICENSE.txt', 'locales/english.json',
     'routes/router.js', 'utils/helper.js', 'views/controller.handlebars', 'static/style.css',
-    'ASSETS/templates/native.html', 'ASSETS/templates/graphic.ograf', 'scripts/piraiders-launcher.cjs', 'scripts/lib/launcher-runtime.cjs'];
+    'ASSETS/templates/native.html', 'ASSETS/templates/graphic.ograf', 'scripts/piraiders-launcher.cjs', 'scripts/piraiders-app.cjs', 'scripts/lib/launcher-runtime.cjs'];
   const excluded = ['DATAROOT/operator.json', 'DATAROOT_DEMO/operator.json', 'LOG/engine.log', 'config.json',
     '.env', '.npmrc', '.gitcredentials', 'node_modules/package/index.js', 'static/.env.production',
     'static/.netrc', 'ASSETS/.ssh/id_ed25519', 'static/.gitconfig',
     'ASSETS/credentials.json', 'ASSETS/secrets.json', 'scripts/agent-lease.mjs', 'scripts/lib/agent-lease-state.mjs',
+    'scripts/windows-process-evidence.cjs', 'scripts/smoke-full-app-windows.cjs', 'scripts/prepare-caspar-proof.cjs',
     '.git/config', 'docs/README.md'];
   for (const file of [...allowed, ...excluded]) write(root, file);
   // Untracked assets must not be copied merely because they are under ASSETS.

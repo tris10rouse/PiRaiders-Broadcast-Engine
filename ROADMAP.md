@@ -1,6 +1,6 @@
 # PiRaiders Broadcast Engine: Roadmap
 
-Updated: 2026-11-13 · Status: SPX regression and launcher foundations merged; Windows shutdown verified in CI; launcher window integration implemented; Windows job containment verified in CI; endpoint health diagnostics verified on Windows/Ubuntu; portable development ZIP verified on Windows; output/release proof pending · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
+Updated: 2026-11-15 · Status: actual full-application Windows Caspar/CEF/NDI software proof verified; persistent SPX/Game Day merged; application-entry development packaging active; first evaluation release remains gated · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
 
 ## Product contract
 
@@ -11,12 +11,12 @@ PiRaiders is a Windows broadcast-graphics application built as a maintained fork
 | Stage | Goal | Definition of done | Status |
 |---|---|---|---|
 | 0. Foundation | Record architecture, design, agent policies, CI, upstream baseline | Docs and check checks committed; CI verified on PR | Merged; executable fixture CI passing |
-| 1. Engine proof | Windows launcher, SPX + CasparCG output, 1080p30 NDI, RossTalk bridge | Bench-tested on target PC; direct NDI reception demonstrated off-air; no vMix/OBS | In progress: supervisor and scheduling policy merged; Windows tree shutdown verified in PR #6; PR #7 integrates window enforcement; job containment verified in Windows CI (PR #8); endpoint health diagnostics verified on Windows/Ubuntu; portable development ZIP verified on Windows; output/release proof pending |
-| 2. Slideshow | Ordered PNG/JPG decks, cut/fade, commands and passive native SPX output | Auto 10s configurable; timer resets on manual navigation; bidirectional wrap; audience overlays | State/timers merged; real Chromium renderer/lifecycle/captures verified on Windows/Ubuntu in PR #15; merged with final-head Windows/Ubuntu CI; managed presentation transport implementation verified on Windows/Ubuntu in PR #18; launcher/control wiring pending |
-| 3. Event preparation | Sheet-selected ordered Board media, ID-resolved local bytes, staged updates and manual reload | Correct year/event/button membership and sequence; cache validation; last-frame hold/rollback; offline operation | Generic local snapshots and restricted HTTP delivery verified; atomic controller replacement implementation verified on Windows/Ubuntu in PR #17; ordered provider and application activation planned |
-| 4. Scheduled lifecycle | Read event metadata, prepare in advance, transmit in production window | No NDI off-window, pre-roll configurable, manual overrides, recovery after reboot | Planned |
-| 5. Integrated UI | SPX-preserving controller plus Game Day, Library, diagnostics | User-approved mockup; original SPX template/rundown workflows regression-tested | Structure approved; SPX integration planned |
-| 6. Production hardening | Install/update, Windows auto-start, logs, security, long-run stability | 4h soak, disconnect/reconnect, rapid RossTalk, offline + cache corruption tests | Planned |
+| 1. Engine proof | Windows launcher, SPX + CasparCG output, 1080p30 NDI, RossTalk bridge | Bench-tested on target PC; direct NDI reception demonstrated off-air; no vMix/OBS | Actual default CLI/SPX/Game Day/private Console/Caspar/CEF/NDI verified twice in Windows CI (PR30); target-PC/off-air compatibility and evaluation package remain open |
+| 2. Slideshow | Ordered PNG/JPG decks, cut/fade, commands and passive native SPX output | Auto 10s configurable; timer resets on manual navigation; bidirectional wrap; audience overlays | Software playback, transitions, feedback, Reload retention and Stop verified in real Chromium and actual received Windows NDI frames; packaging/hardening remain |
+| 3. Event preparation | Sheet-selected ordered Board media, ID-resolved local bytes, staged updates and manual reload | Correct year/event/button membership and sequence; cache validation; last-frame hold/rollback; offline operation | Validated local/manual preparation/activation, full decode, offline cache and rollback implemented; ordered Apps Script exchange reader/importer remains open |
+| 4. Scheduled lifecycle | Read event metadata, prepare in advance, transmit in production window | No NDI off-window, pre-roll configurable, manual overrides, recovery after reboot | Explicit local/manual production windows and default15-minute prewarm implemented; real short-window shutdown/recovery verified; source scheduling and independent native hung-SPX deadline remain open |
+| 5. Integrated UI | SPX-preserving controller plus Game Day, Library, diagnostics | User-approved mockup; original SPX template/rundown workflows regression-tested | Actual Game Day and persistent SPX parent merged (PR28–29); original graphics workflows retained; Library/source adapter and diagnostics/settings remain open |
+| 6. Production hardening | Install/update, Windows auto-start, logs, security, long-run stability | 4h soak, disconnect/reconnect, rapid RossTalk, offline + cache corruption tests | Development ZIP/native containment tests exist; persistent entry packaging active; reproducible component setup, independent deadline, diagnostics/preflight,4h soak and evaluation checklist remain open |
 | 7. Graphics ecosystem | More SPX/OGraf templates, external authoring, data graphics | Compatibility suite and vetted template imports; license review for code reuse | Backlog |
 
 ## Decisions locked
@@ -148,3 +148,6 @@ PR28 confirmed merged7b3f437 after tested4e1be730 passed all8 checks with identi
 
 
 PR29 merged9b93a3e after final sourcee0060b8 passed8 checks with identical tree531c203. Windows416 baseline passes/two documented skips, Chromium44/44; actual persistent SPX/JobHost ownership integration passes. Next coherent increment is actual full-application Windows output proof, documented in docs/design/FULL_APP_WINDOWS_PROOF.md; portable5/5 tests are not Windows output evidence. Packaging, independent native deadline, exchange importer and BE-008 release hardening remain open.
+
+
+PR30 mergedfa62457 after sourcee18e477 passed10 final checks with identical tree3fb1c54. Actual full-application Windows runs43751326206/43751321505 received11 NDI frames each and verified offline recovery, real window/SPX persistence and active parent-death nested cleanup. Next BE-008 increment explicitly packages the persistent entry/examples and validates the actual extracted CMD/SPX path while retaining legacy component smoke. This remains a development ZIP; extracted output, native hung-SPX deadline, source import/setup/preflight/soak and evaluation checklist remain release gates.
