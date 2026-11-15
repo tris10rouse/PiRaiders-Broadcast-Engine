@@ -20,18 +20,21 @@ function assertJobHostAvailable({ platform = process.platform, hostPath = JOB_HO
  * There is deliberately no fallback to an uncontained Windows process.
  */
 function spawnSupervisedProcess(command, args, options, {
-  platform = process.platform, hostPath = JOB_HOST, spawnProcess = spawn
+  platform = process.platform, hostPath = JOB_HOST, spawnProcess = spawn, forwardStdin = false
 } = {}) {
+  if (typeof forwardStdin !== 'boolean') throw Error('Invalid stdin forwarding option');
+  if (forwardStdin && platform !== 'win32') throw Error('Private stdin forwarding requires Windows containment');
   if (platform !== 'win32') return spawnProcess(command, args, options);
   assertJobHostAvailable({ platform, hostPath });
   if (typeof command !== 'string' || !command || command.includes('\0') ||
       !Array.isArray(args) || args.some(arg => typeof arg !== 'string' || arg.includes('\0'))) {
     throw Error('Invalid contained process command');
   }
-  const child = spawnProcess(hostPath, [command, ...args], {
+  const child = spawnProcess(hostPath, [...(forwardStdin ? ['--forward-stdin'] : []), command, ...args], {
     cwd: options?.cwd, env: options?.env, windowsHide: true, shell: false,
-    // The service gets NUL input from the native host, never this lifetime pipe.
-    stdio: ['pipe', 'inherit', 'inherit']
+    // Default remains NUL; opt-in uses a separate bounded native relay.
+    // Keep output private when it can contain echoed commands/capabilities.
+    stdio: ['pipe', forwardStdin ? 'pipe' : 'inherit', forwardStdin ? 'pipe' : 'inherit']
   });
   // A host can exit before Node writes/closes the pipe. Do not let a pipe error
   // become an unhandled EventEmitter error; child exit/error reports its fate.

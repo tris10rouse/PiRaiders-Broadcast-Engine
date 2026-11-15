@@ -113,3 +113,7 @@ Real Windows recovery implementation2988969558b5ab336e919e98a6cfe0240be62581 pas
 ## Current BE-002 verification increment · 2026-11-14
 
 PR21 is merged: actual Caspar/CEF mixed pixels and crash recovery passed Windows CI. Native NDI SDK receiver proof is now implemented for isolated Windows CI, including fresh received frames, stable identity/reconnect and a real wall-clock sender window. Both implementation Windows runs passed actual received pixels, same-identity crash recovery and wall-clock shutdown (PR22); final documentation-head checks are required before merge. See [acceptance and limits](docs/design/WINDOWS_NDI_PROOF.md). Default launcher/event integration and the user-testable release remain open.
+
+## Private process control · 2026-11-15
+
+Current BE-002 increment adds opt-in bounded native stdin forwarding and correlated private Console AMCP, with explicit empty TCP controllers. It preserves default NUL behavior and SPX. Real Windows containment/Console/CEF acceptance is in [PRIVATE_CASPAR_CONTROL.md](docs/design/PRIVATE_CASPAR_CONTROL.md); execution is pending. This is a prerequisite to PreparedEventRuntime and does not activate the default launcher.

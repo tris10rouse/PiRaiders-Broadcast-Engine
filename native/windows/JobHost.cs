@@ -1,8 +1,10 @@
 // PiRaiders Broadcast Engine - MIT licensed; see repository LICENSE.
 // Windows-only containment boundary. The Node launcher owns this host's stdin
-// pipe; child stdin is NUL and only its output handles are inherited.
+// pipe. Default target stdin is NUL; explicit --forward-stdin copies parent
+// bytes through a bounded private pipe without sharing the lifetime handle.
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -30,9 +32,12 @@ internal static class JobHost
         IntPtr job = IntPtr.Zero;
         PROCESS_INFORMATION process = new PROCESS_INFORMATION();
         bool assigned = false;
+        StdinForwarder forwarding = null;
         try
         {
-            if (args.Length < 1 || !IsAbsolutePath(args[0]) || !File.Exists(args[0]))
+            bool forwardStdin = args.Length > 0 && args[0] == "--forward-stdin";
+            int targetIndex = forwardStdin ? 1 : 0;
+            if (args.Length <= targetIndex || !IsAbsolutePath(args[targetIndex]) || !File.Exists(args[targetIndex]))
                 throw new ArgumentException("An existing absolute target executable is required");
             for (int i = 0; i < args.Length; i++)
                 if (args[i].IndexOf('\0') >= 0) throw new ArgumentException("NUL is not a valid argument");
@@ -53,27 +58,31 @@ internal static class JobHost
 
             // Start watching before child creation. Reading a parent-owned pipe
             // detects abrupt launcher death as well as deliberate stdin close.
-            Thread lifetime = new Thread(WatchParent);
+            if (forwardStdin) forwarding = new StdinForwarder();
+            Thread lifetime = forwarding == null ? new Thread(WatchParent) : new Thread(forwarding.ReadParent);
             lifetime.IsBackground = true;
             lifetime.Start();
             if (Interlocked.CompareExchange(ref parentGone, 0, 0) != 0) return FailureExitCode;
 
-            using (InheritedHandles handles = new InheritedHandles())
+            using (InheritedHandles handles = new InheritedHandles(forwarding == null ? IntPtr.Zero : forwarding.TargetReadHandle))
             {
                 STARTUPINFOEX startup = handles.Startup;
                 StringBuilder commandLine = new StringBuilder();
-                for (int i = 0; i < args.Length; i++)
+                for (int i = targetIndex; i < args.Length; i++)
                 {
-                    if (i != 0) commandLine.Append(' ');
+                    if (i != targetIndex) commandLine.Append(' ');
                     commandLine.Append(QuoteArgument(args[i]));
                 }
                 if (commandLine.Length >= 32767) throw new ArgumentException("Target command line exceeds Windows limit");
                 // lpApplicationName is explicit. Never invoke a shell, search
                 // PATH, or let target code run before job assignment succeeds.
-                Require(CreateProcessW(args[0], commandLine, IntPtr.Zero, IntPtr.Zero, true,
+                Require(CreateProcessW(args[targetIndex], commandLine, IntPtr.Zero, IntPtr.Zero, true,
                     CreateSuspended | CreateNoWindow | ExtendedStartupInfoPresent,
                     IntPtr.Zero, null, ref startup, out process), "CreateProcess");
             }
+            // The target already owns the only inherited input read end. The
+            // host never keeps a spare read end that could mask a broken pipe.
+            if (forwarding != null) forwarding.CloseTargetReadHandle();
             Require(AssignProcessToJobObject(job, process.hProcess), "AssignProcessToJobObject");
             assigned = true;
             if (Interlocked.CompareExchange(ref parentGone, 0, 0) != 0)
@@ -84,6 +93,7 @@ internal static class JobHost
             if (ResumeThread(process.hThread) == UInt32.MaxValue) ThrowWin32("ResumeThread");
             CloseHandle(process.hThread);
             process.hThread = IntPtr.Zero;
+            if (forwarding != null) forwarding.StartWriter();
 
             while (true)
             {
@@ -126,6 +136,7 @@ internal static class JobHost
             if (process.hThread != IntPtr.Zero) CloseHandle(process.hThread);
             // Last-handle close is the kernel fallback on every error path.
             if (job != IntPtr.Zero) CloseHandle(job);
+            if (forwarding != null) forwarding.Dispose();
         }
     }
 
@@ -153,6 +164,166 @@ internal static class JobHost
             if (accounting.ActiveProcesses == 0) return;
             if (elapsed.ElapsedMilliseconds >= 5000) throw new TimeoutException("Job process termination remains unconfirmed after 5 seconds");
             Thread.Sleep(10);
+        }
+    }
+
+    // An independent reader owns the parent lifetime pipe. Target writes happen
+    // only on a second background thread, so a full target pipe cannot hide EOF.
+    // Payload bound: 32 queued chunks + one writer chunk, each <= 4096 bytes,
+    // plus one fixed 4096-byte reader scratch buffer. There is no blocking put.
+    private sealed class StdinForwarder : IDisposable
+    {
+        private const int ChunkBytes = 4096;
+        private const int QueueChunks = 32;
+        private readonly object gate = new object();
+        private sealed class TailChunk
+        {
+            public readonly byte[] Bytes = new byte[ChunkBytes];
+            public int Length;
+        }
+        private readonly Queue<TailChunk> queued = new Queue<TailChunk>();
+        private TailChunk queuedTail;
+        private readonly AutoResetEvent available = new AutoResetEvent(false);
+        private IntPtr targetRead;
+        private IntPtr targetWrite;
+        private Thread writer;
+        private bool stopped;
+
+        public StdinForwarder()
+        {
+            try
+            {
+                SECURITY_ATTRIBUTES security = new SECURITY_ATTRIBUTES();
+                security.nLength = (uint)Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+                security.bInheritHandle = true;
+                Require(CreatePipe(out targetRead, out targetWrite, ref security, ChunkBytes), "CreatePipe target input");
+                // Only the read end may enter the explicit target handle list.
+                Require(SetHandleInformation(targetWrite, 1, 0), "SetHandleInformation target input");
+            }
+            catch { Dispose(); throw; }
+        }
+
+        public IntPtr TargetReadHandle { get { return targetRead; } }
+
+        public void CloseTargetReadHandle()
+        {
+            IntPtr input = Interlocked.Exchange(ref targetRead, IntPtr.Zero);
+            if (input != IntPtr.Zero) CloseHandle(input);
+        }
+
+        public void ReadParent()
+        {
+            try
+            {
+                Stream input = Console.OpenStandardInput();
+                byte[] scratch = new byte[ChunkBytes];
+                while (Interlocked.CompareExchange(ref parentGone, 0, 0) == 0)
+                {
+                    int count = input.Read(scratch, 0, scratch.Length);
+                    if (count == 0) return;
+                    lock (gate)
+                    {
+                        // Capacity is checked for this entire read before any
+                        // mutation. Coalesce tiny reads into the queued tail so
+                        // benign byte fragmentation cannot exhaust 32 items.
+                        int tailRoom = queuedTail == null ? 0 : ChunkBytes - queuedTail.Length;
+                        int additional = Math.Max(0, count - tailRoom);
+                        int chunksNeeded = (additional + ChunkBytes - 1) / ChunkBytes;
+                        if (stopped || queued.Count + chunksNeeded > QueueChunks) return;
+                        int offset = 0;
+                        while (offset < count)
+                        {
+                            if (queuedTail == null || queuedTail.Length == ChunkBytes)
+                            {
+                                queuedTail = new TailChunk();
+                                queued.Enqueue(queuedTail);
+                            }
+                            int copied = Math.Min(count - offset, ChunkBytes - queuedTail.Length);
+                            Buffer.BlockCopy(scratch, offset, queuedTail.Bytes, queuedTail.Length, copied);
+                            queuedTail.Length += copied;
+                            offset += copied;
+                        }
+                    }
+                    available.Set();
+                }
+            }
+            catch { /* Input failure is parent loss; payloads never enter logs. */ }
+            finally
+            {
+                Interlocked.Exchange(ref parentGone, 1);
+                available.Set();
+            }
+        }
+
+        public void StartWriter()
+        {
+            writer = new Thread(WriteTarget);
+            writer.IsBackground = true;
+            try { writer.Start(); }
+            catch { writer = null; throw; }
+        }
+
+        private void WriteTarget()
+        {
+            // This thread exclusively closes the write handle once started.
+            // Dispose must never close/reuse it beneath a pending WriteFile.
+            IntPtr output = targetWrite;
+            try
+            {
+                while (Interlocked.CompareExchange(ref parentGone, 0, 0) == 0)
+                {
+                    TailChunk chunk = null;
+                    lock (gate)
+                    {
+                        if (stopped) return;
+                        if (queued.Count > 0)
+                        {
+                            chunk = queued.Dequeue();
+                            // No reader may append to this chunk after dequeue.
+                            if (queued.Count == 0) queuedTail = null;
+                        }
+                    }
+                    if (chunk == null) { available.WaitOne(); continue; }
+                    if (Interlocked.CompareExchange(ref parentGone, 0, 0) != 0) return;
+                    GCHandle pinned = GCHandle.Alloc(chunk.Bytes, GCHandleType.Pinned);
+                    try
+                    {
+                        int offset = 0;
+                        while (offset < chunk.Length)
+                        {
+                            uint count;
+                            if (!WriteFile(output, IntPtr.Add(pinned.AddrOfPinnedObject(), offset),
+                                (uint)(chunk.Length - offset), out count, IntPtr.Zero) || count == 0)
+                                return;
+                            offset += checked((int)count);
+                        }
+                    }
+                    finally { pinned.Free(); }
+                }
+            }
+            catch { /* Fail closed on target input failure, with fixed diagnostics. */ }
+            finally
+            {
+                Interlocked.Exchange(ref parentGone, 1);
+                if (output != IntPtr.Zero) CloseHandle(output);
+                targetWrite = IntPtr.Zero;
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (gate) { stopped = true; queued.Clear(); queuedTail = null; }
+            available.Set();
+            CloseTargetReadHandle();
+            if (writer == null && targetWrite != IntPtr.Zero)
+            {
+                CloseHandle(targetWrite);
+                targetWrite = IntPtr.Zero;
+            }
+            // Do not join: a pending WriteFile must not delay host exit or
+            // job close. Both workers are background threads, and process exit
+            // releases any remaining handles. The small wake event stays alive
+            // until process exit so a concurrently returning reader can signal.
         }
     }
 
@@ -204,11 +375,11 @@ internal static class JobHost
         private IntPtr handleList;
         private bool initialized;
 
-        public InheritedHandles()
+        public InheritedHandles(IntPtr forwardedInput)
         {
             try
             {
-                input = OpenNull(GenericRead);
+                input = forwardedInput == IntPtr.Zero ? OpenNull(GenericRead) : CopyInheritable(forwardedInput, "DuplicateHandle input");
                 output = CopyOutput(-11);
                 error = CopyOutput(-12);
                 IntPtr size = IntPtr.Zero;
@@ -246,9 +417,13 @@ internal static class JobHost
         {
             IntPtr source = GetStdHandle(kind);
             if (source == IntPtr.Zero || source == new IntPtr(-1)) return OpenNull(GenericWrite);
+            return CopyInheritable(source, "DuplicateHandle output");
+        }
+        private static IntPtr CopyInheritable(IntPtr source, string operation)
+        {
             IntPtr copy;
             IntPtr self = GetCurrentProcess();
-            Require(DuplicateHandle(self, source, self, out copy, 0, true, DuplicateSameAccess), "DuplicateHandle output");
+            Require(DuplicateHandle(self, source, self, out copy, 0, true, DuplicateSameAccess), operation);
             return copy;
         }
         public void Dispose()
@@ -307,6 +482,9 @@ internal static class JobHost
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool TerminateProcess(IntPtr process, uint code);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool CloseHandle(IntPtr handle);
     [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr GetStdHandle(int kind);
+    [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool CreatePipe(out IntPtr read, out IntPtr write, ref SECURITY_ATTRIBUTES attributes, uint size);
+    [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
+    [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool WriteFile(IntPtr handle, IntPtr buffer, uint count, out uint written, IntPtr overlapped);
     [DllImport("kernel32.dll")] private static extern IntPtr GetCurrentProcess();
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool DuplicateHandle(IntPtr sourceProcess, IntPtr source, IntPtr targetProcess, out IntPtr target, uint access, [MarshalAs(UnmanagedType.Bool)] bool inherit, uint options);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, ExactSpelling = true)] private static extern IntPtr CreateFileW(string path, uint access, uint sharing, ref SECURITY_ATTRIBUTES attributes, uint disposition, uint flags, IntPtr template);

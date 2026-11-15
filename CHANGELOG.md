@@ -1,5 +1,10 @@
 # PiRaiders engineering changelog
 
+## 2026-11-15 · Private CasparCG control increment
+
+- Add opt-in bounded Windows stdin forwarding with independent EOF detection and a correlated Console AMCP adapter that captures native output privately. Add blocked-input/descendant-cleanup tests and a dedicated actual Caspar/CEF Windows proof. Defaults remain NUL; actual Windows execution is pending.
+
+
 ## 2026-11-14 · Native NDI validation increment
 
 - Add disposable Windows actual-SDK receiver proof, pinned official runtime preparation, synthetic frame captures, crash/reconnect checks and real-clock window-end drain verification. Both actual Windows implementation runs passed10 received BGRA images, same-receiver crash recovery, Stop black and real-clock sender shutdown followed by drained-buffer silence/zero connections. [PR22](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/22) requires passing final-head checks before merge. Local baseline247 passes/nine Windows skips and actual Chromium27/27 pass. Default launcher and application package are unchanged. No NDI binaries are redistributed.

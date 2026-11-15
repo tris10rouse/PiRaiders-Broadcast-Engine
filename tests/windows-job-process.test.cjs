@@ -46,3 +46,9 @@ test('non-Windows processes retain direct spawning without a native helper', () 
   }), child);
   assert.deepEqual(invocation, ['node', args, options]);
 });
+test('private Windows stdin forwarding is explicit and captures native output',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'job-private-adapter-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const hostPath=path.join(dir,'host.exe');fs.writeFileSync(hostPath,'mock binary');let invocation;
+  const child={stdin:new EventEmitter()};spawnSupervisedProcess('C:\\Caspar\\casparcg.exe',['private.config'],{}, {platform:'win32',hostPath,forwardStdin:true,spawnProcess:(...args)=>{invocation=args;return child;}});
+  assert.deepEqual(invocation[1],['--forward-stdin','C:\\Caspar\\casparcg.exe','private.config']);assert.deepEqual(invocation[2].stdio,['pipe','pipe','pipe']);
+  assert.throws(()=>spawnSupervisedProcess('node',[],{}, {platform:'linux',forwardStdin:true}),/requires Windows containment/);assert.throws(()=>spawnSupervisedProcess('node',[],{}, {forwardStdin:'yes'}),/Invalid stdin forwarding/);
+});
