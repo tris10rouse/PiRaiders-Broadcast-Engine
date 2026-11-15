@@ -11,6 +11,7 @@ const {spawn,execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
+const {processTable:table,descendants,treeState}=require('./windows-process-evidence.cjs');
 const appRoot=path.resolve(__dirname,'..');
 const {createPreparedEventRuntime}=require(path.join(appRoot,'scripts/lib/prepared-event-runtime.cjs'));
 const {spawnSupervisedProcess,JOB_HOST}=require(path.join(appRoot,'scripts/lib/windows-job-process.cjs'));
@@ -18,15 +19,16 @@ const {CasparConsole}=require(path.join(appRoot,'scripts/lib/caspar-console.cjs'
 const {stageSnapshot}=require(path.join(appRoot,'scripts/lib/media-snapshot.cjs'));
 const {requestProbe}=require(path.join(appRoot,'scripts/ndi-proof-client.cjs'));
 const {output:PROBE}=require(path.join(appRoot,'scripts/build-ndi-probe.cjs'));
-const {command,descendants}=require(path.join(appRoot,'scripts/smoke-caspar-windows.cjs'));
+const {command}=require(path.join(appRoot,'scripts/smoke-caspar-windows.cjs'));
 const {checkConsolePixels}=require(path.join(appRoot,'scripts/smoke-caspar-console-windows.cjs'));
-function table(){const rows=JSON.parse(execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$ErrorActionPreference='Stop'; ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process -ErrorAction Stop | Select-Object ProcessId,ParentProcessId,ExecutablePath)"],{encoding:'utf8',timeout:15000,windowsHide:true,maxBuffer:1024*1024}));assert.ok(Array.isArray(rows)&&rows.some(row=>row.ProcessId===process.pid),'PROCESS_ENUM_POSITIVE_CONTROL');return rows;}
 async function until(predicate,code,ms=20000){const end=Date.now()+ms;while(Date.now()<end){if(await predicate())return;await wait(100);}throw Error(code);}
 async function freePort(){const server=net.createServer();await new Promise((r,j)=>server.listen(0,'127.0.0.1',r).once('error',j));const port=server.address().port;await new Promise(r=>server.close(r));return port;}
 function image(rgb){const data=Buffer.alloc(160*90*4);for(let i=0;i<data.length;i+=4)data.set([...rgb,255],i);return{width:160,height:90,data};}
 async function filesUnder(dir){const all=[];let entries;try{entries=await fs.readdir(dir,{withFileTypes:true});}catch(error){if(error.code==='ENOENT')return all;throw error;}for(const entry of entries){const file=path.join(dir,entry.name);if(entry.isDirectory())all.push(...await filesUnder(file));else if(entry.isFile())all.push(file);}return all;}
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
+  let processEvidence=null;const processChecks={};
+  function treeGone(captured){processEvidence=treeState(table(),captured);processChecks[phase]=processEvidence;return processEvidence.surviving===0;}
   const root=path.resolve(process.argv[2]||path.join(appRoot,'build','caspar-proof-tools'));
   const evidence=path.resolve(appRoot,'build','prepared-event-proof-evidence');await fs.rm(evidence,{recursive:true,force:true});await fs.mkdir(evidence,{recursive:true});
   const tools=JSON.parse(await fs.readFile(path.join(root,'tools.json'),'utf8'));
@@ -100,7 +102,7 @@ async function main(){
   function ownedRoot(host=activeCaspar){
     assert.ok(host&&Number.isSafeInteger(host.pid),'OWNED_CASPAR_HOST');
     const rows=table(),expected=path.normalize(path.join(tools.casparDirectory,'casparcg.exe')).toLowerCase();
-    const matches=rows.filter(row=>row.ParentProcessId===host.pid&&typeof row.ExecutablePath==='string'&&path.normalize(row.ExecutablePath).toLowerCase()===expected);
+    const matches=descendants(rows,host.pid).filter(row=>row.ParentProcessId===host.pid&&typeof row.ExecutablePath==='string'&&path.normalize(row.ExecutablePath).toLowerCase()===expected);
     assert.equal(matches.length,1,'OWNED_CASPAR_ROOT');return{rows,pid:matches[0].ProcessId};
   }
   async function frame(name,rgb,options={}){
@@ -160,7 +162,7 @@ async function main(){
     await until(()=>activeCaspar!==oldHost&&runtime.snapshot().ready,'EVENT_RESTART_READY',60000);
     assert.ok(runtime.snapshot().generation>oldGeneration,'FRESH_EVENT_GENERATION');assert.equal(runtime.snapshot().index,null,'RESTART_STOPPED');assert.equal(runtime.snapshot().deckId,accepted,'OFFLINE_LAST_GOOD_CACHE');
     assert.ok(privateURLs.size>=2&&consoleVersions>=2&&consolePlays>=2,'PRIVATE_CONSOLE_GENERATION_HANDOFFS');
-    await until(()=>{const alive=new Set(table().map(row=>row.ProcessId));return oldTree.every(id=>!alive.has(id));},'OLD_TREE_SURVIVED',10000);
+    await until(()=>treeGone(oldTree),'OLD_TREE_SURVIVED',10000);
     await frame('restart-black',[0,0,0]);await command(talk,'GPI 1',{prefix:'OK ',timeoutMs:30000});await frame('restart-launch-green',[20,220,20]);await scanPrivateFiles();
     phase='WINDOW_END';
     // Keep output live until close to the real deadline, never extend the window.
@@ -172,7 +174,7 @@ async function main(){
     await until(()=>ending.entered,'IGNORED_PREPARATION_GATE',6000);assert.ok(!ending.released&&runtime.snapshot().preparing,'PREPARATION_PHYSICAL_FLIGHT');
     await until(()=>Date.now()>=Date.parse(window.end)&&runtime.snapshot().generation>endGeneration&&!runtime.snapshot().ready&&runtime.snapshot().index===null,'WINDOW_EPOCH_FENCED',20000);
     ending.abortObserved=ending.signal.aborted;assert.ok(ending.abortObserved&&!ending.released&&runtime.snapshot().preparing,'WINDOW_ABORT_WITH_UNSETTLED_CALLBACK');
-    await until(()=>{const alive=new Set(table().map(row=>row.ProcessId));return endingTree.every(id=>!alive.has(id));},'WINDOW_TREE_SURVIVED',10000);const processStoppedAt=new Date().toISOString();
+    await until(()=>treeGone(endingTree),'WINDOW_TREE_SURVIVED',10000);const processStoppedAt=new Date().toISOString();
     const quiet=await probe.request('quiet',{durationMs:1500,timeoutMs:20000},25000);assert.equal(quiet.connections,0);assert.ok(quiet.quietDurationMs>=1500);
     assert.ok(hosts.has(spxHost),'SPX_PERSISTS_AFTER_WINDOW');await scanPrivateFiles();
     for(const value of capabilities)assert.equal(JSON.stringify(runtime.snapshot()).includes(value),false,'SNAPSHOT_CAPABILITY_LEAK');
@@ -180,7 +182,7 @@ async function main(){
     const closeDurationMs=Date.now()-closeStarted;assert.ok(!ending.released,'CLOSED_BEFORE_PREPARATION_SETTLEMENT');assert.equal(runtime.snapshot().closed,true);const afterCloseSpawnCount=spawnCount;
     ending.release();await until(()=>!runtime.snapshot().preparing,'PREPARATION_RELEASED',10000);await wait(300);assert.equal(spawnCount,afterCloseSpawnCount,'LATE_PREPARATION_RESTARTED_SERVICE');assert.equal(runtime.snapshot().deckId,accepted,'LATE_PREPARATION_PROMOTED_DECK');
     const lateQuiet=await probe.request('quiet',{durationMs:1500,timeoutMs:20000},25000);assert.equal(lateQuiet.connections,0);
-    report={event:'prepared-event-private-ndi-windows-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,
+    report={event:'prepared-event-private-ndi-windows-proof-passed',processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,
       casparProvenance:tools.provenance,ndiProvenance:ndi.provenance,runtimeVersion:probe.info.runtimeVersion,
       actualPreparedEventRuntime:true,localManualProvider:true,actualMediaCaptureDecode:true,actualCasparCEF:true,
       actualPrivateConsole:true,consoleConfigValidated,consoleVersions,consolePlays,privateGenerationCount,
@@ -192,7 +194,7 @@ async function main(){
       persistentSPXStandIn:true,sameMachineOnly:true,lanTransportTested:false,windows10Tested:false,stadiumHardwareTested:false,
       noAllRootTcpAssertion:true,privateCapabilitiesExcludedFromDiagnostics:true};
   }catch(error){
-    console.error(JSON.stringify({event:'prepared-event-proof-fixed-failure',phase,code:/^[A-Z_][A-Z_0-9]{0,79}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',fixedReceiverErrors:[...fixedReceiverErrors],nativeExits,framesVerified:frameEvidence.map(value=>value.name)}));
+    console.error(JSON.stringify({event:'prepared-event-proof-fixed-failure',phase,processEvidence,processChecks,code:/^[A-Z_][A-Z_0-9]{0,79}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',fixedReceiverErrors:[...fixedReceiverErrors],nativeExits,framesVerified:frameEvidence.map(value=>value.name)}));
     throw Error('PREPARED_EVENT_PROOF_FAILED');
   }finally{
     openReloadSocket?.destroy();

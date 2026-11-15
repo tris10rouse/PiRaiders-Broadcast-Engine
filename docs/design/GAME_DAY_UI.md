@@ -41,7 +41,7 @@ The centered main/footer container is at most 1380px. Desktop main padding is 30
 
 At 900px and below, spacing tightens, readiness becomes labeled rows and playback uses two columns. At 620px and below, navigation wraps and preparation precedes playback in one column, with 16px main side padding. Above 1500px, the preparation column becomes 380px and panel padding increases. These are surface breakpoints, not new global tokens.
 
-When an event is active or activating on mobile, the body is a bounded `100dvh` flex layout. Main is the vertical scrollport; the footer remains outside it, and 76px is reserved for the fixed Stop dock. Stop sits 12px above the bottom with 20px side insets and a minimum 48px height. This reserved region must remain separate from candidate controls and footer links. The verified narrow case is 390×844; the CSS body minimum width is 320px, which is not evidence of testing every smaller device.
+When an event is active or activating on mobile, the body is a bounded `100dvh` flex layout. Main is the vertical scrollport; the footer remains outside it, and 76px is reserved for the fixed Stop dock. Stop sits 12px above the bottom with 20px side insets and a minimum 48px height. This reserved region must remain separate from candidate controls and footer links. The main narrow case is 390×844. A dedicated navigation regression also checks 320/340/360/380/390px at 844px height with system-ui, DejaVu Sans and Arial. Keep the footer SPX link unbroken so its pointer target remains one fragment, separate from Stop. These checks do not establish every smaller device or viewport height.
 
 ## Elevation & Depth
 

@@ -112,6 +112,18 @@ test('403 failure JSON distinguishes CSRF reload, authentication policy and secu
  }
 });
 
+test('footer navigation remains one unobscured hit target across wrap-prone fonts and supported mobile widths',async t=>{
+ const {page}=await fixture(t);const measurements=[];
+ for(const font of ['system-ui','DejaVu Sans','Arial'])for(const width of [390,380,360,340,320]){
+  await page.setViewportSize({width,height:844});await page.evaluate(value=>document.documentElement.style.fontFamily=value,font);
+  await page.locator('footer a').focus();
+  const value=await page.locator('footer a').evaluate((element,{font,width})=>{const r=element.getBoundingClientRect(),stop=document.getElementById('stop').getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return{font,width,fragments:element.getClientRects().length,hit:hit===element,hitTag:hit?.tagName,rect:{left:r.left,right:r.right,top:r.top,bottom:r.bottom},stop:{top:stop.top,bottom:stop.bottom},visible:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight,overlap:r.top<stop.bottom&&r.bottom>stop.top};},{font,width});
+  measurements.push(value);await fs.writeFile(path.join(evidence,'footer-wrap-layout.json'),JSON.stringify(measurements,null,2));
+  if(!value.hit||!value.visible||value.overlap)await page.screenshot({path:path.join(evidence,'footer-wrap-failure.png'),fullPage:true});
+  assert.equal(value.fragments,1,'footer link must not fragment across lines');assert.equal(value.hit,true,'footer hit target is obscured');assert.equal(value.visible,true);assert.equal(value.overlap,false);
+ }
+});
+
 test('desktop and390px operator layout retain long content, focus and independent Stop without overflow',async t=>{
  const f=await fixture(t),{page,model}=f;
  model.state.active.displayName='Football · Senior night and community recognition — West district stadium';model.state.active.runtime.index=1;
@@ -121,8 +133,10 @@ test('desktop and390px operator layout retain long content, focus and independen
  const measurements=[];
  for(const selector of ['#event-select','#discard','#launch','#reload-media','footer a']){
   await page.locator(selector).evaluate(element=>{element.scrollIntoView({block:'center'});element.focus();});
-  const measure=await page.locator(selector).evaluate(element=>{const rect=element.getBoundingClientRect(),stop=document.getElementById('stop').getBoundingClientRect(),main=document.getElementById('main').getBoundingClientRect();const x=rect.x+rect.width/2,y=rect.y+rect.height/2;return{selector:element.id||'footer-link',rect:{top:rect.top,bottom:rect.bottom},stop:{top:stop.top,bottom:stop.bottom},hit:document.elementFromPoint(x,y)===element,visible:rect.top>=0&&rect.bottom<=innerHeight,overlap:rect.top<stop.bottom&&rect.bottom>stop.top,main:{top:main.top,bottom:main.bottom}};});
-  assert.equal(measure.hit,true,selector+' hit target is obscured');assert.equal(measure.visible,true);assert.equal(measure.overlap,false,selector+' intersects Stop region');measurements.push(measure);
+  const measure=await page.locator(selector).evaluate(element=>{const rect=element.getBoundingClientRect(),stop=document.getElementById('stop').getBoundingClientRect(),main=document.getElementById('main').getBoundingClientRect();const x=rect.x+rect.width/2,y=rect.y+rect.height/2;const hit=document.elementFromPoint(x,y);return{selector:element.id||'footer-link',text:element.textContent,rect:{left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,width:rect.width,height:rect.height},fragments:[...element.getClientRects()].map(r=>({left:r.left,right:r.right,top:r.top,bottom:r.bottom})),stop:{top:stop.top,bottom:stop.bottom},hit:hit===element,hitElement:hit?{tag:hit.tagName,id:hit.id,className:hit.className,text:hit.textContent?.slice(0,160)}:null,visible:rect.top>=0&&rect.bottom<=innerHeight,overlap:rect.top<stop.bottom&&rect.bottom>stop.top,main:{top:main.top,bottom:main.bottom},viewport:{width:innerWidth,height:innerHeight},font:getComputedStyle(element).font};});
+  measurements.push(measure);await fs.writeFile(path.join(evidence,'mobile-layout.json'),JSON.stringify(measurements,null,2));
+  if(!measure.hit||!measure.visible||measure.overlap)await page.screenshot({path:path.join(evidence,'mobile-hit-failure.png'),fullPage:true});
+  assert.equal(measure.hit,true,selector+' hit target is obscured');assert.equal(measure.visible,true);assert.equal(measure.overlap,false,selector+' intersects Stop region');
  }
  await page.locator('#reload-media').focus();await page.keyboard.press('Tab');assert.equal(await page.locator('#stop').evaluate(element=>element===document.activeElement),true);
  await page.locator('#main').evaluate(element=>element.scrollTop=0);await page.evaluate(()=>scrollTo(0,0));
