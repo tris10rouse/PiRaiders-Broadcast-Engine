@@ -111,11 +111,11 @@ async function fixture(t,{gateStage=false,intervalMs=600,mode='manual'}={}){
 test('prepared runtime joins actual TCP/native browser playback, cache Reload, restart and window fences (OS simulated)',{timeout:120000},async t=>{
   const f=await fixture(t);await f.runtime.start();
   assert.equal(f.state.children.filter(child=>child.privateInput).length,0,'NO_PREWARM_SENDER');
-  assert.equal(f.runtime.snapshot().ready,false);let wire=await f.connect();await wire.command(1,false);
+  assert.equal(f.runtime.snapshot().ready,false);assert.equal((await f.runtime.dispatch('launch')).code,'CONTROL_INHIBITED');let wire=await f.connect();await wire.command(1,false);
   await f.tick(f.start-15*60000);let page=await f.ready();
   await pixels(page,[0,0,0]);assert.equal(f.runtime.snapshot().index,null,'EXPLICIT_LAUNCH_REQUIRED');
   await wire.command(1);await pixels(page,[240,20,20]);assert.equal(f.runtime.snapshot().index,0);
-  await wire.command(3);await pixels(page,[20,20,240]);assert.equal(f.runtime.snapshot().index,1,'PREVIOUS_WRAPS');
+  assert.equal((await f.runtime.dispatch('previous')).ok,true);await pixels(page,[20,20,240]);assert.equal(f.runtime.snapshot().index,1,'LOCAL_PREVIOUS_WRAPS');
   await wire.command(2);await pixels(page,[240,20,20]);assert.equal(f.runtime.snapshot().index,0,'NEXT_WRAPS');
   await wire.command(4);assert.equal(f.runtime.snapshot().mode,'auto');
   await until(()=>f.runtime.snapshot().index===1,'ACTUAL_AUTO_ADVANCE');await pixels(page,[20,20,240]);
@@ -127,7 +127,7 @@ test('prepared runtime joins actual TCP/native browser playback, cache Reload, r
   const accepted=f.runtime.snapshot().deckId;assert.notEqual(accepted,firstDeck);await pixels(page,[20,220,20]);
   await fs.writeFile(path.join(f.sourceDir,'01.png'),'corrupt candidate');await wire.command(5,false);assert.equal(f.runtime.snapshot().lastError,'RESOLVER_FAILED','SANITIZED_RELOAD_DIAGNOSTIC');
   assert.equal(f.runtime.snapshot().deckId,accepted,'FAILED_RELOAD_LAST_GOOD');await pixels(page,[20,220,20]);
-  await wire.command(8);await pixels(page,[0,0,0]);assert.equal(f.caspar().exitObserved,false,'STOP_KEEPS_SENDER');
+  assert.equal((await f.runtime.dispatch('stop')).ok,true);await pixels(page,[0,0,0]);assert.equal(f.caspar().exitObserved,false,'LOCAL_STOP_KEEPS_SENDER');
   await fs.rm(f.sourceDir,{recursive:true});
   const old=f.caspar(),firstURL=f.state.urls[0];old.finish(17);await until(()=>f.caspar()!==old,'OWNED_RESTART');page=await f.ready();wire=await f.connect();
   assert.ok(f.state.urls.at(-1)!==firstURL,'NEW_PRIVATE_PROGRAM_URL');
@@ -141,7 +141,7 @@ test('prepared runtime joins actual TCP/native browser playback, cache Reload, r
   assert.equal(ending.exitObserved,false,'EPOCH_CLOSED_BEFORE_NATIVE_TERMINATION_COMPLETES');
   await until(()=>ending.exitObserved,'DELAYED_NATIVE_STOP');
   const count=f.state.children.length;await wait(700);assert.equal(f.state.children.length,count,'NO_OFF_WINDOW_RESTART');
-  assert.equal(f.runtime.snapshot().ready,false);f.state.killDelay=0;
+  assert.equal(f.runtime.snapshot().ready,false);f.state.killDelay=0;await f.runtime.close();assert.deepEqual(await f.runtime.dispatch('next'),{ok:false,code:'CLOSED'});
 });
 
 test('retired ignored staging completion cannot resurrect and retains global preparation barrier across fresh browser epoch',{timeout:120000},async t=>{

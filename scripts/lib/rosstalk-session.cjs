@@ -131,6 +131,6 @@ async function createRossTalkSession(raw = {}, options = {}) {
   function snapshot() {
     return Object.freeze({state,lastError,transport:Object.freeze({...bridge.snapshot()}),presentation:host.snapshot()});
   }
-  return Object.freeze({origin:host.origin,getProgramURL:()=>host.getProgramURL(),start,address:()=>bridge.address(),snapshot,close:()=>closeOwned(state==='faulted')});
+  return Object.freeze({origin:host.origin,getProgramURL:()=>host.getProgramURL(),start,address:()=>bridge.address(),snapshot,dispatch:action=>bridge.dispatch(action),close:()=>closeOwned(state==='faulted')});
 }
 module.exports={createRossTalkSession};
