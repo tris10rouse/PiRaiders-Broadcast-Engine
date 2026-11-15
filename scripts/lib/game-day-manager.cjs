@@ -129,10 +129,10 @@ function createGameDayManager(options = {}) {
     if (!record) return null;
     const value=status(record);
     const runtime=value ? Object.freeze({state:['prepared','waiting','starting','ready','closing','closed'].includes(value.state)?value.state:'unknown',
-      ready:value.ready===true,windowAllowed:value.windowAllowed===true,preparing:value.preparing,output:record.profile.output.type,
+      ready:value.ready===true,windowAllowed:value.windowAllowed===true,preparing:value.preparing,output:record.profile.output.type,slideCount:Number.isSafeInteger(value.slideCount)&&value.slideCount>=1&&value.slideCount<=500?value.slideCount:null,sourceName:record.profile.output.type==='ndi'?record.profile.output.name:null,
       mode:['auto','manual'].includes(value.mode)?value.mode:null,index:Number.isSafeInteger(value.index)&&value.index>=0?value.index:null,
       lastError:RUNTIME_ERRORS.has(value.lastError)?value.lastError:value.lastError?'STATE_UNAVAILABLE':null}) :
-      Object.freeze({state:'unknown',ready:false,windowAllowed:false,preparing:true,output:record.profile.output.type,mode:null,index:null,lastError:'STATE_UNAVAILABLE'});
+      Object.freeze({state:'unknown',ready:false,windowAllowed:false,preparing:true,output:record.profile.output.type,slideCount:null,sourceName:record.profile.output.type==='ndi'?record.profile.output.name:null,mode:null,index:null,lastError:'STATE_UNAVAILABLE'});
     return Object.freeze({...record.descriptor,revision:record.revision,...(candidateRecord?{candidateId:record.id}:{}),
       productionWindow:record.profile.productionWindow,cleanup:record.closeState,runtime});
   }

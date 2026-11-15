@@ -80,10 +80,13 @@ test('decoded PNG/JPEG contain correctly at HD and half-size; black clears every
 });
 test('missing, corrupt, timed-out and aborted candidates retain decoded last good frame', async t => {
   const page = await pageFor(t);
-  await page.evaluate(() => { window.piraidersRenderer.dispose(); window.piraidersRenderer = new window.PiRaidersSlideshowRenderer({root:document.body,mediaRoot:'/piraiders/media/',loadTimeoutMs:120}); });
+  await page.evaluate(() => { window.piraidersRenderer.dispose(); window.piraidersRenderer = new window.PiRaidersSlideshowRenderer({root:document.body,mediaRoot:'/piraiders/media/',loadTimeoutMs:5000}); });
   await show(page, 'green.png');
   for (const name of ['missing.png','corrupt.png','delayed.png']) {
     const outcome = await page.evaluate(async name => {
+      // HTTP/decode failures need their own budget; only the deliberately delayed
+      // candidate tests the short deadline, rather than CPU scheduling of404s.
+      window.piraidersRenderer.loadTimeoutMs = name === 'delayed.png' ? 120 : 5000;
       try { await window.piraidersRenderer.show({src:'/piraiders/media/' + name}); return 'unexpected success'; }
       catch (error) { return error.code; }
     }, name);

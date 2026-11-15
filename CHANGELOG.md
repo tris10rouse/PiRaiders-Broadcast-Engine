@@ -1,8 +1,14 @@
 # PiRaiders engineering changelog
 
-## 2026-11-15 · Local Game Day backend (in progress)
+## 2026-11-15 · SPX-hosted Game Day (in progress)
 
-- Add strict bounded machine/catalog policy and a sender-only event manager with stale-selection fences, immutable preparation, retryable cleanup and retained physical-flight barriers. Add trusted source/private-root alias checks and reciprocal source preparation admission across prewarm. Test real files/decode/listener handoff and Chromium/TCP controls with injected native boundaries. UI/launcher and final CI remain open.
+- Separate missing/corrupt browser-test response budgets from the deliberately short timeout case, preserving every failure/last-good assertion and production defaults.
+- Fix wrap-prone mobile SPX navigation and retain geometry/screenshots before layout assertions. Strengthen disposable Windows cleanup evidence with PID plus exact creation ticks and image, excluding stale parent IDs and distinguishing PID reuse from true survivors; actual final Windows results remain required.
+- Add actual event preparation/playback UI and guarded SPX router with local Host/Origin/session/CSRF/CSP boundaries, precise recovery and startup-identity proof. Preserve original graphics navigation/default behavior. Fresh review resolved Stop priority, narrow-layout reachability and403 recovery; real SPX/browser tests cover validated media activation outside prewarm and corrupt replacement retention. Final CI and Windows application packaging remain open.
+
+## 2026-11-15 · Local Game Day backend
+
+- Add strict bounded machine/catalog policy and a sender-only event manager with stale-selection fences, immutable preparation, retryable cleanup and retained physical-flight barriers. Add trusted source/private-root alias checks and reciprocal source preparation admission across prewarm. Test real files/decode/listener handoff and Chromium/TCP controls with injected native boundaries. [PR27](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/27) merged62e94e9 after all8 final checks, including Windows366 baseline passes/two documented skips and33 Chromium tests. UI/launcher release integration remains open.
 
 ## 2026-11-15 · Shared local and RossTalk admission
 

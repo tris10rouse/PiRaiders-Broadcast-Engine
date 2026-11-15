@@ -10,6 +10,7 @@ const {spawn,execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
+const {processTable,descendants,treeState}=require('./windows-process-evidence.cjs');
 const {LauncherRuntime}=require('./lib/launcher-runtime.cjs');
 const {JOB_HOST}=require('./lib/windows-job-process.cjs');
 const {stageSnapshot}=require('./lib/media-snapshot.cjs');
@@ -36,11 +37,11 @@ async function command(port,value,{prefix='202 ',timeoutMs=10000}={}){
 }
 function image(rgb){const data=Buffer.alloc(160*90*4);for(let i=0;i<data.length;i+=4)data.set([...rgb,255],i);return PNG.sync.write({width:160,height:90,data});}
 function checkPixels(bytes,rgb){const png=PNG.sync.read(bytes);assert.equal(png.width,1920);assert.equal(png.height,1080);for(const[x,y]of [[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]]){const i=(Math.floor(png.height*y)*png.width+Math.floor(png.width*x))*4;assert.ok(png.data[i+3]>=250,'ALPHA_UNVERIFIED');assert.ok(rgb.every((v,n)=>Math.abs(png.data[i+n]-v)<=12),'MIXED_PIXELS');}}
-function processTable(){const raw=execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command','ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,ExecutablePath)'],{encoding:'utf8',timeout:15000,windowsHide:true,maxBuffer:1024*1024});return JSON.parse(raw);}
-function descendants(rows,parent){const ids=new Set([parent]);for(let again=true;again;){again=false;for(const row of rows)if(ids.has(row.ParentProcessId)&&!ids.has(row.ProcessId)){ids.add(row.ProcessId);again=true;}}return [...ids];}
 async function filesUnder(dir){const all=[];for(const e of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,e.name);if(e.isDirectory())all.push(...await filesUnder(file));else if(e.isFile())all.push(file);}return all;}
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
+  let processEvidence=null;const processChecks={};
+  function treeGone(captured){processEvidence=treeState(processTable(),captured);processChecks[phase]=processEvidence;return processEvidence.surviving===0;}
   const toolRoot=path.resolve(process.argv[2]||path.join('build','caspar-proof-tools'));
   const evidence=path.resolve('build','caspar-proof-evidence');await fs.rm(evidence,{recursive:true,force:true});await fs.mkdir(evidence,{recursive:true});
   const {casparDirectory:bin,provenance}=JSON.parse(await fs.readFile(path.join(toolRoot,'tools.json'),'utf8'));
@@ -111,7 +112,7 @@ async function main(){
     }}await scanPrivateLogs();
     phase='CRASH_RECOVERY';const oldHost=activeHost,oldEpoch=session.snapshot().presentation.renderer.epoch,rows=processTable();
     const expectedImage=path.join(bin,'casparcg.exe').toLowerCase();
-    const roots=rows.filter(row=>row.ParentProcessId===oldHost.pid&&typeof row.ExecutablePath==='string'&&path.normalize(row.ExecutablePath).toLowerCase()===expectedImage);
+    const roots=descendants(rows,oldHost.pid).filter(row=>row.ParentProcessId===oldHost.pid&&typeof row.ExecutablePath==='string'&&path.normalize(row.ExecutablePath).toLowerCase()===expectedImage);
     assert.equal(roots.length,1,'OWNED_ROOT_IDENTITY');const root=roots[0];
     assert.ok(root&&Number.isSafeInteger(root.ProcessId)&&root.ProcessId>0,'OWNED_ROOT_MISSING');
     const crashedTree=descendants(rows,oldHost.pid);children.push(...crashedTree);
@@ -119,7 +120,7 @@ async function main(){
     // host must tear down CEF, then supervisor may restart within its window.
     execFileSync('taskkill.exe',['/PID',String(root.ProcessId),'/F'],{stdio:'ignore',timeout:15000,windowsHide:true});
     await until(async()=>{if(activeHost===oldHost)return false;try{await command(port,'VERSION',{prefix:'201 ',timeoutMs:1000});return true;}catch{return false;}},'CASPAR_RESTART',60000);
-    await until(()=>{const alive=new Set(processTable().map(row=>row.ProcessId));return crashedTree.every(pid=>!alive.has(pid));},'CRASHED_TREE_SURVIVED',10000);
+    await until(()=>treeGone(crashedTree),'CRASHED_TREE_SURVIVED',10000);
     await until(()=>!session.snapshot().presentation.renderer.connected,'OLD_RENDERER_SURVIVED',10000);
     await command(port,'PLAY 1-10 [HTML] "'+session.getProgramURL()+'"');
     await until(()=>session.snapshot().presentation.renderer.ready,'RESTART_INITIAL_BLACK',60000);
@@ -128,13 +129,13 @@ async function main(){
     assert.equal(referrerCapabilityObserved,false,'PRIVATE_URL_REFERRER');await scanPrivateLogs();
     children.push(...descendants(processTable(),activeHost.pid));phase='WINDOW_END';
     now=end;await runtime.reconcile();assert.equal(runtime.sender,null);
-    await until(()=>{const alive=new Set(processTable().map(row=>row.ProcessId));return children.every(pid=>!alive.has(pid));},'CASPAR_TREE_SURVIVED',10000);
+    await until(()=>treeGone(children),'CASPAR_TREE_SURVIVED',10000);
     await assert.rejects(command(port,'VERSION',{prefix:'201 ',timeoutMs:1000}));
     assert.ok(hosts.size>=1,'Persistent service survives window end');
-    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:8,actualPNGAndJPEG:true,bootstrapOriginProof:bootstrapFields.originMatches?'matching-origin':'same-origin-metadata',privateCapabilityInReferrer:false,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realRossTalk:true,windowEndProcessTreeGone:true,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
+    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:8,actualPNGAndJPEG:true,bootstrapOriginProof:bootstrapFields.originMatches?'matching-origin':'same-origin-metadata',privateCapabilityInReferrer:false,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realRossTalk:true,windowEndProcessTreeGone:true,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){
     const renderer=session?.snapshot().presentation.renderer;
-    console.error(JSON.stringify({event:'caspar-proof-fixed-diagnostic',phase,nativeExits,code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',httpCounts,bootstrapFields,upgrades,nativeFlags:[...nativeFlags],renderer:renderer?{ready:renderer.ready,connected:renderer.connected,presentation:renderer.presentation,lastError:renderer.lastError}:null}));
+    console.error(JSON.stringify({event:'caspar-proof-fixed-diagnostic',phase,nativeExits,processEvidence,processChecks,code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',httpCounts,bootstrapFields,upgrades,nativeFlags:[...nativeFlags],renderer:renderer?{ready:renderer.ready,connected:renderer.connected,presentation:renderer.presentation,lastError:renderer.lastError}:null}));
     // This bounded capture stops BEFORE host construction/private URL creation.
     // It contains only disposable pre-auth startup; URLs are omitted as well.
     if(phase==='START'||phase==='COLOR_MIXER')console.error(JSON.stringify({event:'caspar-preauth-startup-diagnostic',nativeExits,startup:startup.join('').replace(/https?:\/\/[^\s<>"']+/g,'[URL omitted]')}));
@@ -148,4 +149,4 @@ async function main(){
   await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }
 if(require.main===module)main().catch(error=>{console.error(/^CASPAR_PROOF_FAILED_[A-Z_]+$/.test(error.message)?error.message:'CASPAR_PROOF_FAILED');process.exitCode=1;});
-module.exports={configuration,checkPixels,descendants,command};
+module.exports={configuration,checkPixels,command};

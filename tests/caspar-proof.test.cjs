@@ -9,7 +9,7 @@ const net=require('node:net');
 const crypto=require('node:crypto');
 const {PNG}=require('pngjs');
 const {download}=require('../scripts/prepare-caspar-proof.cjs');
-const {configuration,checkPixels,descendants,command}=require('../scripts/smoke-caspar-windows.cjs');
+const {configuration,checkPixels,command}=require('../scripts/smoke-caspar-windows.cjs');
 test('proof download verifies actual streamed bytes and removes corrupt/oversize/failed attempts',async t=>{
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders proof download '));
   const bytes=Buffer.alloc(100000,17),sha256=crypto.createHash('sha256').update(bytes).digest('hex');
@@ -34,10 +34,9 @@ test('proof protocol uses real bounded TCP and never exposes native echoed priva
   const port=server.address().port;await command(port,'PLAY');
   for(const [value,code]of [['BAD','PROTOCOL_REJECTED'],['BIG','PROTOCOL_LIMIT'],['CLOSE','PROTOCOL_CLOSED'],['STALL','PROTOCOL_TIMEOUT']])await assert.rejects(command(port,value,{timeoutMs:100}),error=>error.message===code&&!error.message.includes('SECRET'));
 });
-test('proof rejects wrong or stale mixed-frame pixels and verifies descendants transitively',()=>{
+test('proof rejects wrong or stale mixed-frame pixels',()=>{
   const data=Buffer.alloc(1920*1080*4);for(let i=0;i<data.length;i+=4)data.set([240,20,20,255],i);
   const bytes=PNG.sync.write({width:1920,height:1080,data});checkPixels(bytes,[240,20,20]);assert.throws(()=>checkPixels(bytes,[0,0,0]),/MIXED_PIXELS/);
   assert.throws(()=>checkPixels(PNG.sync.write({width:1920,height:1080,data:Buffer.alloc(data.length)}),[0,0,0]),/ALPHA_UNVERIFIED/);
-  assert.deepEqual(descendants([{ProcessId:3,ParentProcessId:2},{ProcessId:2,ParentProcessId:1},{ProcessId:8,ParentProcessId:7}],1).sort(),[1,2,3]);
   const config=configuration(5250);assert.match(config,/<log-path disabled="true">/);assert.match(config,/<auto-load>false<\/auto-load>/);assert.doesNotMatch(config,/<address>/);assert.throws(()=>configuration(0));
 });

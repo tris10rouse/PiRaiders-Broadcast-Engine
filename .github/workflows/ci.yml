@@ -41,7 +41,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: native-template-browser-${{ runner.os }}
-          path: build/browser-artifacts
+          path: |
+            build/browser-artifacts
+            build/game-day-ui-browser
           if-no-files-found: warn
           retention-days: 14
       - name: Exercise off-air loopback RossTalk transport bench
