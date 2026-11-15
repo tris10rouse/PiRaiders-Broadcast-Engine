@@ -96,7 +96,9 @@ function resources(t){
       if(!alive(pid))continue;
       try{await terminateProcessTree({pid,kill(){}});}catch(error){if(alive(pid))throw error;}
     }
-    fs.rmSync(dir,{recursive:true,force:true,maxRetries:10,retryDelay:50});
+    // Async removal yields to pending child-stream close callbacks on Windows.
+    // Process/tree deadlines above remain strict and independent of file cleanup.
+    await fs.promises.rm(dir,{recursive:true,force:true,maxRetries:10,retryDelay:50});
   });
   return{dir,fixture,file:path.join(dir,'state.json'),owned};
 }
