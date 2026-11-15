@@ -21,3 +21,12 @@ test('stalled commands bound pending work and close independently; late replies 
   const{client,child}=fixture(t,{timeoutMs:150});const pending=client.request('STALL');await assert.rejects(client.request('VERSION'),/CONSOLE_BUSY/);await assert.rejects(pending,/CONSOLE_TIMEOUT/);assert.equal(client.closed,true);
   client.consume(Buffer.from('#RES p1 202 OK\r\n'));await assert.rejects(client.request('VERSION'),/CONSOLE_CLOSED/);assert.equal(child.stdin.writableEnded,true);
 });
+
+test('Console proof rejects a single leftover overlay pixel anywhere in black output',()=>{
+  const {PNG}=require('pngjs');
+  const {checkConsolePixels,consoleConfiguration}=require('../scripts/smoke-caspar-console-windows.cjs');
+  const data=Buffer.alloc(1920*1080*4);for(let i=3;i<data.length;i+=4)data[i]=255;
+  const encode=()=>PNG.sync.write({width:1920,height:1080,data});checkConsolePixels(encode(),[0,0,0]);
+  const corner=(1920*1080-1)*4;data[corner]=255;assert.throws(()=>checkConsolePixels(encode(),[0,0,0]),/BLACK_PIXELS/);data[corner]=0;data[corner+3]=0;assert.throws(()=>checkConsolePixels(encode(),[0,0,0]),/BLACK_PIXELS/);
+  const config=consoleConfiguration();assert.match(config,/<controllers\/>/);assert.doesNotMatch(config,/<tcp>/);assert.match(config,/<log-path disabled="true">/);
+});

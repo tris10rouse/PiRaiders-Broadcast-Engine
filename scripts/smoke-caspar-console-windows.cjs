@@ -14,6 +14,13 @@ const {CasparConsole}=require('./lib/caspar-console.cjs');
 const {LauncherRuntime}=require('./lib/launcher-runtime.cjs');
 const {stageSnapshot}=require('./lib/media-snapshot.cjs');
 const {createRossTalkSession}=require('./lib/rosstalk-session.cjs');
+function checkConsolePixels(bytes,rgb){
+  checkPixels(bytes,rgb);
+  if(rgb.every(v=>v===0)){
+    const png=PNG.sync.read(bytes);
+    for(let i=0;i<png.data.length;i+=4)if(png.data[i]>12||png.data[i+1]>12||png.data[i+2]>12||png.data[i+3]<250)throw Error('BLACK_PIXELS');
+  }
+}
 function consoleConfiguration(){return configuration(5250).replace(/<controllers>.*?<\/controllers>/,'<controllers/>');}
 function ps(source){return JSON.parse(execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$ErrorActionPreference='Stop'; "+source],{encoding:'utf8',windowsHide:true,timeout:15000,maxBuffer:1024*1024}));}
 function table(){return ps('ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,ExecutablePath)');}
@@ -43,7 +50,7 @@ async function main(){
   async function capture(name,rgb){
     for(let attempt=0;attempt<8;attempt++){
       const stem='console-'+name+'-'+captureCount++,file=path.join(bin,'media',stem+'.png');await request('ADD 1 IMAGE "'+stem+'"');
-      try{await until(async()=>{try{const b=await fs.readFile(file);assert.ok(b.length<16*1024*1024);checkPixels(b,rgb);return true;}catch{return false;}},'CAPTURE_PIXELS',5000);await fs.copyFile(file,path.join(evidence,name+'.png'));captures.push(name);return;}catch{await wait(200);}
+      try{await until(async()=>{try{const b=await fs.readFile(file);assert.ok(b.length<16*1024*1024);checkConsolePixels(b,rgb);return true;}catch{return false;}},'CAPTURE_PIXELS',5000);await fs.copyFile(file,path.join(evidence,name+'.png'));captures.push(name);return;}catch{await wait(200);}
     }throw Error('CAPTURE_PIXELS');
   }
   function ownedRoot(){const rows=table(),matches=rows.filter(r=>r.ParentProcessId===activeHost.pid&&typeof r.ExecutablePath==='string'&&path.normalize(r.ExecutablePath).toLowerCase()===path.join(bin,'casparcg.exe').toLowerCase());assert.equal(matches.length,1,'OWNED_CASPAR_ROOT');return{rows,pid:matches[0].ProcessId};}
@@ -62,10 +69,10 @@ async function main(){
     await request('PLAY 1-10 [HTML] "'+session.getProgramURL()+'"');await until(()=>session.snapshot().presentation.renderer.ready,'RESTART_CEF',60000);assert.notEqual(session.snapshot().presentation.renderer.epoch,oldEpoch);assert.equal(session.snapshot().presentation.controller.state,'stopped');await capture('restart-black',[0,0,0]);await command(port,'GPI 1',{prefix:'OK ',timeoutMs:30000});await capture('restart-launch-red',[240,20,20]);
     phase='WINDOW_END';const ending=descendants(table(),activeHost.pid);now=end;await runtime.reconcile();assert.equal(runtime.sender,null);await until(()=>{const alive=new Set(table().map(r=>r.ProcessId));return ending.every(id=>!alive.has(id));},'WINDOW_TREE',10000);
     for(const file of await filesUnder(bin))if(/\.(?:log|txt|json|config)$/i.test(file)){if((await fs.stat(file)).size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');const b=await fs.readFile(file);if(b.includes(Buffer.from(token))||b.includes(Buffer.from(token,'utf16le')))throw Error('PRIVATE_URL_PERSISTED');}
-    report={event:'caspar-private-console-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance:tools.provenance,actualConsoleAMCP:true,utf16Input:true,correlatedStatus:true,emptyTcpControllers:true,listenerEnumerationPositiveControl:true,noOwnedRootTcpListenerBeforeAndAfterRestart:true,actualManagedCEF:true,actualMixedImages:captures,realRossTalk:true,rootCrashRecovery:true,freshStoppedEpoch:true,windowEndTreeGone:true,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
+    report={event:'caspar-private-console-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance:tools.provenance,actualConsoleAMCP:true,utf16Input:true,correlatedStatus:true,emptyTcpControllers:true,listenerEnumerationPositiveControl:true,noOwnedRootTcpListenerBeforeAndAfterRestart:true,actualManagedCEF:true,fullFrameOpaqueBlackVerified:true,actualMixedImages:captures,realRossTalk:true,rootCrashRecovery:true,freshStoppedEpoch:true,windowEndTreeGone:true,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){console.error(JSON.stringify({event:'caspar-console-fixed-failure',phase,code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',captures}));throw Error('CONSOLE_PROOF_FAILED');}
   finally{const results=await Promise.allSettled([runtime?.close(),session?.close()]);for(const client of clients)client.close();for(const child of hosts)child.stdin?.end();if(listenerProbe.listening)await new Promise((resolve,reject)=>listenerProbe.close(error=>error?reject(error):resolve()));if(results.some(r=>r.status==='rejected'))throw Error('CONSOLE_PROOF_CLEANUP');}
   await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }
 if(require.main===module)main().catch(()=>{console.error('CONSOLE_PROOF_FAILED');process.exitCode=1;});
-module.exports={consoleConfiguration};
+module.exports={consoleConfiguration,checkConsolePixels};
