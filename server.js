@@ -72,9 +72,28 @@ if (!configfileref) {
 const spx = require('./utils/spx_server_functions.js');
 const logger = require('./utils/logger.js');
 
+// Opt-in workstation Game Day routes. Existing SPX mode stays independent.
+let gameDay = null;
+if (process.env.PIRAIDERS_APP_CONFIG) {
+  try {
+    gameDay = require('./scripts/lib/game-day-web.cjs').createGameDayWeb({
+      machineFile: process.env.PIRAIDERS_APP_CONFIG, appRoot: __dirname,
+      configFile: configfileref, port: config.general.port || 5656
+    });
+    app.locals.piraidersGameDay = true;
+    config.general.launchBrowser = false;
+    global.generatingDefaultConfig = false;
+    app.use(gameDay.guard);
+  } catch {
+    console.error('PiRaiders APP_CONFIG_INVALID');
+    process.exit(1);
+  }
+}
+const spxOnly = middleware => (req, res, next) => gameDay?.matches(req) ? next() : middleware(req, res, next);
+
 // STATICS
-app.use(express.static(path.join(__dirname,('static'))))
-app.use(express.static(path.resolve(spx.getStartUpFolder(),'ASSETS')))
+app.use(spxOnly(express.static(path.join(__dirname,('static')))))
+app.use(spxOnly(express.static(path.resolve(spx.getStartUpFolder(),'ASSETS'))))
 const ipad = ip.address();
 var pjson = require('./package.json');
 var packageversion = pjson.version;
@@ -804,14 +823,16 @@ app.set('views', path.join(__dirname, 'views'));
 
 
 // Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors());
+app.use(spxOnly(bodyParser.json()));
+app.use(spxOnly(bodyParser.urlencoded({ extended: true })));
+app.use(spxOnly(cors()));
 app.use(session({
   secret: 'salainenSalaisuus#007',
   resave: false,
   saveUninitialized: false
 }));
+
+if (gameDay) app.use(gameDay.router);
 
 global.user = "";
 

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="piraiders-csrf" content="{{csrfToken}}">
+  <title>Game Day · PiRaiders</title>
+  <link rel="stylesheet" href="/css/piraiders-game-day.css">
+  <script src="/js/piraiders-game-day.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to Game Day</a>
+  <header class="app-header">
+    <a class="brand" href="/">PiRaiders<span>Broadcast Engine</span></a>
+    <nav aria-label="Workspaces"><a href="/game-day" aria-current="page">Game Day</a><a href="/shows">SPX Graphics</a></nav>
+    <span id="connection" class="connection" role="status">Connecting to application…</span>
+  </header>
+  <main id="main">
+    <div class="page-heading"><div><h1>Game Day</h1><p>Prepare an event, then activate its playback controls.</p></div><button id="retry" type="button" hidden>Retry connection</button></div>
+    <div id="connection-warning" class="message warning" hidden><p id="connection-detail"></p><a id="sign-in" href="/login" hidden>Sign in to SPX</a><a id="configure-spx" href="/config" hidden>Open SPX configuration</a><button id="reload-page" type="button" hidden>Reload Game Day</button></div>
+    <p id="notice" class="notice" role="status" aria-live="polite">Loading event status…</p>
+    <div class="workspace">
+      <section class="event-section" aria-labelledby="events-heading">
+        <div class="section-heading"><h2 id="events-heading">Event preparation</h2><button id="refresh-events" class="quiet" type="button">Refresh list</button></div>
+        <label for="event-select">Local event</label>
+        <select id="event-select" aria-describedby="catalog-note" disabled><option>Loading events…</option></select>
+        <p id="catalog-note" class="support">Reading the local event list.</p>
+        <button id="prepare" class="primary wide" type="button" disabled>Prepare selected event</button>
+        <p id="protection" class="support" hidden>The current production window protects event changes. Playback controls remain available.</p>
+        <div id="candidate" class="candidate" hidden>
+          <h3 id="candidate-heading" tabindex="-1">Prepared event</h3>
+          <p id="candidate-name" class="event-name"></p>
+          <p id="candidate-status" class="support"></p>
+          <dl class="details"><div><dt>Event settings version</dt><dd id="candidate-version" class="version"></dd></div></dl>
+          <div class="button-pair"><button id="activate" class="primary" type="button" disabled>Activate event</button><button id="discard" type="button" disabled>Discard</button></div>
+          <p class="support">Activation opens this event’s controls. The sender follows its production window.</p>
+        </div>
+        <div class="local-note"><h3>Local media</h3><p>Preparation validates a local media snapshot. Reload checks for updated media and keeps the last accepted content if preparation fails.</p></div>
+      </section>
+      <section class="playback-section" aria-labelledby="playback-heading">
+        <div class="section-heading"><h2 id="playback-heading" tabindex="-1">Playback</h2><span id="runtime-state" class="status-label">No active event</span></div>
+        <div class="active-summary"><h3 id="active-name">Activate a prepared event</h3><p id="active-detail">Prepare an event on the left to begin.</p></div>
+        <dl class="readiness">
+          <div><dt>Renderer</dt><dd id="renderer-status">Not started</dd></div>
+          <div><dt>Output configuration</dt><dd id="output-status">No active event</dd></div>
+          <div><dt>Receiver / board route</dt><dd>Unverified</dd></div>
+        </dl>
+        <div class="playback-position"><span id="slide-position">No slide selected</span><span id="mode">Mode unavailable</span></div>
+        <div class="playback-controls" role="group" aria-label="Playback controls">
+          <button data-action="launch" id="launch" class="primary" type="button" disabled>Launch slide 1</button>
+          <button data-action="previous" type="button" disabled>Previous</button>
+          <button data-action="next" type="button" disabled>Next</button>
+          <button data-action="auto" id="auto" type="button" aria-pressed="false" disabled>Auto</button>
+          <button data-action="manual" id="manual" type="button" aria-pressed="false" disabled>Manual</button>
+          <button data-action="reload" id="reload-media" type="button" disabled>Reload media</button>
+        </div>
+        <div class="stop-row"><button id="stop" class="danger" type="button" disabled>Stop · black output</button><p>Stop requests black. Sender shutdown remains controlled by the production window.</p></div>
+        <dl class="window-details"><div><dt>Production window</dt><dd id="window-range">No active event</dd></div><div><dt>Prewarm</dt><dd id="window-prewarm">Not configured</dd></div></dl>
+        <p id="runtime-error" class="message warning" hidden></p>
+        <p class="verification-note">Renderer readiness does not confirm receiver connection or board routing.</p>
+      </section>
+    </div>
+  </main>
+  <footer><span>SPX native graphics and rundowns remain available in <a href="/shows">SPX Graphics</a>.</span><span>Closing this tab leaves the application running.</span></footer>
+  <noscript><p class="message warning">JavaScript is required for Game Day controls. Existing <a href="/shows">SPX Graphics</a> remains available.</p></noscript>
+</body>
+</html>

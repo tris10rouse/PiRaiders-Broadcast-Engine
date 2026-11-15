@@ -8,6 +8,9 @@
             <img src="/img/spx_online.png" id="logo" style="cursor: pointer;">
             <div class="scrollingMenuArea scroller">
               <div class="dropdown-content">
+                {{#if piraidersGameDay}}
+                  <A HREF="/game-day"><i class="fas fa-calendar-alt"></i>&nbsp; Game Day</A><BR>
+                {{/if}}
                 <A HREF="/"><i class="fas fa-home"></i>&nbsp; {{lang 'pagetitle.home'}}</A><br>
                 <A HREF="/shows/"><i class="fas fa-folder"></i>&nbsp; {{lang 'pagetitle.shows'}}...</A><BR>
                 <div style="font-size: 0.8em; padding-left: 1.0em; border-left: 10px solid rgba(0, 0, 0, 0.205);">
