@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-ndi-investigation-2026-11-15T21:46:09.308Z-sy010i5ety",
-  "fence": 30,
-  "task": "Verify independent native prepared-event sender deadline",
+  "owner": "codex-native-deadline-recovery-2026-11-15T23:39:29.693Z-2mkuv5igxyh",
+  "fence": 31,
+  "task": "Verify PR34 final Windows evidence and preserve continuation",
   "workBranch": "feature/be-002-native-event-deadline",
-  "acquiredAt": "2026-11-15T21:46:09.308Z",
-  "lastHeartbeat": "2026-11-15T22:06:01.791Z",
-  "expiresAt": "2026-11-15T23:36:01.791Z",
+  "acquiredAt": "2026-11-15T23:39:29.693Z",
+  "lastHeartbeat": "2026-11-15T23:39:29.693Z",
+  "expiresAt": "2026-11-16T01:09:29.693Z",
   "releasedAt": null
 }
