@@ -116,4 +116,4 @@ PR21 is merged: actual Caspar/CEF mixed pixels and crash recovery passed Windows
 
 ## Private process control · 2026-11-15
 
-Current BE-002 increment adds opt-in bounded native stdin forwarding and correlated private Console AMCP, with explicit empty TCP controllers. It preserves default NUL behavior and SPX. Real Windows containment/Console/CEF acceptance is in [PRIVATE_CASPAR_CONTROL.md](docs/design/PRIVATE_CASPAR_CONTROL.md); execution is pending. This is a prerequisite to PreparedEventRuntime and does not activate the default launcher.
+Current BE-002 increment adds opt-in bounded native stdin forwarding and correlated private Console AMCP, with explicit empty TCP controllers. It preserves default NUL behavior and SPX. Real Windows containment/Console/CEF acceptance is in [PRIVATE_CASPAR_CONTROL.md](docs/design/PRIVATE_CASPAR_CONTROL.md); both implementation Windows runs passed native input/failure cleanup and actual private Console/CEF output; final documentation-head CI remains required before merge. This is a prerequisite to PreparedEventRuntime and does not activate the default launcher.

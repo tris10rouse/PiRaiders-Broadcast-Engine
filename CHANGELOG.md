@@ -2,7 +2,7 @@
 
 ## 2026-11-15 · Private CasparCG control increment
 
-- Add opt-in bounded Windows stdin forwarding with independent EOF detection and a correlated Console AMCP adapter that captures native output privately. Add blocked-input/descendant-cleanup tests and a dedicated actual Caspar/CEF Windows proof. Defaults remain NUL; actual Windows execution is pending.
+- Add opt-in bounded Windows stdin forwarding with independent EOF detection and a correlated Console AMCP adapter that captures native output privately. Add blocked-input/descendant-cleanup tests and a dedicated actual Caspar/CEF Windows proof. Defaults remain NUL. Both implementation Windows runs passed all seven native cases and seven actual Console/CEF captures, positive-controlled root listener absence, full-frame Stop black and crash recovery. [PR23](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/23) requires passing final-head checks before merge.
 
 
 ## 2026-11-14 · Native NDI validation increment
