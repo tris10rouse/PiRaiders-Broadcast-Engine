@@ -8,14 +8,21 @@ const {createRossTalkSession}=require('./rosstalk-session.cjs');
 const {LauncherRuntime}=require('./launcher-runtime.cjs');
 const {spawnSupervisedProcess}=require('./windows-job-process.cjs');
 const {CasparConsole}=require('./caspar-console.cjs');
+function safeRoot(value){return typeof value==='string'&&value.length<=4096&&!/[\x00-\x1f\x7f]/.test(value)&&path.isAbsolute(value);}
+function safePrivateRoots(value){return Array.isArray(value)&&Object.getPrototypeOf(value)===Array.prototype&&value.length<=3&&Reflect.ownKeys(value).length===value.length+1&&Array.from({length:value.length},(_,index)=>Object.getOwnPropertyDescriptor(value,String(index))).every(item=>item&&Object.hasOwn(item,'value')&&item.enumerable&&safeRoot(item.value));}
 function failure(code){return Object.assign(Error(code),{code});}
 function same(a,b){return process.platform==='win32'?a.toLowerCase()===b.toLowerCase():a===b;}
 function within(parent,child){const a=process.platform==='win32'?parent.toLowerCase():parent,b=process.platform==='win32'?child.toLowerCase():child;return a===b||(!path.relative(a,b).startsWith('..'+path.sep)&&path.relative(a,b)!=='..'&&!path.isAbsolute(path.relative(a,b)));}
 async function canonical(file){let cursor=file;const tail=[];for(;;){try{return path.join(await fs.realpath(cursor),...tail.reverse());}catch(error){if(error.code!=='ENOENT')throw error;const parent=path.dirname(cursor);if(parent===cursor)throw error;tail.push(path.basename(cursor));cursor=parent;}}}
-async function paths(profile,{source=profile.media.startup.mode==='source',manageSpx=true}={}){
+async function paths(profile,{source=profile.media.startup.mode==='source',manageSpx=true,sourceRoot,privateRoots=[]}={}){
   // Cached startup must not touch an absent/unmounted Drive source at all.
   const roots=await Promise.all([...(source?[profile.media.sourceDir]:[]),profile.media.cacheDir,profile.caspar.runtimeDir].map(canonical));
   for(let i=0;i<roots.length;i++)for(let j=i+1;j<roots.length;j++)if(within(roots[i],roots[j])||within(roots[j],roots[i]))throw failure('PROFILE_PATHS');
+  if(source&&sourceRoot!==undefined){
+    const boundary=await fs.realpath(sourceRoot);
+    if(!(await fs.stat(boundary)).isDirectory()||!within(boundary,roots[0]))throw failure('PROFILE_PATHS');
+    for(const privateRoot of [...roots.slice(1),...await Promise.all(privateRoots.map(canonical))])if(within(boundary,privateRoot)||within(privateRoot,boundary))throw failure('PROFILE_PATHS');
+  }
   for(const file of [...(manageSpx?[profile.spx.executable]:[]),profile.caspar.executable])if(!(await fs.stat(file)).isFile())throw failure('PROFILE_PATHS');
   for(const dir of [...(manageSpx?[profile.spx.cwd]:[]),profile.caspar.cwd])if(!(await fs.stat(dir)).isDirectory())throw failure('PROFILE_PATHS');
   if(manageSpx&&same(await fs.realpath(profile.spx.executable),await fs.realpath(profile.caspar.executable)))throw failure('PROFILE_PATHS');
@@ -25,17 +32,18 @@ async function paths(profile,{source=profile.media.startup.mode==='source',manag
     if(same(selected,cache)||!within(cache,selected))throw failure('PROFILE_PATHS');
   }
 }
-/** Trusted options inject only OS/test boundaries; they are never profile data.
+/** Trusted Node options carry ownership/source policy and OS/test boundaries; never profile data.
  * manageSpx:false leaves SPX ownership and filesystem validation to the caller.
  * Real activation is Windows-only unless an explicit synthetic spawner is supplied.
  */
-async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child=>new CasparConsole(child),clock=Date.now,schedule=setTimeout,cancel=clearTimeout,supervisorOptions={},stage=stageSnapshot,load=loadSnapshot,sessionFactory=createRossTalkSession,manageSpx=true}={}){
-  if(typeof manageSpx!=='boolean')throw failure('EVENT_OPTIONS_INVALID');
+async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child=>new CasparConsole(child),clock=Date.now,schedule=setTimeout,cancel=clearTimeout,supervisorOptions={},stage=stageSnapshot,load=loadSnapshot,sessionFactory=createRossTalkSession,manageSpx=true,sourceRoot,privateRoots=[],canPrepare=()=>true}={}){
+  if(typeof manageSpx!=='boolean'||typeof canPrepare!=='function'||(sourceRoot!==undefined&&!safeRoot(sourceRoot))||!safePrivateRoots(privateRoots)||(privateRoots.length&&sourceRoot===undefined))throw failure('EVENT_OPTIONS_INVALID');
+  privateRoots=Object.freeze(privateRoots.map(value=>path.resolve(value)));
   let profile,initial,directory;
   try{
     profile=normalizePreparedEventProfile(raw);
     if(process.platform!=='win32'&&typeof spawnProcess!=='function')throw failure('WINDOWS_REQUIRED');
-    try{await paths(profile,{manageSpx});}catch(error){throw failure(error.code==='NDI_RUNTIME_MISSING'?'NDI_RUNTIME_MISSING':'PROFILE_PATHS');}
+    try{await paths(profile,{manageSpx,sourceRoot,privateRoots});}catch(error){throw failure(error.code==='NDI_RUNTIME_MISSING'?'NDI_RUNTIME_MISSING':'PROFILE_PATHS');}
     initial=profile.media.startup.mode==='cached'?await load(profile.media.startup.snapshotDir):await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir});
     await fs.mkdir(profile.caspar.runtimeDir,{recursive:true});
     directory=await fs.mkdtemp(path.join(profile.caspar.runtimeDir,'event-'));
@@ -72,11 +80,15 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
   async function prepare(gen,{signal}){
     syncAccepted(gen);
     if(!active(gen)||signal.aborted)throw failure('EVENT_CANCELLED');
-    if(flight)throw failure('PREPARE_BUSY');
+    if(flight)throw failure('BUSY');
+    let permitted=false;
+    try{const value=canPrepare();if(value&&typeof value.then==='function')Promise.resolve(value).catch(()=>{});permitted=value===true;}catch{}
+    if(!permitted)throw failure('BUSY');
+    if(!active(gen)||signal.aborted)throw failure('EVENT_CANCELLED');
     const job={abort:new AbortController()};flight=job;
     const abort=()=>job.abort.abort();signal.addEventListener('abort',abort,{once:true});
     try{
-      await paths(profile,{source:true,manageSpx});
+      await paths(profile,{source:true,manageSpx,sourceRoot,privateRoots});
       if(!active(gen)||signal.aborted||job.abort.signal.aborted)throw failure('EVENT_CANCELLED');
       const next=await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir,signal:job.abort.signal});
       if(!active(gen)||signal.aborted||job.abort.signal.aborted)throw failure('EVENT_CANCELLED');

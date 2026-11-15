@@ -1,8 +1,12 @@
 # PiRaiders engineering changelog
 
-## 2026-11-15 · Shared local and RossTalk admission (in progress)
+## 2026-11-15 · Local Game Day backend (in progress)
 
-- Add trusted local bridge/session/runtime commands through the existing TCP queue and priority Stop machinery. Preserve bounded followers, physical callback watchdogs and legacy FIFO; return fixed results without private data. Add mixed TCP/local, reentrant shutdown and actual browser regression coverage. Game Day manager/UI remain subsequent integration; final CI is required.
+- Add strict bounded machine/catalog policy and a sender-only event manager with stale-selection fences, immutable preparation, retryable cleanup and retained physical-flight barriers. Add trusted source/private-root alias checks and reciprocal source preparation admission across prewarm. Test real files/decode/listener handoff and Chromium/TCP controls with injected native boundaries. UI/launcher and final CI remain open.
+
+## 2026-11-15 · Shared local and RossTalk admission
+
+- Add trusted local bridge/session/runtime commands through the existing TCP queue and priority Stop machinery. Preserve bounded followers, physical callback watchdogs and legacy FIFO; return fixed results without private data. Add mixed TCP/local, reentrant shutdown and actual browser regression coverage. [PR26](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/26) mergeddfc5ce6 after8 final checks, including Windows315 baseline passes/one documented skip and31 Chromium tests. Game Day UI remains subsequent integration.
 
 ## 2026-11-15 · Persistent application ownership
 

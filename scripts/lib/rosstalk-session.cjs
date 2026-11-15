@@ -85,7 +85,7 @@ async function createRossTalkSession(raw = {}, options = {}) {
           // Deliberately await actual settlement: a timeout/abort must not let
           // a successor run around an uncooperative asynchronous resolver.
           try { candidate=await resolvePreparedSnapshot(Object.freeze({signal:job.abort.signal})); }
-          catch { throw error(job.timedOut?'RESOLVER_TIMEOUT':job.abort.signal.aborted?'CANCELLED':'RESOLVER_FAILED'); }
+          catch(e) { throw error(job.timedOut?'RESOLVER_TIMEOUT':job.abort.signal.aborted?'CANCELLED':e?.code==='BUSY'?'BUSY':'RESOLVER_FAILED'); }
           if (job.timedOut) throw error('RESOLVER_TIMEOUT');
           stillCurrent(signal,stamp,epoch);
           if (!gate()) { diagnostic('CONTROL_INHIBITED');await requestStop();throw error('CONTROL_INHIBITED'); }
