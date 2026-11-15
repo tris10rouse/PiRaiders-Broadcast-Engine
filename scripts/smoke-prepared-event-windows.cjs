@@ -19,6 +19,7 @@ const {stageSnapshot}=require(path.join(appRoot,'scripts/lib/media-snapshot.cjs'
 const {requestProbe}=require(path.join(appRoot,'scripts/ndi-proof-client.cjs'));
 const {output:PROBE}=require(path.join(appRoot,'scripts/build-ndi-probe.cjs'));
 const {command,descendants}=require(path.join(appRoot,'scripts/smoke-caspar-windows.cjs'));
+const {checkConsolePixels}=require(path.join(appRoot,'scripts/smoke-caspar-console-windows.cjs'));
 function table(){const rows=JSON.parse(execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$ErrorActionPreference='Stop'; ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process -ErrorAction Stop | Select-Object ProcessId,ParentProcessId,ExecutablePath)"],{encoding:'utf8',timeout:15000,windowsHide:true,maxBuffer:1024*1024}));assert.ok(Array.isArray(rows)&&rows.some(row=>row.ProcessId===process.pid),'PROCESS_ENUM_POSITIVE_CONTROL');return rows;}
 async function until(predicate,code,ms=20000){const end=Date.now()+ms;while(Date.now()<end){if(await predicate())return;await wait(100);}throw Error(code);}
 async function freePort(){const server=net.createServer();await new Promise((r,j)=>server.listen(0,'127.0.0.1',r).once('error',j));const port=server.address().port;await new Promise(r=>server.close(r));return port;}
@@ -107,6 +108,7 @@ async function main(){
     assert.equal(result.sourceIdentityHash,expectedIdentity,'SOURCE_IDENTITY_CHANGED');
     assert.ok(Number.isInteger(result.distinctTimestamps)&&result.distinctTimestamps>=3&&result.connections>0,'FRESH_NDI_FRAMES_REQUIRED');
     assert.equal(result.width,1920);assert.equal(result.height,1080);assert.equal(result.frameRateN,30*result.frameRateD);assert.ok(['BGRA','BGRX'].includes(result.format));
+    if(rgb.every(value=>value===0))checkConsolePixels(await fs.readFile(path.join(evidence,name+'.png')),rgb);
     frameEvidence.push({name,matchedFrames:result.matchedFrames,distinctTimestamps:result.distinctTimestamps,sampleDurationMs:result.sampleDurationMs,format:result.format});
     console.log(JSON.stringify({event:'prepared-ndi-frame-verified',name,distinctTimestamps:result.distinctTimestamps}));
   }
@@ -183,7 +185,7 @@ async function main(){
       actualPreparedEventRuntime:true,localManualProvider:true,actualMediaCaptureDecode:true,actualCasparCEF:true,
       actualPrivateConsole:true,consoleConfigValidated,consoleVersions,consolePlays,privateGenerationCount,
       actualNdiConsumer:true,actualNdiSdkReceiver:true,sourceIdentityStable:true,sourceIdentityHash:expectedIdentity,
-      frameEvidence,actualPNGAndJPEG:true,realRossTalk:true,bidirectionalWrap:true,failedReloadLastGood:true,
+      frameEvidence,fullFrameOpaqueBlackVerified:true,actualPNGAndJPEG:true,realRossTalk:true,bidirectionalWrap:true,failedReloadLastGood:true,
       sourceOfflineRootCrashRecovery:true,freshStoppedEpoch:true,explicitLaunchAfterRestart:true,realWallClockWindow:window,processStoppedAt,
       windowEndAutoFence:true,ignoredPreparationInjection:{realStageBeforeGate:true,ignoredPostStageSettlement:true,abortObserved:ending.abortObserved,closeBeforeRelease:true,closeDurationMs},
       quietAfterDrain:{connections:quiet.connections,durationMs:quiet.quietDurationMs,drainedFrames:quiet.drainedFrames},lateCompletionQuiet:{connections:lateQuiet.connections,durationMs:lateQuiet.quietDurationMs},

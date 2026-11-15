@@ -12,8 +12,9 @@ function failure(code){return Object.assign(Error(code),{code});}
 function same(a,b){return process.platform==='win32'?a.toLowerCase()===b.toLowerCase():a===b;}
 function within(parent,child){const a=process.platform==='win32'?parent.toLowerCase():parent,b=process.platform==='win32'?child.toLowerCase():child;return a===b||(!path.relative(a,b).startsWith('..'+path.sep)&&path.relative(a,b)!=='..'&&!path.isAbsolute(path.relative(a,b)));}
 async function canonical(file){let cursor=file;const tail=[];for(;;){try{return path.join(await fs.realpath(cursor),...tail.reverse());}catch(error){if(error.code!=='ENOENT')throw error;const parent=path.dirname(cursor);if(parent===cursor)throw error;tail.push(path.basename(cursor));cursor=parent;}}}
-async function paths(profile){
-  const roots=await Promise.all([profile.media.sourceDir,profile.media.cacheDir,profile.caspar.runtimeDir].map(canonical));
+async function paths(profile,{source=profile.media.startup.mode==='source'}={}){
+  // Cached startup must not touch an absent/unmounted Drive source at all.
+  const roots=await Promise.all([...(source?[profile.media.sourceDir]:[]),profile.media.cacheDir,profile.caspar.runtimeDir].map(canonical));
   for(let i=0;i<roots.length;i++)for(let j=i+1;j<roots.length;j++)if(within(roots[i],roots[j])||within(roots[j],roots[i]))throw failure('PROFILE_PATHS');
   for(const file of [profile.spx.executable,profile.caspar.executable])if(!(await fs.stat(file)).isFile())throw failure('PROFILE_PATHS');
   for(const dir of [profile.spx.cwd,profile.caspar.cwd])if(!(await fs.stat(dir)).isDirectory())throw failure('PROFILE_PATHS');
@@ -73,6 +74,8 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     const job={abort:new AbortController()};flight=job;
     const abort=()=>job.abort.abort();signal.addEventListener('abort',abort,{once:true});
     try{
+      await paths(profile,{source:true});
+      if(!active(gen)||signal.aborted||job.abort.signal.aborted)throw failure('EVENT_CANCELLED');
       const next=await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir,signal:job.abort.signal});
       if(!active(gen)||signal.aborted||job.abort.signal.aborted)throw failure('EVENT_CANCELLED');
       candidate=next;return next.snapshotDir;
