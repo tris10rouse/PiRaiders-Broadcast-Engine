@@ -6,7 +6,7 @@
   "task": "BE-007 shared trusted desktop and RossTalk command admission",
   "workBranch": "feature/be-007-shared-command-admission",
   "acquiredAt": "2026-11-15T06:40:19.028Z",
-  "lastHeartbeat": "2026-11-15T07:12:25.077Z",
-  "expiresAt": "2026-11-15T08:42:25.077Z",
+  "lastHeartbeat": "2026-11-15T07:21:40.909Z",
+  "expiresAt": "2026-11-15T08:51:40.909Z",
   "releasedAt": null
 }
