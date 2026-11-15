@@ -6,7 +6,7 @@
   "task": "BE-007 resolve final Game Day CI regressions",
   "workBranch": "feature/be-007-game-day-web",
   "acquiredAt": "2026-11-15T17:47:53.827Z",
-  "lastHeartbeat": "2026-11-15T17:47:53.827Z",
-  "expiresAt": "2026-11-15T19:17:53.827Z",
+  "lastHeartbeat": "2026-11-15T17:55:45.633Z",
+  "expiresAt": "2026-11-15T19:25:45.633Z",
   "releasedAt": null
 }
