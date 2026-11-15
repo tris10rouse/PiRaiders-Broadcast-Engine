@@ -45,13 +45,16 @@ function get(port, urlPath) {
 
 // Select the unique outermost bundled Node generation under our containment
 // host. SPX and its nested workers must not be mistaken for the actual CLI.
-function findOwnedAppParent(rows, outerPid, nodeExecutable) {
+function findOwnedAppParent(rows, outerPid, nodeExecutable, { realpath = fs.realpathSync.native } = {}) {
   const tree=descendants(rows,outerPid),byPid=new Map(tree.map(row=>[row.ProcessId,row]));
-  const image=path.win32.normalize(nodeExecutable).toLowerCase();
-  const nodes=tree.filter(row=>row.ExecutablePath===image);
+  const canonical=value=>{try{const resolved=realpath(value);if(typeof resolved!=='string'||!path.win32.isAbsolute(resolved))throw Error();return path.win32.toNamespacedPath(path.win32.normalize(resolved)).toLowerCase();}catch{throw Error('APP_IMAGE_IDENTITY_UNVERIFIED');}};
+  const image=canonical(nodeExecutable);
+  // WMI can report a short-name path even when CMD was launched with a long
+  // Unicode path. Resolve both sides; raw spelling never proves file identity.
+  const nodes=tree.filter(row=>canonical(row.ExecutablePath)===image),nodeIds=new Set(nodes.map(row=>row.ProcessId));
   const parents=nodes.filter(row=>{let cursor=byPid.get(row.ParentProcessId),seen=new Set();while(cursor){
     if(seen.has(cursor.ProcessId))throw Error('APP_TREE_CYCLE');seen.add(cursor.ProcessId);
-    if(cursor.ExecutablePath===image)return false;cursor=byPid.get(cursor.ParentProcessId);
+    if(nodeIds.has(cursor.ProcessId))return false;cursor=byPid.get(cursor.ParentProcessId);
   }return true;});
   assert.equal(parents.length,1,'one exact bundled Node CLI parent must own SPX');
   assert.ok(nodes.length>=2,'actual CLI parent and actual SPX are distinct owned processes');
