@@ -52,3 +52,33 @@ test('canonical cached preflight rejects a valid snapshot outside the declared c
   f.profile.media.startup={mode:'cached',snapshotDir:external.snapshotDir};let loads=0;
   await assert.rejects(f.create({load:async()=>{loads++;throw Error('must not read external snapshot');}}),error=>error.code==='PROFILE_PATHS');assert.equal(loads,0);assert.equal(f.state.sessions.length,0);assert.equal(f.state.spawned.length,0);
 });
+
+
+test('native expiry synchronously fences the prepared event and cannot restart after clock rollback',async t=>{
+  const f=await fixture(t);let now=Date.now();const runtime=await f.create({manageSpx:false,clock:()=>now,supervisorOptions:{platform:'linux',maxRestarts:3,restartDelayMs:10}});
+  await runtime.start();await until(()=>runtime.snapshot().ready);assert.equal(f.state.spawned.length,1);
+  const current=f.state.spawned[0],old=f.state.sessions[0];current.child.emit('exit',251,null);
+  assert.equal(runtime.snapshot().ready,false);assert.equal(runtime.snapshot().windowAllowed,false);assert.equal(old.raw.canControl(),false);assert.equal(old.closed,true);
+  assert.equal(runtime.snapshot().lastError,'PRODUCTION_WINDOW_EXPIRED');assert.equal(runtime.snapshot().state,'expired');
+  now=Date.parse(f.profile.productionWindow.start)+500;assert.ok(now<Date.parse(f.profile.productionWindow.end),'rolled-back wall clock still appears within the configured interval');
+  await wait(80);assert.equal(f.state.spawned.length,1);assert.equal(runtime.snapshot().windowAllowed,false);assert.equal(runtime.snapshot().lastError,'PRODUCTION_WINDOW_EXPIRED');
+  assert.deepEqual(await runtime.dispatch('launch'),{ok:false,code:'CONTROL_INHIBITED'});await runtime.start();await wait(30);assert.equal(f.state.spawned.length,1);
+});
+
+
+test('delayed native expiry cannot overwrite closing or closed lifecycle',async t=>{
+ for(const phase of ['closing','closed']){
+  const f=await fixture(t),runtime=await f.create({manageSpx:false});
+  await runtime.start();await until(()=>runtime.snapshot().ready);
+  const child=f.state.spawned[0].child;
+  // Confirmed stop may precede the JS exit callback; hold that callback here.
+  child.kill=()=>true;
+  const closing=runtime.close();
+  if(phase==='closed')await closing;
+  assert.equal(runtime.snapshot().state,phase);
+  child.emit('exit',251,null);
+  assert.equal(runtime.snapshot().state,phase);
+  assert.notEqual(runtime.snapshot().lastError,'PRODUCTION_WINDOW_EXPIRED');
+  await closing;assert.equal(runtime.snapshot().state,'closed');
+ }
+});

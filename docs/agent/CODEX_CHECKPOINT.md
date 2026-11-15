@@ -69,3 +69,12 @@ Owner paused old Build PiRaiders Engine; never resume it. Private automation loo
 ## Native NDI proof diagnostic increment · 2026-11-15
 
 PR32 merged at191798534a0742c2b0b26de41cf0de80a4ed08f1 after all4 final Foundation checks passed. Active branch feature/be-002-ndi-proof-diagnostics adds per-receiver error buffers/roles, distinct crash phases and safe assertion/system-code categories; all original frame/connection, identity and timeout requirements remain. Portable diagnostic/NDI tests5/5 pass; Windows CI is required and the earlier two master failures remain unresolved. Inspect the final open PR and its exact checks before continuing.
+
+
+## Latest integration checkpoint
+
+PR33 merged atcb6d6863057217e6490396cd8c0f473407d3b19c, tested82110547fddb449e5f69b5cc9e9c6b68c66dd23a, identical tree838de007943683bae77e48a0660dddc5fbd2461c. All9 final checks passed, including actual NDI10frame cases, full application, both extracted Windows archives, SPX browser and both OS baselines. Native diagnostic roles/phases are now precise; the earlier master failure causes remain unproven, not claimed fixed.
+
+Active feature/be-002-native-event-deadline integrates eight explicitly reviewed candidate files from work/native-window-guard-v2 plus documentation. It replaces the earlier per-host-reset candidate with one trusted async native clock sample before staging and an immutable boot anchor/deadline reused for all sender generations. Portable scoped17passes/5 Windows-only skips; native/C# execution remains unverified until final Windows CI. See docs/design/NATIVE_EVENT_DEADLINE.md. The old work/native-window-guard candidate remains unready and must not be copied over this correction. No system-clock/live-hardware change is authorized or needed.
+
+Integrated checkout validation: syntax119 files passed; full Linux baseline442 tests,417 passed,25 explicitly Windows-only skips,0 failures. Independent read-only review found no code blocker. Final Windows/native execution and full application output remain required before merge.

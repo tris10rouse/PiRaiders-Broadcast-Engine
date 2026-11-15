@@ -159,3 +159,8 @@ PR31 mergedd302ee5 after source1bafbc0 passed9 checks with identical treea623a51
 ## Native NDI proof diagnostic increment · 2026-11-15
 
 Native NDI verification is under investigation: two post-merge master attempts failed at different stages. The current increment adds fixed, private-data-safe failure diagnostics; it does not relax receiver, process ownership or deadline assertions. See WINDOWS_NDI_PROOF.md and the checkpoint.
+
+
+## Independent native event deadline increment
+
+BE-002/BE-006 acceptance and clock contract: [native event deadline](docs/design/NATIVE_EVENT_DEADLINE.md). The trusted Windows prepared-event sender retains one immutable native elapsed-time cap across sender restarts and enforces it independently of blocked SPX. Portable checks are available; actual final-SHA Windows/native/output/package checks are required before merge.
