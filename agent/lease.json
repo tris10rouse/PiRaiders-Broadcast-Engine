@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-ndi-investigation-2026-11-15T21:46:09.308Z-sy010i5ety",
   "fence": 30,
-  "task": "Finish checkpoint PR32 and investigate native NDI proof failures",
-  "workBranch": "feature/be-002-ndi-proof-diagnostics",
+  "task": "Verify independent native prepared-event sender deadline",
+  "workBranch": "feature/be-002-native-event-deadline",
   "acquiredAt": "2026-11-15T21:46:09.308Z",
-  "lastHeartbeat": "2026-11-15T22:00:59.545Z",
-  "expiresAt": "2026-11-15T23:30:59.545Z",
+  "lastHeartbeat": "2026-11-15T22:06:01.791Z",
+  "expiresAt": "2026-11-15T23:36:01.791Z",
   "releasedAt": null
 }
