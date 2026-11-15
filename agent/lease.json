@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-pr28-ci-2026-11-15T17:47:53.827Z-21a09l77ovr",
   "fence": 29,
-  "task": "BE-007 actual full-application Windows output proof",
-  "workBranch": "feature/be-007-full-app-proof",
+  "task": "BE-008 persistent application development ZIP and extracted entry proof",
+  "workBranch": "feature/be-008-app-bundle",
   "acquiredAt": "2026-11-15T17:47:53.827Z",
-  "lastHeartbeat": "2026-11-15T19:25:09.973Z",
-  "expiresAt": "2026-11-15T20:55:09.973Z",
+  "lastHeartbeat": "2026-11-15T19:30:01.971Z",
+  "expiresAt": "2026-11-15T21:00:01.971Z",
   "releasedAt": null
 }
