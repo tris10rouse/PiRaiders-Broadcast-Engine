@@ -2,6 +2,7 @@
 
 ## 2026-11-15 · Full application Windows output proof (in progress)
 
+- Refine the full-app proof to select only directly contained sender roots while retaining same-image subprocesses in cleanup evidence. Add safe fixed assertion labels and precise initial phases after the first Windows run stopped before frames. Final native evidence remains required.
 - Add an actual CLI/SPX/Game Day/default nested JobHost/Caspar/NDI software proof with real browser/TCP controls, eleven SDK frame captures, offline recovery, real window boundaries and active parent-death cleanup. Preserve uncertainty as unknown until confirmed within fixed deadlines. Portable selector/privacy/birth-boundary tests pass5/5; actual Windows execution remains required. No evaluation-release claim.
 
 ## 2026-11-15 · Persistent SPX application parent
