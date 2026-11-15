@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-finish-event-runtime-2026-11-15T06:40:19.028Z-aj5nd5g0aub",
   "fence": 27,
-  "task": "BE-007 bounded Game Day manager and local event catalog",
-  "workBranch": "feature/be-007-game-day-backend",
+  "task": "BE-007 secure SPX-hosted Game Day interface",
+  "workBranch": "feature/be-007-game-day-web",
   "acquiredAt": "2026-11-15T06:40:19.028Z",
-  "lastHeartbeat": "2026-11-15T07:50:48.868Z",
-  "expiresAt": "2026-11-15T09:20:48.868Z",
+  "lastHeartbeat": "2026-11-15T07:52:57.035Z",
+  "expiresAt": "2026-11-15T09:22:57.035Z",
   "releasedAt": null
 }
