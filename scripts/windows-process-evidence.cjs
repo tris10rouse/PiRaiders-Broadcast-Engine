@@ -4,7 +4,8 @@
 // creation ticks as decimal strings: DateTime ticks exceed JS integer precision.
 const {execFileSync}=require('node:child_process');
 const path=require('node:path');
-const PROCESS_QUERY="$ErrorActionPreference='Stop'; ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process -ErrorAction Stop | Select-Object ProcessId,ParentProcessId,ExecutablePath,@{Name='CreationUtcTicks';Expression={if($null -eq $_.CreationDate){$null}else{$_.CreationDate.ToUniversalTime().Ticks.ToString([System.Globalization.CultureInfo]::InvariantCulture)}}})";
+// Bypass WindowsPowerShell5 console code pages; JSON is an explicit UTF8 byte protocol.
+const PROCESS_QUERY="$ErrorActionPreference='Stop'; $rows = @(Get-CimInstance Win32_Process -ErrorAction Stop | Select-Object ProcessId,ParentProcessId,ExecutablePath,@{Name='CreationUtcTicks';Expression={if($null -eq $_.CreationDate){$null}else{$_.CreationDate.ToUniversalTime().Ticks.ToString([System.Globalization.CultureInfo]::InvariantCulture)}}}); $json = ConvertTo-Json -Compress -InputObject $rows; $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($json); $stream = [Console]::OpenStandardOutput(); $stream.Write($bytes,0,$bytes.Length); $stream.Flush()";
 const failures=new WeakMap();
 function fail(reason){const error=Error('PROCESS_IDENTITY_UNVERIFIED');failures.set(error,reason);throw error;}
 function identityReason(error){return failures.get(error)||null;}

@@ -2,6 +2,7 @@
 
 ## 2026-11-15 · Persistent application development ZIP (in progress)
 
+- Set process-query PowerShell output explicitly to BOM-free UTF8 and add a real Windows Unicode executable-path round-trip regression; this addresses a missing encoding contract exposed by extracted-path validation. Actual final Windows evidence remains required.
 - Resolve expected and observed executable paths before selecting the extracted CLI generation, retaining strict ambiguity/unknown refusals after Windows exposed a raw-spelling mismatch. Portable alias/namespace regression passes; actual corrected Windows validation remains required.
 - Explicitly package the persistent parent and machine/SPX examples behind one root CMD. Retain the legacy component CLI and smoke, while adding actual extracted bundled-Node/HMAC/SPX/Game Day and generation-aware parent-death validation with the outer bench root held alive. No component binaries or operator config are bundled. Final Windows build/extraction remains required.
 

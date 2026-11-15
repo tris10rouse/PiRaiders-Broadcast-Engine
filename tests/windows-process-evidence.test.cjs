@@ -92,3 +92,20 @@ test('real Windows enumeration identifies a live child and proves its exit by ge
   do{const state=observeTree(processTable(),captured);remaining=state.surviving+state.unknown;if(!remaining)break;await wait(100);}while(Date.now()<deadline);
   assert.equal(remaining,0);
 });
+
+
+test('real Windows PowerShell preserves a Unicode executable image path as UTF8',{skip:process.platform!=='win32'&&'Windows PowerShell UTF8 process path round-trip only',timeout:30000},async t=>{
+ const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os');
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders process 鷹 ! ')),executable=path.join(root,'node-鷹.exe');
+ let child,closed;
+ t.after(async()=>{try{if(child&&child.exitCode===null&&child.signalCode===null)child.kill();if(closed)await closed;}finally{await fs.rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100});}});
+ await fs.copyFile(process.execPath,executable);
+ child=spawn(executable,['-e','setInterval(()=>{},1000)'],{windowsHide:true,stdio:'ignore'});
+ closed=new Promise(resolve=>child.once('close',resolve));
+ await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});
+ const captured=descendants(processTable(),child.pid),image=captured.find(row=>row.ProcessId===child.pid).ExecutablePath;
+ assert.match(image,/鷹/,'actual non-ASCII process image must survive the PowerShell pipe');assert.equal(image.includes('\ufffd'),false);
+ const key=value=>path.win32.toNamespacedPath(value).toLowerCase();
+ assert.equal(key(await fs.realpath(image)),key(await fs.realpath(executable)),'returned path resolves to the actual copied image');
+ child.kill();await closed;
+});
