@@ -4,6 +4,7 @@ const { EventEmitter } = require('node:events');
 const { performance } = require('node:perf_hooks');
 const { normalizeRossTalkConfig, canonicalAddress, parseRossTalkLine, RossTalkFramer } = require('./rosstalk-protocol.cjs');
 const MAX_REPLY_BYTES = 4096;
+const ACTIONS = new Set(['launch','next','previous','toggle-auto','auto','manual','reload','stop']);
 function failure(code) { return Object.assign(Error('RossTalk ' + code), { code }); }
 
 /** Explicitly constructed transport boundary; never starts a listener on import. */
@@ -106,21 +107,51 @@ class RossTalkBridge extends EventEmitter {
         const sequence = ++this.sequence;
         const parsed = parseRossTalkLine(line, this.config.commandMap);
         if (!parsed.ok) { this.reject(peer, sequence, parsed.code); this.endPeer(peer); return; }
-        if (this.prioritizeStop && parsed.command.action === 'stop') {
-          this.admitStop({ ...parsed.command, sequence, peer, received: this.clock(), settled: false });
-          continue;
-        }
-        if (this.queue.length >= this.config.maxQueue) {
-          this.reject(peer, sequence, 'BUSY');
-          if (this.prioritizeStop) continue;
-          this.endPeer(peer); return;
-        }
         const request = { ...parsed.command, sequence, peer, received: this.clock(), settled: false };
-        peer.pending++; this.counts.accepted++; this.queue.push(request);
-        this.emit('command', { sequence, action: request.action, gpi: request.gpi });
-        this.pump();
+        if (!this.admit(request) && !this.prioritizeStop) { this.endPeer(peer); return; }
       }
     }
+  }
+  /** Trusted Node entry only: uses the same bounded admission as parsed TCP. */
+  dispatch(action) {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    const valid = typeof action === 'string' && ACTIONS.has(action);
+    const request = { action: valid ? action : undefined, sequence: 0, peer: null,
+      received: this.clock(), settled: false, resolveResult: resolve };
+    if (!valid) this.rejectRequest(request, 'INVALID_ACTION');
+    else if (this.closed || this.faulted) this.rejectRequest(request, 'CLOSED');
+    else if (this.state !== 'listening') this.rejectRequest(request, 'NOT_READY');
+    else if (this.sequence >= Number.MAX_SAFE_INTEGER) {
+      this.terminalFault('SEQUENCE_LIMIT'); this.rejectRequest(request, 'SEQUENCE_LIMIT');
+    } else { request.sequence = ++this.sequence; this.admit(request); }
+    return promise;
+  }
+  result(request, status, code) {
+    const elapsed = this.clock() - request.received;
+    const result = Object.freeze({ sequence: request.sequence, action: request.action, gpi: request.gpi, status,
+      ...(code ? { code } : {}), durationMs: Number.isFinite(elapsed) ? Math.max(0, elapsed) : 0 });
+    if (request.resolveResult) {
+      const resolve = request.resolveResult; request.resolveResult = null;
+      resolve(Object.freeze({ ok: status === 'completed', ...result }));
+    }
+    this.emit('result', result);
+  }
+  rejectRequest(request, code) {
+    if (request.settled) return;
+    request.settled = true; this.counts.rejected++;
+    this.reply(request.peer, request.sequence, false, code);
+    this.result(request, 'rejected', code);
+  }
+  admit(request) {
+    if (this.closed || this.faulted) { this.rejectRequest(request, 'CLOSED'); return false; }
+    if (this.prioritizeStop && request.action === 'stop') { this.admitStop(request); return true; }
+    if (this.queue.length >= this.config.maxQueue) { this.rejectRequest(request, 'BUSY'); return false; }
+    // Queue ownership must precede synchronous observers that can close us.
+    if (request.peer) request.peer.pending++;
+    this.counts.accepted++; this.queue.push(request);
+    this.emit('command', { sequence: request.sequence, action: request.action, gpi: request.gpi });
+    this.pump(); return true;
   }
   pump() {
     if (this.prioritizeStop) { this.pumpPriority(); return; }
@@ -149,16 +180,17 @@ class RossTalkBridge extends EventEmitter {
     else if (status === 'timeout') this.counts.timedOut++;
     else this.counts.cancelled++;
     this.reply(request.peer, request.sequence, status === 'completed', code || request.action);
-    const elapsed = this.clock() - request.received;
-    this.emit('result', { sequence: request.sequence, action: request.action, gpi: request.gpi, status,
-      ...(code ? { code } : {}), durationMs: Number.isFinite(elapsed) ? Math.max(0, elapsed) : 0 });
-    request.peer.pending--;
-    if (request.peer.ended && !request.peer.pending && !request.peer.socket.destroyed) request.peer.socket.end();
+    if (request.peer) {
+      request.peer.pending--;
+      if (request.peer.ended && !request.peer.pending && !request.peer.socket.destroyed) request.peer.socket.end();
+    }
+    this.result(request, status, code);
     if (this.inFlight === request) this.inFlight = null;
     this.pump();
   }
   accepted(request) {
-    request.peer.pending++; this.counts.accepted++;
+    if (request.peer) request.peer.pending++;
+    this.counts.accepted++;
     this.emit('command', { sequence: request.sequence, action: request.action, gpi: request.gpi });
   }
   cancelNormalQueue() {
@@ -166,31 +198,33 @@ class RossTalkBridge extends EventEmitter {
   }
   admitStop(request) {
     this.cancelNormalQueue();
-    if (this.closed || this.faulted) return;
+    if (this.closed || this.faulted) { this.rejectRequest(request, 'CLOSED'); return; }
     if (this.inFlight && !this.inFlight.settled) {
       this.inFlight.controller.abort();
       this.settlePriority(this.inFlight, 'cancelled', 'CANCELLED');
     }
-    if (this.closed || this.faulted) return;
+    if (this.closed || this.faulted) { this.rejectRequest(request, 'CLOSED'); return; }
     const previous = this.priorityStop;
     if (previous) {
       if (!previous.outcome && previous.followers.length >= this.config.maxQueue) {
-        this.reject(request.peer, request.sequence, 'BUSY'); return;
+        this.rejectRequest(request, 'BUSY'); return;
       }
+      // Reserve bounded follower ownership before reentrant observers run.
+      if (!previous.outcome) previous.followers.push(request);
       this.accepted(request);
       if (this.closed || this.faulted) { this.settlePriority(request,'cancelled','CLOSED'); return; }
       if (previous.outcome) this.settlePriority(request, previous.outcome.status, previous.outcome.code);
-      else previous.followers.push(request);
       return;
     }
-    this.accepted(request);
-    if (this.closed || this.faulted) { this.settlePriority(request,'cancelled','CLOSED'); return; }
+    // Reserve Stop before synchronous command observers can admit another Stop.
     request.followers = []; request.isStop = true;
     this.priorityStop = request;
+    this.accepted(request);
+    if (this.closed || this.faulted) { this.settlePriority(request,'cancelled','CLOSED'); return; }
     this.startPriority(request);
   }
   pumpPriority() {
-    if (this.closed || this.faulted || this.operations.size || !this.queue.length) return;
+    if (this.closed || this.faulted || this.operations.size || this.priorityStop || !this.queue.length) return;
     const request = this.queue.shift(); this.inFlight = request;
     this.startPriority(request);
   }
@@ -221,11 +255,11 @@ class RossTalkBridge extends EventEmitter {
     else if (status === 'timeout') this.counts.timedOut++;
     else this.counts.cancelled++;
     this.reply(request.peer, request.sequence, status === 'completed', code || request.action);
-    const elapsed = this.clock() - request.received;
-    this.emit('result', { sequence: request.sequence, action: request.action, gpi: request.gpi, status,
-      ...(code ? { code } : {}), durationMs: Number.isFinite(elapsed) ? Math.max(0, elapsed) : 0 });
-    request.peer.pending--;
-    if (request.peer.ended && !request.peer.pending && !request.peer.socket.destroyed) request.peer.socket.end();
+    if (request.peer) {
+      request.peer.pending--;
+      if (request.peer.ended && !request.peer.pending && !request.peer.socket.destroyed) request.peer.socket.end();
+    }
+    this.result(request, status, code);
     // Logical cancellation must never clear the physical callback's deadline.
   }
   finishPriorityCallback(request, status, code) {

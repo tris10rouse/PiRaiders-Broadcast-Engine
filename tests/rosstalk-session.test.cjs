@@ -177,3 +177,29 @@ test('TCP listener startup failure tears down its already-created private presen
   await assert.rejects(f.host.start(),{code:'LISTEN_FAILED'});assert.equal(f.host.snapshot().state,'faulted');assert.equal(f.host.snapshot().presentation.closed,true);
   await assert.rejects(f.host.start(),{code:'CLOSED'});
 });
+
+
+test('local session facade awaits actual host ACK, shares TCP ordering, fixed gates and Reload retention',async t=>{
+  const f=await fixture(t,{presentation:{commandTimeoutMs:2000,prepareTimeoutMs:5000}}),p=await autoProgram(t,f);
+  assert.equal((await f.host.dispatch('launch')).code,'NOT_READY');await f.host.start();const wire=await tcp(t,f);
+  p.hold(c=>c.type==='show');let settled=false;const launch=f.host.dispatch('launch').then(value=>{settled=true;return value;});
+  await until(()=>p.commands.some(c=>c.type==='show'));assert.equal(settled,false,'local result awaits renderer paint');p.client.ack(p.commands.at(-1));assert.equal((await launch).ok,true);
+  p.hold(()=>false);wire.send(2);await until(()=>wire.lines.includes('OK 2 next'));assert.equal(f.host.snapshot().presentation.controller.index,1);
+  assert.equal((await f.host.dispatch('previous')).ok,true);assert.equal(f.host.snapshot().presentation.controller.index,0);
+  const deck=f.host.snapshot().presentation.controller.deckId;f.setResolver(()=>{throw Error('/private/student');});
+  assert.equal((await f.host.dispatch('reload')).code,'HANDLER_FAILED');assert.equal(f.host.snapshot().lastError,'RESOLVER_FAILED');assert.equal(f.host.snapshot().presentation.controller.deckId,deck);assert.equal(f.host.snapshot().presentation.renderer.presentation,'frame');
+  f.setResolver(()=>f.prepared.snapshotDir);assert.equal((await f.host.dispatch('reload')).ok,true);assert.equal(f.host.snapshot().lastError,null);
+  const shows=p.commands.filter(c=>c.type==='show').length;f.setGate(false);assert.equal((await f.host.dispatch('next')).code,'HANDLER_FAILED');assert.equal(f.host.snapshot().lastError,'CONTROL_INHIBITED');assert.equal(p.commands.filter(c=>c.type==='show').length,shows);
+  assert.equal((await f.host.dispatch('stop')).ok,true);assert.equal(f.host.snapshot().presentation.renderer.presentation,'black');await f.host.close();assert.equal((await f.host.dispatch('launch')).code,'CLOSED');
+});
+
+test('local and TCP session Stop share resolver abort/orphan barriers and bounded close settlement',async t=>{
+  const f=await fixture(t),p=await autoProgram(t,f);await f.host.start();const wire=await tcp(t,f);assert.equal((await f.host.dispatch('launch')).ok,true);
+  let gate=deferred(),signal;f.cleanups.push(()=>gate.resolve(f.prepared.snapshotDir));f.setResolver(value=>{signal=value.signal;return gate.promise;});
+  const localReload=f.host.dispatch('reload');await until(()=>!!signal);wire.send(8);await until(()=>wire.lines.includes('OK 3 stop'));assert.equal((await localReload).code,'CANCELLED');assert.equal(signal.aborted,true);
+  const pending=f.host.dispatch('next'),count=p.commands.length;await wait(30);assert.equal(p.commands.length,count);gate.resolve(f.prepared.snapshotDir);assert.equal((await pending).code,'HANDLER_FAILED');assert.equal(p.commands.filter(c=>c.type==='show').length,1);
+  assert.equal((await f.host.dispatch('launch')).ok,true);gate=deferred();signal=null;wire.send(5);await until(()=>!!signal);
+  const stopped=await f.host.dispatch('stop');assert.equal(stopped.ok,true);assert.equal(signal.aborted,true);await until(()=>wire.lines.some(line=>/^ERR [0-9]+ CANCELLED$/.test(line)));
+  const waiting=f.host.dispatch('next');await wait(20);const close=f.host.close();assert.strictEqual(f.host.close(),close);await close;assert.equal((await waiting).code,'CLOSED');assert.equal(f.host.snapshot().presentation.closed,true);
+  gate.resolve(f.prepared.snapshotDir);await wait(20);assert.equal(p.commands.filter(c=>c.type==='show').length,2);assert.equal((await f.host.dispatch('stop')).code,'CLOSED');
+});

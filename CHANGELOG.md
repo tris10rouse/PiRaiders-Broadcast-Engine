@@ -1,8 +1,12 @@
 # PiRaiders engineering changelog
 
-## 2026-11-15 · Persistent application ownership (in progress)
+## 2026-11-15 · Shared local and RossTalk admission (in progress)
 
-- Add trusted sender-only event ownership while preserving standalone defaults. Event startup, health and shutdown omit unowned SPX, including filesystem checks at source/cached preparation and Reload. Retain sender stop failures for retry. New tests keep a real independent Node HTTP service alive through simulated event recovery, window end, close and replacement. Game Day UI/shared command admission remain planned; Windows final-head validation is required before merge.
+- Add trusted local bridge/session/runtime commands through the existing TCP queue and priority Stop machinery. Preserve bounded followers, physical callback watchdogs and legacy FIFO; return fixed results without private data. Add mixed TCP/local, reentrant shutdown and actual browser regression coverage. Game Day manager/UI remain subsequent integration; final CI is required.
+
+## 2026-11-15 · Persistent application ownership
+
+- Add trusted sender-only event ownership while preserving standalone defaults. Event startup, health and shutdown omit unowned SPX, including filesystem checks at source/cached preparation and Reload. Retain sender stop failures for retry. New tests keep a real independent Node HTTP service alive through simulated event recovery, window end, close and replacement. [PR25](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/25) mergedf29f69b after all8 final checks passed, including Windows300 baseline passes/one documented skip and29 actual Chromium tests. Game Day UI remains planned.
 
 ## 2026-11-15 · Local prepared event runtime
 

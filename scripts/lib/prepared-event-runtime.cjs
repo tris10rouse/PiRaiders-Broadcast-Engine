@@ -148,6 +148,14 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
       catch{lastError='EVENT_START_FAILED';await close().catch(()=>{});throw failure(lastError);}
     })();return startPromise;
   }
-  return Object.freeze({start,snapshot,close});
+  // Capture only the currently owned generation; admission, cancellation and
+  // Stop priority remain with the same bridge used by actual TCP senders.
+  function dispatch(action){
+    if(closed)return Promise.resolve(Object.freeze({ok:false,code:'CLOSED'}));
+    const owned=current?.session;
+    if(!owned)return Promise.resolve(Object.freeze({ok:false,code:'CONTROL_INHIBITED'}));
+    return owned.dispatch(action);
+  }
+  return Object.freeze({start,snapshot,dispatch,close});
 }
 module.exports={createPreparedEventRuntime};
