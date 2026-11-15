@@ -12,13 +12,13 @@ function failure(code){return Object.assign(Error(code),{code});}
 function same(a,b){return process.platform==='win32'?a.toLowerCase()===b.toLowerCase():a===b;}
 function within(parent,child){const a=process.platform==='win32'?parent.toLowerCase():parent,b=process.platform==='win32'?child.toLowerCase():child;return a===b||(!path.relative(a,b).startsWith('..'+path.sep)&&path.relative(a,b)!=='..'&&!path.isAbsolute(path.relative(a,b)));}
 async function canonical(file){let cursor=file;const tail=[];for(;;){try{return path.join(await fs.realpath(cursor),...tail.reverse());}catch(error){if(error.code!=='ENOENT')throw error;const parent=path.dirname(cursor);if(parent===cursor)throw error;tail.push(path.basename(cursor));cursor=parent;}}}
-async function paths(profile,{source=profile.media.startup.mode==='source'}={}){
+async function paths(profile,{source=profile.media.startup.mode==='source',manageSpx=true}={}){
   // Cached startup must not touch an absent/unmounted Drive source at all.
   const roots=await Promise.all([...(source?[profile.media.sourceDir]:[]),profile.media.cacheDir,profile.caspar.runtimeDir].map(canonical));
   for(let i=0;i<roots.length;i++)for(let j=i+1;j<roots.length;j++)if(within(roots[i],roots[j])||within(roots[j],roots[i]))throw failure('PROFILE_PATHS');
-  for(const file of [profile.spx.executable,profile.caspar.executable])if(!(await fs.stat(file)).isFile())throw failure('PROFILE_PATHS');
-  for(const dir of [profile.spx.cwd,profile.caspar.cwd])if(!(await fs.stat(dir)).isDirectory())throw failure('PROFILE_PATHS');
-  if(same(await fs.realpath(profile.spx.executable),await fs.realpath(profile.caspar.executable)))throw failure('PROFILE_PATHS');
+  for(const file of [...(manageSpx?[profile.spx.executable]:[]),profile.caspar.executable])if(!(await fs.stat(file)).isFile())throw failure('PROFILE_PATHS');
+  for(const dir of [...(manageSpx?[profile.spx.cwd]:[]),profile.caspar.cwd])if(!(await fs.stat(dir)).isDirectory())throw failure('PROFILE_PATHS');
+  if(manageSpx&&same(await fs.realpath(profile.spx.executable),await fs.realpath(profile.caspar.executable)))throw failure('PROFILE_PATHS');
   if(profile.output.type==='ndi'){try{if(!(await fs.stat(path.join(profile.output.runtimeDirectory,'Processing.NDI.Lib.x64.dll'))).isFile())throw failure('NDI_RUNTIME_MISSING');}catch{throw failure('NDI_RUNTIME_MISSING');}}
   if(profile.media.startup.mode==='cached'){
     const selected=await fs.realpath(profile.media.startup.snapshotDir),cache=await fs.realpath(profile.media.cacheDir);
@@ -26,14 +26,16 @@ async function paths(profile,{source=profile.media.startup.mode==='source'}={}){
   }
 }
 /** Trusted options inject only OS/test boundaries; they are never profile data.
+ * manageSpx:false leaves SPX ownership and filesystem validation to the caller.
  * Real activation is Windows-only unless an explicit synthetic spawner is supplied.
  */
-async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child=>new CasparConsole(child),clock=Date.now,schedule=setTimeout,cancel=clearTimeout,supervisorOptions={},stage=stageSnapshot,load=loadSnapshot,sessionFactory=createRossTalkSession}={}){
+async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child=>new CasparConsole(child),clock=Date.now,schedule=setTimeout,cancel=clearTimeout,supervisorOptions={},stage=stageSnapshot,load=loadSnapshot,sessionFactory=createRossTalkSession,manageSpx=true}={}){
+  if(typeof manageSpx!=='boolean')throw failure('EVENT_OPTIONS_INVALID');
   let profile,initial,directory;
   try{
     profile=normalizePreparedEventProfile(raw);
     if(process.platform!=='win32'&&typeof spawnProcess!=='function')throw failure('WINDOWS_REQUIRED');
-    try{await paths(profile);}catch(error){throw failure(error.code==='NDI_RUNTIME_MISSING'?'NDI_RUNTIME_MISSING':'PROFILE_PATHS');}
+    try{await paths(profile,{manageSpx});}catch(error){throw failure(error.code==='NDI_RUNTIME_MISSING'?'NDI_RUNTIME_MISSING':'PROFILE_PATHS');}
     initial=profile.media.startup.mode==='cached'?await load(profile.media.startup.snapshotDir):await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir});
     await fs.mkdir(profile.caspar.runtimeDir,{recursive:true});
     directory=await fs.mkdtemp(path.join(profile.caspar.runtimeDir,'event-'));
@@ -74,7 +76,7 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     const job={abort:new AbortController()};flight=job;
     const abort=()=>job.abort.abort();signal.addEventListener('abort',abort,{once:true});
     try{
-      await paths(profile,{source:true});
+      await paths(profile,{source:true,manageSpx});
       if(!active(gen)||signal.aborted||job.abort.signal.aborted)throw failure('EVENT_CANCELLED');
       const next=await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir,signal:job.abort.signal});
       if(!active(gen)||signal.aborted||job.abort.signal.aborted)throw failure('EVENT_CANCELLED');
@@ -121,7 +123,7 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     }
     return child;
   }
-  launcher=new LauncherRuntime({productionWindow:profile.productionWindow,services:[{name:'spx',command:profile.spx.executable,args:profile.spx.args,cwd:profile.spx.cwd},{name:'casparcg',command:profile.caspar.executable,args:[path.join(directory,'caspar.config'),'--log-severity=disable','--disable-logging'],cwd:profile.caspar.cwd}]},{clock,schedule,cancel,supervisorOptions:{...supervisorOptions,spawnProcess:ownedSpawn},onSenderRetiring:()=>{retire();}});
+  launcher=new LauncherRuntime({productionWindow:profile.productionWindow,services:[{name:'spx',command:profile.spx.executable,args:profile.spx.args,cwd:profile.spx.cwd},{name:'casparcg',command:profile.caspar.executable,args:[path.join(directory,'caspar.config'),'--log-severity=disable','--disable-logging'],cwd:profile.caspar.cwd}]},{clock,schedule,cancel,manageSpx,supervisorOptions:{...supervisorOptions,spawnProcess:ownedSpawn},onSenderRetiring:()=>{retire();}});
   launcher.on('fault',value=>{if(value?.name==='spx'||!current?.ready)lastError='SERVICE_FAULT';});
   function snapshot(){syncAccepted(current);const owned=current?.session?.snapshot(),p=owned?.presentation;return Object.freeze({eventId:profile.eventId,state,lastError:lastError||owned?.lastError||null,windowAllowed:launcher.allowed(),generation:stamp,ready:!!current&&gate(current),deckId:accepted.deck.id,mode:p?.controller?.mode||lastMode,index:p?.controller?.index??null,output:profile.output.type,preparing:flight!==null,closed});}
   function close(){
