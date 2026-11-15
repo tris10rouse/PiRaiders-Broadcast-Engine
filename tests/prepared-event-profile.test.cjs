@@ -110,13 +110,13 @@ test('Windows path equality is case-insensitive without inventing case folding o
   else assert.doesNotThrow(() => normalizePreparedEventProfile(raw));
 });
 
-test('cached startup is explicit and must be lexically below its declared cache', () => {
+test('cached startup is explicit; filesystem cache membership belongs to canonical preflight', () => {
   const raw = profile(); raw.media.startup = { mode: 'cached', snapshotDir: path.join(raw.media.cacheDir, 'e1010101-1010-4010-8010-101010101010') };
   const normalized = normalizePreparedEventProfile(raw);
   assert.equal(normalized.media.startup.mode, 'cached');
   assert.equal(normalized.media.startup.snapshotDir, raw.media.startup.snapshotDir);
-  for (const startup of [{ mode: 'cached' }, { mode: 'cached', snapshotDir: raw.media.cacheDir },
-    { mode: 'cached', snapshotDir: abs('elsewhere/snapshot') }, { mode: 'source', snapshotDir: raw.media.startup.snapshotDir },
+  const alias=profile();alias.media.startup={mode:'cached',snapshotDir:abs('different-spelling/snapshot')};assert.doesNotThrow(()=>normalizePreparedEventProfile(alias));
+  for (const startup of [{ mode: 'cached' }, { mode: 'cached', snapshotDir: 'relative/snapshot' }, { mode: 'source', snapshotDir: raw.media.startup.snapshotDir },
     { mode: 'fallback' }]) { const invalid = profile(); invalid.media.startup = startup; rejects(invalid); }
 });
 

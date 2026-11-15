@@ -85,7 +85,8 @@ function normalizePreparedEventProfile(raw) {
     } else if (raw.media.startup.mode === 'cached') {
       if (!Object.hasOwn(raw.media.startup, 'snapshotDir')) throw invalid();
       const snapshotDir = absolute(raw.media.startup.snapshotDir);
-      if (!contains(cacheDir, snapshotDir) || contains(snapshotDir, cacheDir)) throw invalid();
+      // Filesystem aliases (including Windows 8.3 paths) are resolved by the
+      // async factory, which enforces strict canonical cache membership before load.
       startup = { mode: 'cached', snapshotDir };
     } else throw invalid();
     const media = { provider: 'local-lexical-v1', sourceDir, cacheDir, startup };

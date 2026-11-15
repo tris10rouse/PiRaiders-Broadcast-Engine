@@ -45,3 +45,10 @@ test('console fault immediately revokes current session/control before native ex
 test('generated config escapes printable identity and never enables a TCP controller',()=>{
   const cfg=preparedCasparConfig({output:{type:'ndi',name:'PiRaiders "&<>'}},path.resolve(os.tmpdir(),'private & config'));assert.match(cfg,/<controllers\/>/);assert.doesNotMatch(cfg,/<tcp>/);assert.match(cfg,/PiRaiders &quot;&amp;&lt;&gt;/);assert.match(cfg,/<log-path disabled="true">/);assert.match(cfg,/<cache-path\/>/);assert.throws(()=>preparedCasparConfig({output:{type:'ndi',name:'bad\nname'}},path.resolve(os.tmpdir())),/CONFIG_OUTPUT/);
 });
+
+test('canonical cached preflight rejects a valid snapshot outside the declared cache before loading or binding',async t=>{
+  const f=await fixture(t);await stageSnapshot({sourceDir:f.profile.media.sourceDir,cacheDir:f.profile.media.cacheDir,quietMs:0});
+  const external=await stageSnapshot({sourceDir:f.profile.media.sourceDir,cacheDir:path.join(f.root,'other-cache'),quietMs:0});
+  f.profile.media.startup={mode:'cached',snapshotDir:external.snapshotDir};let loads=0;
+  await assert.rejects(f.create({load:async()=>{loads++;throw Error('must not read external snapshot');}}),error=>error.code==='PROFILE_PATHS');assert.equal(loads,0);assert.equal(f.state.sessions.length,0);assert.equal(f.state.spawned.length,0);
+});
