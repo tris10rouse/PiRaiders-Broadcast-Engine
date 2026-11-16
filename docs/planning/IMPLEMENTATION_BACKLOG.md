@@ -172,3 +172,8 @@ BE-002/BE-006: sample the native boot clock once per prepared event, retain the 
 ## Active BE-002/BE-008 acceptance · 2026-11-16
 
 PR34 verified the independent native deadline; PR35 records its final evidence. Next increment must prove actual output from the extracted development artifact with a fixed product-owned renderer profile, original manifest unchanged and the real inner CLI killed while its outer bench stays alive. Keep source proof, SPX/OGraf/native-window/package regressions and actual source/extracted Windows checks at the final SHA. Clean-machine licensed setup, default browser/graceful close verification, source exchange importer, diagnostics/preflight, soak and evaluation checklist remain open.
+
+
+## NDI proof connection-window follow-up · 2026-11-16
+
+PR37 metadata capture remains detached and unmerged. Its standalone NDI job133103586742 repeated the earlier PRESENTATION/PROBE_RECEIVER_DISCONNECTED failure after mixer-red. This proof-only increment discards disconnected/buffered observations, resets matching evidence and waits within the unchanged frame-command budget. Positive connections, pixels, fresh distinct timestamps, duration and512-frame run limit remain required; a bounded2048-observation history rejects replay without timestamp-order assumptions. Require actual compiled Windows policy and source/extracted/standalone NDI checks at final SHA; no product/hardware fix is claimed from policy tests.

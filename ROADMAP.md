@@ -174,3 +174,8 @@ BE-002/BE-006 acceptance and clock contract: [native event deadline](docs/design
 ## Active extracted-output increment · 2026-11-16
 
 PR35 checkpoint merged after four passing final checks; PR34 independent native event deadline is integrated. BE-002/BE-008 now adds an optional fixed machine renderer profile and a separate actual extracted-ZIP output job, preserving the source proof. Acceptance: all eleven received-frame/lifecycle scenarios through the unchanged CMD/bundled Node, inherited renderer/preload/PATH removal, exact original manifest preserved, and inner-parent cleanup while the outer benchmark stays alive. Portable results are not native execution evidence; final Windows CI is required. See docs/design/EXTRACTED_APP_OUTPUT_PROOF.md and CASPAR_RENDERER_PROFILE.md.
+
+
+## NDI proof connection-window follow-up · 2026-11-16
+
+PR37 metadata capture remains detached and unmerged. Its standalone NDI job133103586742 repeated the earlier PRESENTATION/PROBE_RECEIVER_DISCONNECTED failure after mixer-red. This proof-only increment discards disconnected/buffered observations, resets matching evidence and waits within the unchanged frame-command budget. Positive connections, pixels, fresh distinct timestamps, duration and512-frame run limit remain required; a bounded2048-observation history rejects replay without timestamp-order assumptions. Require actual compiled Windows policy and source/extracted/standalone NDI checks at final SHA; no product/hardware fix is claimed from policy tests.
