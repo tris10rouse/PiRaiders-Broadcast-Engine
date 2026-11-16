@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-resume-2026-11-16T10:23:10.814Z-0lx2vo3sksc",
   "fence": 34,
-  "task": "Synchronize verified PR39 into metadata PR37 and verify combined CI",
-  "workBranch": "feature/be-006-exchange-metadata-capture",
+  "task": "Bound full-app recovery identity capture before metadata PR37",
+  "workBranch": "feature/be-002-full-app-capture",
   "acquiredAt": "2026-11-16T10:23:10.814Z",
-  "lastHeartbeat": "2026-11-16T10:28:18.954Z",
-  "expiresAt": "2026-11-16T11:58:18.954Z",
+  "lastHeartbeat": "2026-11-16T10:41:47.300Z",
+  "expiresAt": "2026-11-16T12:11:47.300Z",
   "releasedAt": null
 }
