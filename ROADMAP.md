@@ -1,5 +1,9 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest software progress · 2026-11-16: exchange ledger transitions
+
+PR45's selected-manifest timing gate is verified and merged after all 12 checks passed, including real source/extracted Windows output. Current BE-006 work adds detached, revision-fenced feed/binding/catalog/selection transitions with retained sequence floors and fixed capacity limits. These are uncommitted proposals, not durable storage or source readiness. Next: an atomic no-overwrite journal with real Windows crash/contention tests, an independent validated-catalog receipt, verified ordered-asset staging and complete source integration. Clean-machine setup, default browser/graceful close, diagnostics, cold-start headroom and four-hour soak remain evaluation gates. First evaluation release is not ready.
+
 ## Latest software progress · 2026-11-16: selected-manifest timing
 
 PR44 merged problem-state validation with all 12 final checks passing. The current BE-006 timing increment checks the selected manifest's Chicago instants and elapsed broadcast window, preserves unavailable metadata for review and always requires operator confirmation. It adds no source scheduling or output integration. Durable feed/version state, a separately validated catalog boundary, verified ordered-asset staging and complete-candidate integration remain. Clean-machine setup, default browser/graceful close, diagnostics, cold-start headroom and four-hour soak still gate evaluation readiness.

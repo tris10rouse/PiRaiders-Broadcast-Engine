@@ -1,5 +1,12 @@
 # Implementation backlog
 
+## Current BE-006 increment: pure ledger transitions
+
+- PR45 merged `46df34713404d43c34108b7063f5a695f9d2e1b1`, final tested source `2f40eab53edd4d0c4d7849a1e1bda317aef78cd0`, identical tree `9ad24c816b8532999b4c36016583363f2a050f32`. All 12 checks passed: Windows 564/566 (two documented skips), Chromium44/44 and source/extracted eleven actual NDI frame cases each. Foundation43927522262 and full-app43927522164. Timing metadata is detached and cannot arm output.
+- Acceptance: pure immutable revision-fenced proposals; explicit feed/epoch confirmation distinct from selection; retained per-feed/catalog/per-selection floors across switches/epoch increases; equal-sequence exact-byte conflicts and independent catalog/manifest facts; bounded state with no eviction; every result ready:false/committed:false. See `docs/design/EXCHANGE_LEDGER.md`.
+- Root and independent review found no ordinary parsed-data transition blocker. Initial candidate17 cases had16 passes/one failure: the supposedly uppercased all-digit UUID fixture was unchanged. Corrected to an alphabetic UUID and added feed-return/board/nested-shape regressions; final20 focused cases pass. Final combined Linux baseline586:559 passes/27 explicit Windows-only skips/zero failures; syntax147 passed. Final-SHA Windows CI remains required before merge. No persistence or Windows storage result is claimed.
+- Next: immutable hash-linked journal with atomic no-overwrite publication, revision/hash CAS and real Windows contention/crash/reopen/failure evidence. Independently validated catalog receipts must be exposed before manifest admission; existing reader only exposes completed selected pins. Never invent a fact from a foreign/schema-invalid/header-only document. Then unique verified bytes/decode/512MiB aggregate, ordered schema2/schema1 compatibility, complete-candidate integration and full59-step checkedAgainst fixture runner.
+
 ## Current BE-006 increment: selected-manifest timing
 
 - PR44 merged `3e008eed6ea052ce073bbd2ff8c5e2d8f4986f7a`, tested `761580c65d00991254976ac0ead9ae6df68b9469`, identical tree `7a6f1a2090d4e580fc009f8de14693e0292bd3bb`. All 12 final checks passed: Windows 548/550 (two documented skips), Ubuntu 523/550 (27 Windows-only skips) in both runs, Chromium 44/44 on both platforms, schema oracle and source/extracted 11 actual NDI frame cases each. One unchanged 15s SPX startup case failed in the prior workspace run; CI passed that exact test. Retain it as cold-start/headroom verification, not a fixed product bug.

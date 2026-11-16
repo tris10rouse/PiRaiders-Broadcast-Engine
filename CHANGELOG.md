@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Exchange ledger transition model
+
+- Added detached feed/epoch confirmation and separate catalog/selection version tracking. Switching events, feeds or approved epochs retains prior sequence floors; stale data and equal-version byte conflicts fail closed.
+- Added immutable revision-fenced proposals and bounded retained state with no eviction. This module does not persist data, validate source documents, activate media or claim readiness.
+- Added20 synthetic regression cases; full Linux baseline559 passes with27 explicit Windows-only skips and zero failures. PR45 timing validation is verified and merged; durable Windows storage and complete source preparation remain open.
+
 ## 2026-11-16 · Exchange timing metadata
 
 - Added detached Chicago calendar, offset, DST and interval validation for selected-manifest event/broadcast timestamps. Midnight and DST crossings use elapsed UTC duration; broadcast windows are capped at24 hours.
