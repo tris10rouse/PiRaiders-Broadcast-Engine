@@ -12,6 +12,8 @@ const jpeg=require('jpeg-js');
 const appRoot=path.resolve(__dirname,'..','..');
 const {createPreparedEventRuntime}=require(path.join(appRoot,'scripts/lib/prepared-event-runtime.cjs'));
 const {stageSnapshot}=require(path.join(appRoot,'scripts/lib/media-snapshot.cjs'));
+const {createRossTalkSession}=require(path.join(appRoot,'scripts/lib/rosstalk-session.cjs'));
+const {performance}=require('node:perf_hooks');
 let browser;
 before(async()=>{
   const executablePath=process.env.PIRAIDERS_BROWSER_EXECUTABLE;
@@ -38,7 +40,7 @@ async function fixture(t,{gateStage=false,intervalMs=600,mode='manual'}={}){
   async function writeDeck(second=[20,20,240]){await fs.writeFile(path.join(sourceDir,'01.png'),PNG.sync.write(image([240,20,20])));await fs.writeFile(path.join(sourceDir,'02.jpg'),jpeg.encode(image(second),95).data);}
   await writeDeck();
   const initialNow=Date.now(),start=initialNow+16*60000,end=start+3600000;
-  const state={now:initialNow,children:[],clients:[],pages:[],urls:[],kills:[],closing:[],timers:new Set(),scheduled:new Map(),serial:0,killDelay:0,stageCalls:0,blockNext:false,blocked:false,blockedSignal:null,release:null};
+  const state={now:initialNow,children:[],clients:[],pages:[],urls:[],kills:[],closing:[],timers:new Set(),scheduled:new Map(),serial:0,killDelay:0,stageCalls:0,sessions:[],blockNext:false,blocked:false,blockedSignal:null,release:null};
   const wires=[];let runtime;
   function later(callback,ms=0){const timer=setTimeout(()=>{state.timers.delete(timer);callback();},ms);state.timers.add(timer);return timer;}
   function spawnProcess(_exe,_args,_options,privateInput){
@@ -75,6 +77,7 @@ async function fixture(t,{gateStage=false,intervalMs=600,mode='manual'}={}){
     playback:{mode,intervalMs,transition:{type:'cut',durationMs:0}},presentation:{port:0},
     rossTalk:{host:'127.0.0.1',port:rossTalkPort,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',3:'previous',4:'toggle-auto',5:'reload',8:'stop'},acknowledgements:true}};
   const options={spawnProcess,consoleFactory,clock:()=>state.now,
+    sessionFactory:async(...args)=>{const value=await createRossTalkSession(...args);state.sessions.push(value);return value;},
     schedule:(fn,ms)=>{const id=++state.serial;state.scheduled.set(id,{fn,ms});return id;},cancel:id=>state.scheduled.delete(id),
     supervisorOptions:{platform:'win32',maxRestarts:2,restartDelayMs:50,execFileProcess:(_file,args,_options,callback)=>{
       const child=state.children.find(value=>value.pid===Number(args[1]));assert.ok(child,'TEST_OWNED_PID_ONLY');
@@ -109,18 +112,25 @@ async function fixture(t,{gateStage=false,intervalMs=600,mode='manual'}={}){
 }
 
 test('prepared runtime joins actual TCP/native browser playback, cache Reload, restart and window fences (OS simulated)',{timeout:120000},async t=>{
-  const f=await fixture(t);await f.runtime.start();
+  const intervalMs=4000,f=await fixture(t,{intervalMs});await f.runtime.start();
   assert.equal(f.state.children.filter(child=>child.privateInput).length,0,'NO_PREWARM_SENDER');
   assert.equal(f.runtime.snapshot().ready,false);assert.equal((await f.runtime.dispatch('launch')).code,'CONTROL_INHIBITED');let wire=await f.connect();await wire.command(1,false);
   await f.tick(f.start-15*60000);let page=await f.ready();
   await pixels(page,[0,0,0]);assert.equal(f.runtime.snapshot().index,null,'EXPLICIT_LAUNCH_REQUIRED');
+  // Preparation can legitimately outlast the bridge idle-client limit. Use a
+  // fresh control connection after this separate startup/prewarm phase.
+  wire.socket.destroy();wire=await f.connect();
   await wire.command(1);await pixels(page,[240,20,20]);assert.equal(f.runtime.snapshot().index,0);
   assert.equal((await f.runtime.dispatch('previous')).ok,true);await pixels(page,[20,20,240]);assert.equal(f.runtime.snapshot().index,1,'LOCAL_PREVIOUS_WRAPS');
   await wire.command(2);await pixels(page,[240,20,20]);assert.equal(f.runtime.snapshot().index,0,'NEXT_WRAPS');
   await wire.command(4);assert.equal(f.runtime.snapshot().mode,'auto');
   await until(()=>f.runtime.snapshot().index===1,'ACTUAL_AUTO_ADVANCE');await pixels(page,[20,20,240]);
-  await wait(300);await wire.command(3);await pixels(page,[240,20,20]);
-  await wait(350);assert.equal(f.runtime.snapshot().index,0,'MANUAL_NAV_RESETS_AUTO_DEADLINE');
+  await wait(300);const manualAt=performance.now(),oldDeadline=f.state.sessions.at(-1).snapshot().presentation.controller.nextAdvanceAt;
+  await wire.command(3);const resetDeadline=f.state.sessions.at(-1).snapshot().presentation.controller.nextAdvanceAt;
+  // Assert the actual scheduling contract before screenshots can consume an
+  // interval. Sleeping350ms after an unbounded screenshot was not a deadline.
+  assert.ok(resetDeadline>=manualAt+intervalMs&&resetDeadline>oldDeadline,'MANUAL_NAV_RESETS_AUTO_DEADLINE');
+  await pixels(page,[240,20,20]);
   await until(()=>f.runtime.snapshot().index===1,'RESET_AUTO_ADVANCE');
   await wire.command(4);assert.equal(f.runtime.snapshot().mode,'manual');await wait(650);assert.equal(f.runtime.snapshot().index,1,'MANUAL_MODE_HOLDS');
   const firstDeck=f.runtime.snapshot().deckId;await f.writeDeck([20,220,20]);await wire.command(5);

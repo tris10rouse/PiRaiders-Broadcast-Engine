@@ -1,0 +1,30 @@
+{
+  "contract": "draft0.3.1",
+  "source": "Owner-supplied synthetic exchange contract supplement; schema resources only, no fixture/publisher data",
+  "schemas": [
+    {
+      "kind": "feed",
+      "sourceSha256": "ec17c0a68850e300143877cb88845e600712e2732c04ac8825178e3e6583c88a",
+      "bytes": 857,
+      "id": "https://schemas.piraiders.invalid/exchange/feed.schema.json"
+    },
+    {
+      "kind": "catalog",
+      "sourceSha256": "8ad0b48f3f505c9a7e733c15d74c3880080b537fea42429674e95ab5dbe74ec1",
+      "bytes": 7392,
+      "id": "https://schemas.piraiders.invalid/exchange/catalog.schema.json"
+    },
+    {
+      "kind": "current",
+      "sourceSha256": "30db5dcea9d6cda7b1ec2bb27d0135788f1c86863ca5f344d95e6a2d9aefcb2b",
+      "bytes": 1716,
+      "id": "https://schemas.piraiders.invalid/exchange/current.schema.json"
+    },
+    {
+      "kind": "selection",
+      "sourceSha256": "a77dc4723c9d32994fa21c2f2b3cd8e0ea632aea6c832eb02fa90a5420153a50",
+      "bytes": 26112,
+      "id": "https://schemas.piraiders.invalid/exchange/selection.schema.json"
+    }
+  ]
+}

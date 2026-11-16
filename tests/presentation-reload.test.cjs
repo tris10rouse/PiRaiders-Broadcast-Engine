@@ -191,8 +191,20 @@ test('failed candidate rendering retains old active routes and suspends Auto wit
 test('prepare timeout sends current terminal feedback, preserves Auto, and fences late verification cleanup',async t=>{
   const f=await fixture(t,{prepareTimeoutMs:150,controllerOptions:{mode:'auto',intervalMs:10000}}),p=await autoProgram(t,f),next=await candidate(f);
   await f.host.dispatch('launch');const deadline=f.host.snapshot().controller.nextAdvanceAt;
-  const gate=blockedManifest(t,f,next.snapshotDir),reload=f.host.reloadSnapshot(next.snapshotDir);await gate.blocked;
+  // Admit the real blocked filesystem read before firing this one timer. A
+  //150ms wall-clock race could expire before the hook and hang gate.blocked.
+  // Other timers, actual I/O, transport and renderer acknowledgments stay real.
+  const schedule=global.setTimeout;let expire,timer;
+  t.mock.method(global,'setTimeout',(fn,ms,...args)=>{
+    if(ms!==150)return schedule(fn,ms,...args);
+    assert.equal(expire,undefined,'ONE_PREPARATION_TIMEOUT');
+    timer=schedule(()=>{},3600000);timer.unref();expire=()=>{clearTimeout(timer);fn(...args);};return timer;
+  });
+  f.cleanups.push(()=>clearTimeout(timer));
+  const gate=blockedManifest(t,f,next.snapshotDir),reload=f.host.reloadSnapshot(next.snapshotDir);
+  await Promise.race([gate.blocked,reload.then(()=>{throw Error('RELOAD_SETTLED_BEFORE_BLOCKED_READ');})]);
   await until(()=>p.commands.some(c=>c.type==='feedback'&&c.reload==='loading'));
+  assert.equal(typeof expire,'function');expire();
   assert.equal((await reload).code,'PREPARE_TIMEOUT');
   await until(()=>p.commands.some(c=>c.type==='feedback'&&c.reload==='failed'));
   assert.equal(f.host.snapshot().controller.nextAdvanceAt,deadline);assert.equal(f.host.snapshot().controller.autoSuspended,false);
@@ -219,10 +231,10 @@ test('close never waits on blocked verification and invalid Reload input does no
 });
 
 test('congested Reload feedback is bounded, Stop preempts it, and no late terminal label appears over black',async t=>{
-  const f=await fixture(t,{controllerOptions:{mode:'manual',maxQueue:2}}),next=await candidate(f),p=await autoProgram(t,f,{hold:c=>c.type==='feedback'});
+  const f=await fixture(t,{commandTimeoutMs:10000,controllerOptions:{mode:'manual',maxQueue:2}}),next=await candidate(f),p=await autoProgram(t,f,{hold:c=>c.type==='feedback'});
   await f.host.dispatch('launch');const reload=f.host.reloadSnapshot(next.snapshotDir);
   await until(()=>p.commands.some(c=>c.type==='feedback'&&c.reload==='loading'));
-  const loading=p.commands.find(c=>c.type==='feedback');await until(()=>f.host.snapshot().reload.state==='activating');
+  const loading=p.commands.find(c=>c.type==='feedback');await until(()=>f.host.snapshot().reload.state==='activating',10000);
   for(let i=0;i<100;i++)assert.equal((await f.host.reloadSnapshot(next.snapshotDir)).code,'BUSY');
   assert.equal(p.commands.filter(c=>c.type==='feedback').length,1);assert.equal(f.host.snapshot().renderer.pending,1);
   const stop=f.host.dispatch('stop');assert.equal((await reload).code,'CANCELLED');assert.equal((await stop).ok,true);

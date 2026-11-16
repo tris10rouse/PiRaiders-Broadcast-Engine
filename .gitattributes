@@ -1,0 +1,2 @@
+# Schema provenance pins exact supplied bytes on every checkout platform.
+scripts/lib/exchange-schemas/*.json -text

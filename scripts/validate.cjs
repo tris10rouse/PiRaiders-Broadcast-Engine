@@ -28,7 +28,9 @@ function check() {
 function test() {
   const files = filesIn('tests').filter(file => /\.test\.(?:cjs|mjs|js)$/.test(file)).sort();
   if (!files.length) throw Error('No test suites found');
-  run(['--test', ...files]);
+  // Each suite contains its own concurrency/race cases. Isolate suite files so
+  // unrelated image workers cannot consume another fixture's startup budget.
+  run(['--test', '--test-concurrency=1', ...files]);
 }
 try {
   if (Number(process.versions.node.split('.')[0]) < 22) throw Error('Node 22 or newer required; CI uses Node 22');
