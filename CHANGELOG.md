@@ -1,5 +1,19 @@
 # PiRaiders engineering changelog
 
+## Full-app bounded identity observation (BE-002)
+
+PR39 merged01553c0bd88cd60b3092dfc7009976bce8471375 with the identical tested tree85cca2599254d5f4d37b78951b58e565fb208651 after all ten checks. Windows477/479(two documented skips), Chromium44/44, actual async CIM and seven Console captures passed; source/extracted fullapp received eleven frames each. An initial merge request timed out after applying identical content at bd039644; fresh ref/tree/PR-state checks preceded safe reconciliation. PR39 is confirmed closed/merged; no force update occurred.
+
+PR37 final combined9e13c969bfb3cbfe50e592bf7a0d81ddfd244757 passed nine checks but extracted job133236167264 failed CASPAR_CRASH/IMAGE_MISSING after eight frames. Its old sender tree had already been observed gone9/unknown0 and runtime recovered ready; the broad phase does not pinpoint the exact failing read. Preserve this and earlier failures. Metadata is detached from this proof; do not merge or rerun until green.
+
+Acceptance for this focused follow-up: use complete pinned CLI and sender-JobHost captures for full-app sender identity/recovery and parent-loss capture; one original15s total monotonic budget shared across both ownership levels, capped by remaining production-window and outer60s recovery budget. Require the same sender generation after the second capture, retain complete transient sender children for cleanup, reject late synchronous validation, split crash phases and recheck parent termination within the window. Keep strict original identity/opaque-black/frame/unknown/surviving/outer-bench/inventory/real-window bounds. No sender/application runtime change or stadium/hardware claim.
+
+Portable tests cover missing-field recovery, pinned roots, wrong/ambiguous hosts, changed generations, retained cleanup, shrinking shared budgets, persistent unknown, late query/validation, UTC/window clipping and exact parent-loss pin. Final full baseline, source/extracted eleven actual-frame Windows proofs and all required checks remain mandatory. Rollback reverts disposable proof tools. Then merge verified prerequisite, synchronize PR37 via true non-force merge commit and verify final SHA again. Schema successor remains unmounted/unpublished; do not call metadata/schema success a playable import.
+
+
+Executed root validation before publication: initial parallel baseline486 tests459pass27Windows-only skips/0fail; focused final30 tests29pass/1native-Windows skip, syntax128 plus changed-file checks pass. After adding the final late-validation regression, the parallel487-test run reported457pass/3 existing startup-fixture timing failures/27Windows-only skips: exhausted restart budget APP_STARTUP_TIMEOUT, held-browser stale proof got timeout, and ignored-browser opener was never reached before its deadline. No assertion or product timeout was changed. Controlled SAME full test list at --test-concurrency=1 passed487 tests:460pass27Windows-only skips/0fail. These are different execution conditions, not a claim the earlier failures were fixed. Default-concurrency final CI remains mandatory. The schema candidate's separate43/44 browser failure and terminated Reload-fixture hang remain recorded; an unchanged focused timer diagnostic passed1/1.
+
+
 ## 2026-11-16 · Bounded NDI receiver observation windows
 
 - Discard disconnected or buffered capture evidence and require a full fresh connected run inside the original deadline. Preserve final connection/pixel/duration checks, bound replay history and retain native video release on every path. This changes disposable proof tooling only; actual Windows SDK validation remains required.
@@ -183,3 +197,5 @@ New portable tests cover recovery, persistent unknown, fixed budget/late complet
 
 
 Root verification before publishing: all three candidate hashes inspected; focused process suite25 passes/3 native-Windows skips; complete baseline479 tests,452 passes/27 explicit Windows-only skips,0 failures; syntax127 files passed. Root changed the portable rollback regression's incidental1s elapsed assertion to a5s test watchdog plus shrinking-budget assertion, avoiding a scheduler-speed claim; the actual15s capture budget is unchanged. Independent candidate review/failure paths retained; real async Windows capture and final actual Console CI remain required.
+
+
