@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-run-2026-11-16T16:41:26.728Z-ftw4uerq25p",
   "fence": 35,
-  "task": "Verify and merge PR42 final fingerprint evidence",
-  "workBranch": "feature/be-006-exchange-fingerprints",
+  "task": "Publish and verify detached selection-integrity gate",
+  "workBranch": "feature/be-006-selection-integrity",
   "acquiredAt": "2026-11-16T16:41:26.728Z",
-  "lastHeartbeat": "2026-11-16T16:42:34.907Z",
-  "expiresAt": "2026-11-16T18:12:34.907Z",
+  "lastHeartbeat": "2026-11-16T16:44:46.058Z",
+  "expiresAt": "2026-11-16T18:14:46.058Z",
   "releasedAt": null
 }
