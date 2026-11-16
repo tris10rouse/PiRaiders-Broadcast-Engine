@@ -164,3 +164,14 @@ test('concurrent real file rewrites fail closed or yield one complete validated 
   for (let i = 0; i < 30; i++) { try { const result = await catalog.read('football'); assert.ok(hashes.has(result.revision), 'accepted a mixed revision'); } catch (error) { assert.equal(error.code, 'CATALOG_INVALID'); refused++; } }
   assert.ok(refused > 0, 'concurrent write race was not exercised');
 });
+
+
+test('machine owns the fixed renderer selection and catalog rows cannot supply or override it',async t=>{
+ const f=await fixture(t);f.raw.caspar.rendererProfile='mesa-llvmpipe-compat';const machine=await f.load();await f.write();
+ const catalog=createLocalEventCatalog(machine),record=await catalog.read('football');
+ assert.equal(machine.caspar.rendererProfile,'mesa-llvmpipe-compat');assert.equal(Object.isFrozen(machine.caspar),true);assert.equal(record.profile.caspar.rendererProfile,'mesa-llvmpipe-compat');
+ f.raw.caspar.rendererProfile='unknown';assert.equal(record.profile.caspar.rendererProfile,'mesa-llvmpipe-compat');
+ await assert.rejects(f.load(),error=>error.code==='MACHINE_CONFIG_INVALID');
+ f.raw.caspar.rendererProfile='mesa-llvmpipe-compat';f.raw.caspar.env={GALLIUM_DRIVER:'arbitrary'};await assert.rejects(f.load(),error=>error.code==='MACHINE_CONFIG_INVALID');delete f.raw.caspar.env;
+ await f.write({...f.event,caspar:{rendererProfile:'mesa-llvmpipe-compat'}});await assert.rejects(catalog.read('football'),error=>error.code==='CATALOG_INVALID');
+});

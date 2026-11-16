@@ -148,3 +148,12 @@ test('NDI output remains explicit, bounded printable ASCII and separate from opa
     { type: 'ndi', name: 'é', runtimeDirectory: abs('ndi') },
     { type: 'ndi', name: 'N\n', runtimeDirectory: abs('ndi') }, { type: 'tcp-amcp' }]) rejects({ ...profile(), output });
 });
+
+
+test('optional fixed Caspar renderer is copied and frozen; arbitrary environment and profile controls are rejected',()=>{
+ const raw=profile();raw.caspar.rendererProfile='mesa-llvmpipe-compat';const value=normalizePreparedEventProfile(raw);
+ assert.equal(value.caspar.rendererProfile,'mesa-llvmpipe-compat');assert.equal(Object.isFrozen(value.caspar),true);
+ raw.caspar.rendererProfile='unknown';assert.equal(value.caspar.rendererProfile,'mesa-llvmpipe-compat');
+ for(const option of [null,'unknown',{},['mesa-llvmpipe-compat']]){const bad=profile();bad.caspar.rendererProfile=option;rejects(bad);}
+ for(const field of ['env','rendererEnvironment']){const bad=profile();bad.caspar[field]={GALLIUM_DRIVER:'llvmpipe'};rejects(bad);}
+});

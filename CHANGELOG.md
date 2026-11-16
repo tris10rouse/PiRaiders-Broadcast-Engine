@@ -1,5 +1,10 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Explicit renderer and extracted application output proof
+
+- Add an optional strict machine-owned Mesa profile with Caspar-only environment overrides and safe missing-library preflight/retry. Preserve inherited defaults, SPX, catalog authority and native event deadlines.
+- Add a separate Windows job that builds the genuine development ZIP, launches its unchanged CMD/bundled runtime, preserves every original inventory entry and verifies the eleven received-frame scenarios plus inner-parent cleanup while an outer benchmark remains alive. Both source/extracted app environments remove inherited renderer variables, Node preloads, npm and system Node PATH entries. Native execution is required before merge; no evaluation-readiness or hardware claim.
+
 ## 2026-11-15 · Independent prepared-event sender deadline
 
 - Add trusted native clock sampling and one immutable event-wide cutoff shared by every Caspar sender generation. Enforce UTC and boot-clock bounds before execution and during native supervision, including when Node is blocked. Preserve persistent SPX and legacy defaults; terminal expiry and close fences prevent rearming. Portable tests pass; final native Windows verification is required before merge.

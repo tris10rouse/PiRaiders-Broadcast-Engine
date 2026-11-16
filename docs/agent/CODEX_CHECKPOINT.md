@@ -1,6 +1,6 @@
 # Codex engineering checkpoint
 
-Updated 2026-11-15 UTC. GitHub is authoritative. The first user-testable Windows release is **not ready**.
+Updated 2026-11-16 UTC. GitHub is authoritative. The first user-testable Windows release is **not ready**.
 
 ## Latest verified milestone
 
@@ -39,3 +39,12 @@ Workspace /workspace/PiRaiders-Broadcast-Engine; work/ is untracked scratch and 
 The interrupted fence30 expired without further writes; recovery used a fresh owner/fence31 and verified final CI before merging PR34. A resumed stale writer must stop upon ownership loss. Every new scheduled run requires a fresh lease; this checkpoint is not a lock.
 
 Owner paused old Build PiRaiders Engine; never resume it. Current Develop PiRaiders Windows release is the hourly scheduled automation. Scheduled execution does not imply uninterrupted worker liveness or future success. Do not pause it until the genuine evaluation-release gate. No owner action is required for the next routine increments.
+
+
+## Active extracted-output implementation
+
+PR35 merged1d111a19438eea0931bae34eb7e839f37dabccb0 after all four final Foundation checks. Fresh root lease fence32 owns feature/be-008-extracted-app-output. Two isolated candidates are now actually implemented and integrated by the root: ten renderer deliverables from work/renderer-profile/ACCEPTANCE.md and five proof/workflow deliverables from work/extracted-app-proof/ACCEPTANCE.md. Only explicit regular files are included, never scratch harnesses. Independent read-only review found no blockers and separately executed41/41 renderer and14/14 proof tests. Root production baseline451 tests:426 passes,25 Windows-only skips; browser44/44 passed. Integrated final baseline and actual Windows source/extracted jobs remain required.
+
+This replaces the earlier interrupted-delegation note: candidates now exist, but native output is not yet claimed for this increment. Do not call the profile a provenance/loaded-driver check or the development ZIP an evaluation release. Preserve the source fixture requirements above.
+
+Final integrated Linux validation before publishing: syntax123 files passed; baseline458 tests,433 passes,25 explicitly Windows-only skips,0 failures. Existing browser44/44 passed against the same production renderer code. No Windows/Caspar/NDI result is claimed until final CI.

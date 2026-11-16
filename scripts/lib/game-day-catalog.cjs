@@ -4,6 +4,7 @@ const { constants } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { TextDecoder } = require('node:util');
+const { normalizeRendererProfile } = require('./caspar-renderer.cjs');
 const { normalizePreparedEventProfile } = require('./prepared-event-profile.cjs');
 const MAX_BYTES = 64 * 1024, MAX_ENTRIES = 128;
 const machines = new WeakSet();
@@ -93,11 +94,12 @@ async function loadGameDayMachineConfig(file, { appRoot, nodeExecutable } = {}) 
     object(raw, ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'presentation', 'rossTalk'],
       ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'rossTalk']);
     if (raw.schemaVersion !== 1) throw Error('invalid');
-    object(raw.caspar, ['executable', 'cwd'], ['executable', 'cwd']);
+    object(raw.caspar, ['executable', 'cwd', 'rendererProfile'], ['executable', 'cwd']);
+    const rendererProfile=normalizeRendererProfile(raw.caspar.rendererProfile);
     const machine = { schemaVersion: 1, appRoot, nodeExecutable, spxConfigFile: relative(raw.spxConfigFile),
       catalogDirectory: machinePath(appRoot, raw.catalogDirectory), mediaRoot: machinePath(appRoot, raw.mediaRoot),
       cacheRoot: machinePath(appRoot, raw.cacheRoot), runtimeRoot: machinePath(appRoot, raw.runtimeRoot),
-      caspar: { executable: machinePath(appRoot, raw.caspar.executable), cwd: machinePath(appRoot, raw.caspar.cwd) },
+      caspar: { executable: machinePath(appRoot, raw.caspar.executable), cwd: machinePath(appRoot, raw.caspar.cwd), ...(rendererProfile===undefined?{}:{rendererProfile}) },
       output: raw.output, presentation: raw.presentation === undefined ? {} : raw.presentation, rossTalk: raw.rossTalk };
     const roots = [machine.mediaRoot, machine.cacheRoot, machine.runtimeRoot, machine.catalogDirectory];
     for (let i = 0; i < roots.length; i++) for (let j = i + 1; j < roots.length; j++) if (within(roots[i], roots[j]) || within(roots[j], roots[i])) throw Error('invalid');

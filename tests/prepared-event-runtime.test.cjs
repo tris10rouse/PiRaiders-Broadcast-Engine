@@ -82,3 +82,26 @@ test('delayed native expiry cannot overwrite closing or closed lifecycle',async 
   await closing;assert.equal(runtime.snapshot().state,'closed');
  }
 });
+
+
+test('explicit renderer affects the private Caspar spawn while SPX retains inherited environment',async t=>{
+ const f=await fixture(t);f.profile.caspar.rendererProfile='mesa-llvmpipe-compat';await fs.writeFile(path.join(path.dirname(f.profile.caspar.executable),'opengl32.dll'),'synthetic DLL boundary only');
+ const keys=['GALLIUM_DRIVER','LIBGL_ALWAYS_SOFTWARE','MESA_GL_VERSION_OVERRIDE','gallium_driver','LiBgL_AlWaYs_SoFtWaRe','mesa_gl_version_override'];const original=new Map(keys.map(key=>[key,process.env[key]]));
+ const names=new Set(keys.map(key=>key.toLowerCase())),selected=env=>Object.fromEntries(Object.entries(env).filter(([key])=>names.has(key.toLowerCase())));
+ for(const key of keys)process.env[key]='inherited-SPX-value';const inherited=selected(process.env);let runtime;
+ try{runtime=await f.create();await runtime.start();await until(()=>runtime.snapshot().ready);
+  const spx=f.state.spawned.find(value=>!value.privateInput),caspar=f.state.spawned.find(value=>value.privateInput);
+  assert.deepEqual(selected(spx.opts.env),inherited);
+  assert.equal(caspar.opts.env.GALLIUM_DRIVER,'llvmpipe');assert.equal(caspar.opts.env.LIBGL_ALWAYS_SOFTWARE,'1');assert.equal(caspar.opts.env.MESA_GL_VERSION_OVERRIDE,'4.5COMPAT');
+  for(const key of keys)assert.equal(process.env[key],'inherited-SPX-value');
+ }finally{await runtime?.close();for(const [key,value]of original){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
+});
+
+test('missing explicit renderer fails before media staging, listener creation or spawning',async t=>{
+ const f=await fixture(t);f.profile.caspar.rendererProfile='mesa-llvmpipe-compat';let stages=0;
+ await assert.rejects(f.create({stage:async()=>{stages++;throw Error('must not stage');}}),error=>error.code==='MESA_RUNTIME_MISSING'&&error.message==='MESA_RUNTIME_MISSING');
+ assert.equal(stages,0);assert.equal(f.state.sessions.length,0);assert.equal(f.state.spawned.length,0);
+ await assert.rejects(fs.stat(f.profile.caspar.runtimeDir),error=>error.code==='ENOENT');
+ await fs.writeFile(path.join(path.dirname(f.profile.caspar.executable),'opengl32.dll'),'synthetic DLL boundary only');
+ const recovered=await f.create();assert.equal(recovered.snapshot().state,'prepared');assert.equal(f.state.spawned.length,0);assert.equal(f.state.sessions.length,0);
+});

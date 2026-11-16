@@ -14,6 +14,7 @@ on:
       - 'static/**'
       - 'ASSETS/templates/piraiders/**'
       - 'package*.json'
+      - 'packaging/windows/**'
   workflow_dispatch:
 
 permissions:
@@ -51,9 +52,6 @@ jobs:
       - name: Prove actual CLI SPX Game Day and nested native output ownership
         env:
           PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          GALLIUM_DRIVER: llvmpipe
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          MESA_GL_VERSION_OVERRIDE: 4.5COMPAT
         run: node scripts/smoke-full-app-windows.cjs
       - name: Retain synthetic received pixels and sanitized application evidence only
         if: always()
@@ -62,4 +60,52 @@ jobs:
           name: full-app-private-ndi-evidence
           path: build/full-app-proof-evidence
           if-no-files-found: warn
+          retention-days: 14
+
+  actual-extracted-full-app-private-ndi:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.4'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build actual Windows containment and SDK receiver
+        run: |
+          npm run build:windows-host
+          node scripts/build-ndi-probe.cjs
+      - name: Build genuine committed-source Windows development ZIP
+        run: npm run package:windows
+      - name: Prepare pinned Caspar and app-local CI Mesa
+        run: node scripts/prepare-caspar-proof.cjs
+      - name: Verify and install pinned private CI-only NDI runtime
+        run: node scripts/prepare-ndi-proof.cjs
+      - name: Install pinned headless browser for actual workstation controls
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Prove extracted CMD bundled Node SPX and native NDI output
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/smoke-full-app-windows.cjs build/caspar-proof-tools build/windows/PiRaiders-Development-win-x64.zip
+      - name: Retain synthetic received pixels and sanitized application evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extracted-full-app-private-ndi-evidence
+          path: build/extracted-full-app-proof-evidence
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Retain tested development ZIP and checksum (not evaluation release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: extracted-output-tested-development-zip
+          path: |
+            build/windows/PiRaiders-Development-win-x64.zip
+            build/windows/PiRaiders-Development-win-x64.zip.sha256
+          if-no-files-found: error
           retention-days: 14
