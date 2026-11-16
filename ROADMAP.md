@@ -1,5 +1,10 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest software progress · 2026-11-16: selection integrity
+
+The exchange fingerprint prerequisite (PR42) is verified and merged. The next BE-006 increment checks selection identity, ordered occurrences, asset references and paths, and advertised fingerprints after the existing bounded JSON and schema gates. This remains a detached validator with `ready:false`; it cannot activate playback. Problem-state rules, Chicago timing, durable feed state and verified ordered-asset staging still precede source integration. Clean-machine setup, graceful close/default browser proof, diagnostics and soak remain evaluation gates.
+
+
 ## Latest software progress · 2026-11-16
 
 PR41 merged the detached draft0.3.1 structural schema gate after all 12 checks passed; the next BE-006 increment adds bounded safe-integer canonical JSON and selection/playback/metadata fingerprint computation. Computation remains detached and `ready:false`. Semantic validation, the durable feed ledger and ordered verified-asset import still gate Game Day integration. The first evaluation release remains gated by source integration, clean-machine setup, graceful close/default browser proof, diagnostics and soak.
