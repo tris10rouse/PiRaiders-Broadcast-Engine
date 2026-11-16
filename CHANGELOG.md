@@ -1,5 +1,15 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Detached exchange fingerprint computation
+
+- Added bounded draft0.3.1 canonical JSON, selection IDs and separate playback/metadata fingerprints. Ordered occurrences retain repeated media; label/tick/time metadata changes do not alter the playback hash. No source, cache or output wiring is added; results remain `ready:false`.
+- Added Unicode, malformed input, missing/duplicate asset reference, exclusion and size/depth/node regressions. Independent review caught and corrected a UTF16 label-length restriction before publication. Supplied JSON data vectors matched226 hash/canonicalization comparisons without executing attachment scripts.
+- PR41's preceding structural schema gate merged with12 passing checks, Windows512 baseline passes/two documented skips, Chromium44/44 and actual source/extracted Windows NDI proof. Software evidence does not establish stadium hardware compatibility or evaluation readiness.
+
+
+- Corrected the reader transport's UTF16 admission bound for schema-sized supplementary Unicode labels. Actual filesystem capture/identity/digest regression and oversized-binding rejection passed; complete structural/semantic acceptance remains separate.
+
+
 ## Full-app bounded identity observation (BE-002)
 
 PR39 merged01553c0bd88cd60b3092dfc7009976bce8471375 with the identical tested tree85cca2599254d5f4d37b78951b58e565fb208651 after all ten checks. Windows477/479(two documented skips), Chromium44/44, actual async CIM and seven Console captures passed; source/extracted fullapp received eleven frames each. An initial merge request timed out after applying identical content at bd039644; fresh ref/tree/PR-state checks preceded safe reconciliation. PR39 is confirmed closed/merged; no force update occurred.

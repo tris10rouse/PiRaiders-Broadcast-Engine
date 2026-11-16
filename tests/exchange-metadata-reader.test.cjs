@@ -23,9 +23,9 @@ function logicalDeadline(t,delayMs){
  t.after(()=>{for(const timer of timers.keys())cancel(timer);});
  return{expire(){assert.equal(timers.size,1,'ONE_CAPTURE_DEADLINE');clock+=delayMs;const[timer,callback]=timers.entries().next().value;timers.delete(timer);cancel(timer);callback();}};
 }
-async function fixture(t){
+async function fixture(t,label='synthetic button'){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders metadata capture '));t.after(()=>fs.rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100}));
- const binding={feedId:'00000000-0000-4000-8000-000000000001',epoch:1,identityTuple:['2026-2027','EV-SYNTHETIC','BOARD-SYNTHETIC','event','synthetic button']};
+ const binding={feedId:'00000000-0000-4000-8000-000000000001',epoch:1,identityTuple:['2026-2027','EV-SYNTHETIC','BOARD-SYNTHETIC','event',label]};
  const selectionId='sel_'+hash(Buffer.from(JSON.stringify(binding.identityTuple))).slice(0,32);
  function bundle(sequence=1){
   const metadataFingerprint=hash(Buffer.from('unverified synthetic metadata '+sequence)),generation='e1-g'+String(sequence).padStart(10,'0')+'-'+metadataFingerprint.slice(0,12);
@@ -133,4 +133,16 @@ test('an elapsed monotonic deadline fences a final completion before delayed tim
  try{const value=await reader.capture();assert.equal(blocked,true,'final handle close must have completed');assert.ok(performance.now()-began>=1000,'the capture completed after its immutable budget');assert.equal(timerRan,false,'completion microtasks must precede delayed timer callbacks');assert.equal(value.code,'CAPTURE_TIMEOUT');assert.equal(value.ready,false);assert.equal(reader.lastPin(),first.pin);assert.equal(reader.snapshot().busy,false);}
  finally{clearTimeout(timer);fs.open=open;}
  const recovered=await reader.capture();assert.equal(recovered.ok,true);assert.equal(recovered.pin.descriptor.generationSequence,2);assert.equal(recovered.ready,false);
+});
+
+test('schema-sized supplementary Unicode label survives exact binding, paths and delivered bytes',async t=>{
+ const label='😀'.repeat(200),f=await fixture(t,label),input=f.bundle();await f.publish(input);
+ const captured=await f.reader().capture();assert.equal(captured.ok,true);assert.equal(captured.ready,false);
+ assert.equal(captured.pin.descriptor.identityTuple[4],label);
+ assert.equal(captured.pin.descriptor.selectionId,require('../scripts/lib/exchange-fingerprints.cjs').selectionId(f.binding.identityTuple));
+ assert.equal(captured.pin.documentDigests.manifest,hash(bytes(input.manifest)));
+});
+test('Unicode-compatible transport binding still rejects oversized tuple elements before I/O',()=>{
+ const root=path.resolve(os.tmpdir(),'synthetic-exchange'),binding={feedId:'00000000-0000-4000-8000-000000000001',epoch:1,identityTuple:['2026-2027','EV1','BD1','event','😀'.repeat(200)+'x']};
+ assert.throws(()=>createExchangeMetadataReader({root,binding}),{message:'METADATA_INVALID'});
 });

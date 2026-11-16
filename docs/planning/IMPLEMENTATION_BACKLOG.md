@@ -1,5 +1,15 @@
 # Implementation backlog
 
+## Current implementation state · 2026-11-16
+
+- PR37 metadata capture and PR38–40 native proof/teardown prerequisites are verified and merged. PR41 merged `29cf023c0c632439bd209e20493b72b29f4030ce` with the identical tested tree. Final SHA `96d224d681054c2c746a5fcc16139e0e006f37d2`: 12 checks passed, Windows512/514(two documented skips), Chromium44/44, independent schema9173 comparisons/13 numeric declarations, source/extracted11 actual NDI frame cases each.
+- Current BE-006 acceptance: compute exact draft0.3.1 selection IDs and both fingerprints within the bounded safe-integer JSON domain; preserve ordered repeated media, Unicode and root-only exclusions; reject malformed input with fixed diagnostics; never imply semantic/readiness acceptance. Synthetic failure/regression tests, supplied data-only vector comparisons, independent review and final-SHA CI required. See `docs/design/EXCHANGE_FINGERPRINTS.md`.
+- Next: independently verify V1–V20 context/generation/order/reference/problem/eligibility/calendar/DST/window rules and digest comparisons; persist per-feed sequence/binding ledger; stage unique verified assets into ordered schema2 snapshots while preserving schema1. Then wire complete candidates into Game Day. Remaining evaluation gates include licensed clean-machine setup, graceful close/default browser proof, diagnostics/recovery and4h soak. No new owner upload or secret needed.
+
+
+Unicode compatibility acceptance: the bounded metadata transport admits200-code-point supplementary labels, captures exact delivered bytes/identity and still rejects oversized bindings before I/O. Root and independent reviewer passed27/27 focused cases. The prior523-test run passed496/27Windows skips before this final correction; the fresh final-source525-case baseline passed498 tests with27 explicit Windows-only skips and0 failures; syntax139 passed. Final CI evidence must be recorded in the PR.
+
+
 This file is the interim source of truth for actionable work items. GitHub Issues was disabled on this fork when this foundation PR was created (GitHub returned HTTP 410). If Issues is enabled, migrate each numbered task to a linked issue and keep this document as the high-level index. **Never interpret a checked box as an unverified hardware test passing.**
 
 Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. Use one focused feature branch/PR per independently testable unit. Mark work complete only with test evidence and a rollback path.
