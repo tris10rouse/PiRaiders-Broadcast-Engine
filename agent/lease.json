@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-run-2026-11-16T16:41:26.728Z-ftw4uerq25p",
   "fence": 35,
-  "task": "Publish verified detached Chicago timing gate",
+  "task": "Publish and verify detached Chicago timing semantics",
   "workBranch": "feature/be-006-exchange-timing",
   "acquiredAt": "2026-11-16T16:41:26.728Z",
-  "lastHeartbeat": "2026-11-16T18:14:25.797Z",
-  "expiresAt": "2026-11-16T19:44:25.797Z",
+  "lastHeartbeat": "2026-11-16T18:17:30.946Z",
+  "expiresAt": "2026-11-16T19:47:30.946Z",
   "releasedAt": null
 }
