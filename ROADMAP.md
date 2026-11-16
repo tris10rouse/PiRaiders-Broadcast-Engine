@@ -1,6 +1,6 @@
 # PiRaiders Broadcast Engine: Roadmap
 
-Updated: 2026-11-15 · Status: actual full-application Windows Caspar/CEF/NDI software proof verified; persistent SPX/Game Day merged; application-entry development ZIP verified; first evaluation release remains gated · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
+Updated: 2026-11-16 · Status: actual full-application Windows Caspar/CEF/NDI software proof verified; persistent SPX/Game Day merged; application-entry development ZIP verified; first evaluation release remains gated · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
 
 ## Product contract
 
@@ -169,3 +169,8 @@ BE-002/BE-006 acceptance and clock contract: [native event deadline](docs/design
 ## Verified native deadline milestone
 
 [PR34](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/34) merged9eb7a54 after final source7460863 passed all nine checks with identical tree9722e81. Windows440/442 passes(two documented skips), Chromium44/44 and all five new native tests passed; full application received11 actual NDI frame cases. Independent prepared-event deadline across sender restarts is integrated. Next: explicit renderer configuration and actual full output from the extracted ZIP, followed by source exchange/setup/preflight/soak and evaluation checklist. See CODEX_CHECKPOINT.md for exact acceptance and evidence limits.
+
+
+## Active extracted-output increment · 2026-11-16
+
+PR35 checkpoint merged after four passing final checks; PR34 independent native event deadline is integrated. BE-002/BE-008 now adds an optional fixed machine renderer profile and a separate actual extracted-ZIP output job, preserving the source proof. Acceptance: all eleven received-frame/lifecycle scenarios through the unchanged CMD/bundled Node, inherited renderer/preload/PATH removal, exact original manifest preserved, and inner-parent cleanup while the outer benchmark stays alive. Portable results are not native execution evidence; final Windows CI is required. See docs/design/EXTRACTED_APP_OUTPUT_PROOF.md and CASPAR_RENDERER_PROFILE.md.

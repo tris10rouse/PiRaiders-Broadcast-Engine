@@ -1,5 +1,6 @@
 'use strict';
 const path = require('node:path');
+const { normalizeRendererProfile } = require('./caspar-renderer.cjs');
 const { normalizeWindow } = require('./production-window.cjs');
 const { SlideshowController } = require('./slideshow-controller.cjs');
 const { normalizeRossTalkConfig } = require('./rosstalk-protocol.cjs');
@@ -70,8 +71,9 @@ function normalizePreparedEventProfile(raw) {
     record(raw.spx, ['executable', 'args', 'cwd'], ['executable', 'args', 'cwd']);
     const args = stringArray(raw.spx.args);
     const spx = { executable: absolute(raw.spx.executable), args, cwd: absolute(raw.spx.cwd) };
-    record(raw.caspar, ['executable', 'cwd', 'runtimeDir'], ['executable', 'cwd', 'runtimeDir']);
+    record(raw.caspar, ['executable', 'cwd', 'runtimeDir', 'rendererProfile'], ['executable', 'cwd', 'runtimeDir']);
     const caspar = { executable: absolute(raw.caspar.executable), cwd: absolute(raw.caspar.cwd), runtimeDir: absolute(raw.caspar.runtimeDir) };
+    const rendererProfile=normalizeRendererProfile(raw.caspar.rendererProfile);if(rendererProfile!==undefined)caspar.rendererProfile=rendererProfile;
 
     record(raw.media, ['provider', 'sourceDir', 'cacheDir', 'startup'], ['provider', 'sourceDir', 'cacheDir', 'startup']);
     if (raw.media.provider !== 'local-lexical-v1') throw invalid();

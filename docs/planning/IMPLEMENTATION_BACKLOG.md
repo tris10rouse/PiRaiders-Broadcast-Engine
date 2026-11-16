@@ -8,7 +8,7 @@ Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. 
 
 - PR28–30 merged verified Game Day, persistent SPX ownership and actual full-application Windows output. PR30's two real runs each received11 frames, recovered offline, enforced a real window with SPX preserved and removed the nested tree on actual CLI-parent death. These are software proofs, not target hardware approval.
 - PR31 selects the persistent entry in one development ZIP launcher and verifies the actual extracted CMD/bundled Node/SPX path on Windows. Final source1bafbc0 passed9 checks and mergedd302ee5 with identical tree. No owner testing is requested yet.
-- Remaining evaluation gates: extracted output and reproducible licensed Mesa/NDI setup, independent native deadline under a frozen SPX, source exchange import, preflight/diagnostics, soak and precise nonproduction installation/checklist. Hardware/off-air/signing/formal release remain separate.
+- Remaining evaluation gates: extracted output and reproducible licensed Mesa/NDI setup, source exchange import, preflight/diagnostics, soak and precise nonproduction installation/checklist. Hardware/off-air/signing/formal release remain separate.
 
 ## Agent coordination prerequisite
 
@@ -167,3 +167,8 @@ BE-002/BE-006: sample the native boot clock once per prepared event, retain the 
 ## Verified native deadline milestone
 
 [PR34](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/34) merged9eb7a54 after final source7460863 passed all nine checks with identical tree9722e81. Windows440/442 passes(two documented skips), Chromium44/44 and all five new native tests passed; full application received11 actual NDI frame cases. Independent prepared-event deadline across sender restarts is integrated. Next: explicit renderer configuration and actual full output from the extracted ZIP, followed by source exchange/setup/preflight/soak and evaluation checklist. See CODEX_CHECKPOINT.md for exact acceptance and evidence limits.
+
+
+## Active BE-002/BE-008 acceptance · 2026-11-16
+
+PR34 verified the independent native deadline; PR35 records its final evidence. Next increment must prove actual output from the extracted development artifact with a fixed product-owned renderer profile, original manifest unchanged and the real inner CLI killed while its outer bench stays alive. Keep source proof, SPX/OGraf/native-window/package regressions and actual source/extracted Windows checks at the final SHA. Clean-machine licensed setup, default browser/graceful close verification, source exchange importer, diagnostics/preflight, soak and evaluation checklist remain open.

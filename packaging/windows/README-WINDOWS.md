@@ -24,3 +24,12 @@ Windows CI now builds and extracts the final ZIP under a spaces/Unicode/`!` path
 Output through the extracted full application, default browser-handler dispatch, reproducible legal component/Mesa setup, exchange importer, diagnostics/preflight/soak, clean-machine installation and an operator checklist remain release gates. The root launcher does not yet configure CI's explicit software-Mesa environment. Do not describe this ZIP as a user-testable build, formal release, signed installer or target-hardware certification. No live stadium, external LAN receiver, Daktronics/D8VIDEO-P/DMP routing or board input was tested by this package increment.
 
 Rollback: stop the development application, preserve intentionally created configuration/content/logs, and remove only its extracted folder. Do not delete or overwrite an existing SPX installation or media.
+
+
+## Optional reference software renderer
+
+An explicitly prepared Caspar/Mesa installation can opt in to the tested software renderer by adding `"rendererProfile": "mesa-llvmpipe-compat"` inside the machine configuration's `caspar` object. This optional machine policy is not accepted from event catalog rows. Omit it to retain the existing inherited environment and component behavior. Unknown profiles and arbitrary environment maps are rejected. The development example remains unchanged and does not require Mesa for its initial empty/output-none configuration.
+
+The profile sets `GALLIUM_DRIVER=llvmpipe`, `LIBGL_ALWAYS_SOFTWARE=1` and `MESA_GL_VERSION_OVERRIDE=4.5COMPAT` only for the owned private Caspar process. SPX and legacy component launches retain their environment. Inherited case variants of these three variable names are replaced so Windows cannot choose a conflicting duplicate.
+
+Preparation requires a nonempty regular `opengl32.dll` beside the canonical Caspar executable; putting a copy only in a different working directory is insufficient. A missing, empty, directory or symbolic-link library returns the fixed `MESA_RUNTIME_MISSING` boundary error before media staging, listeners or service startup. This presence check does not verify version/hash, loaded-driver identity, complete dependencies, pixels or hardware compatibility. Use the separately pinned and licensed component preparation; Caspar/Mesa/NDI binaries are not bundled here. Actual output from the extracted application still requires Windows software proof, and target Windows10/stadium compatibility remains unverified.

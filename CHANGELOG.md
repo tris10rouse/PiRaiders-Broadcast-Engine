@@ -1,5 +1,10 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Explicit renderer and extracted application output proof
+
+- Add an optional strict machine-owned Mesa profile with Caspar-only environment overrides and safe missing-library preflight/retry. Preserve inherited defaults, SPX, catalog authority and native event deadlines.
+- Add a separate Windows job that builds the genuine development ZIP, launches its unchanged CMD/bundled runtime, preserves every original inventory entry and verifies the eleven received-frame scenarios plus inner-parent cleanup while an outer benchmark remains alive. Both source/extracted app environments remove inherited renderer variables, Node preloads, npm and system Node PATH entries. Native execution is required before merge; no evaluation-readiness or hardware claim.
+
 ## 2026-11-15 · Independent prepared-event sender deadline
 
 - Add trusted native clock sampling and one immutable event-wide cutoff shared by every Caspar sender generation. Enforce UTC and boot-clock bounds before execution and during native supervision, including when Node is blocked. Preserve persistent SPX and legacy defaults; terminal expiry and close fences prevent rearming. Portable tests pass; final native Windows verification is required before merge.
@@ -157,3 +162,8 @@ Real Windows recovery implementation2988969558b5ab336e919e98a6cfe0240be62581 pas
 ## Verified native deadline evidence
 
 PR34 merged9eb7a54 after all nine final checks passed: all five new native Windows cases,440/442 Windows baseline passes(two documented skips),44 browser tests and11 received full-app NDI frame cases. The prepared-event sender now has an independent immutable deadline across sender restarts. This remains development software; extracted actual output and remaining evaluation gates are open.
+
+
+## 2026-11-16 · Managed Caspar launch-path correction
+
+- A controlled Windows test confirmed that the pinned Caspar binary fails its Unicode config filename argument while the identical ASCII control succeeds. Keep the managed config in its owned event directory, launch with an ASCII basename/private cwd and generate relative paths. Preserve default absolute config generation, SPX/legacy launchers, renderer environment and native event deadline. Final actual Unicode-extracted output must pass before merge.

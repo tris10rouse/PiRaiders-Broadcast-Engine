@@ -7,6 +7,7 @@ const {stageSnapshot,loadSnapshot}=require('./media-snapshot.cjs');
 const {createRossTalkSession}=require('./rosstalk-session.cjs');
 const {LauncherRuntime}=require('./launcher-runtime.cjs');
 const {spawnSupervisedProcess,createNativeWindowPolicy,WINDOW_EXPIRED_EXIT_CODE}=require('./windows-job-process.cjs');
+const {casparRendererEnvironment,preflightRenderer}=require('./caspar-renderer.cjs');
 const {CasparConsole}=require('./caspar-console.cjs');
 function safeRoot(value){return typeof value==='string'&&value.length<=4096&&!/[\x00-\x1f\x7f]/.test(value)&&path.isAbsolute(value);}
 function safePrivateRoots(value){return Array.isArray(value)&&Object.getPrototypeOf(value)===Array.prototype&&value.length<=3&&Reflect.ownKeys(value).length===value.length+1&&Array.from({length:value.length},(_,index)=>Object.getOwnPropertyDescriptor(value,String(index))).every(item=>item&&Object.hasOwn(item,'value')&&item.enumerable&&safeRoot(item.value));}
@@ -26,6 +27,7 @@ async function paths(profile,{source=profile.media.startup.mode==='source',manag
   for(const file of [...(manageSpx?[profile.spx.executable]:[]),profile.caspar.executable])if(!(await fs.stat(file)).isFile())throw failure('PROFILE_PATHS');
   for(const dir of [...(manageSpx?[profile.spx.cwd]:[]),profile.caspar.cwd])if(!(await fs.stat(dir)).isDirectory())throw failure('PROFILE_PATHS');
   if(manageSpx&&same(await fs.realpath(profile.spx.executable),await fs.realpath(profile.caspar.executable)))throw failure('PROFILE_PATHS');
+  await preflightRenderer(profile.caspar);
   if(profile.output.type==='ndi'){try{if(!(await fs.stat(path.join(profile.output.runtimeDirectory,'Processing.NDI.Lib.x64.dll'))).isFile())throw failure('NDI_RUNTIME_MISSING');}catch{throw failure('NDI_RUNTIME_MISSING');}}
   if(profile.media.startup.mode==='cached'){
     const selected=await fs.realpath(profile.media.startup.snapshotDir),cache=await fs.realpath(profile.media.cacheDir);
@@ -43,15 +45,15 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
   try{
     profile=normalizePreparedEventProfile(raw);
     if(process.platform!=='win32'&&typeof spawnProcess!=='function')throw failure('WINDOWS_REQUIRED');
-    try{await paths(profile,{manageSpx,sourceRoot,privateRoots});}catch(error){throw failure(error.code==='NDI_RUNTIME_MISSING'?'NDI_RUNTIME_MISSING':'PROFILE_PATHS');}
+    try{await paths(profile,{manageSpx,sourceRoot,privateRoots});}catch(error){throw failure(['NDI_RUNTIME_MISSING','MESA_RUNTIME_MISSING'].includes(error.code)?error.code:'PROFILE_PATHS');}
     // Capture native UTC/boot deadline once; sender restarts never resample it.
     if(!spawnProcess)nativeWindowPolicy=await createNativeWindowPolicy(profile.productionWindow);
     initial=profile.media.startup.mode==='cached'?await load(profile.media.startup.snapshotDir):await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir});
     await fs.mkdir(profile.caspar.runtimeDir,{recursive:true});
     directory=await fs.mkdtemp(path.join(profile.caspar.runtimeDir,'event-'));
     for(const child of ['media','log','data','template'])await fs.mkdir(path.join(directory,child));
-    await fs.writeFile(path.join(directory,'caspar.config'),preparedCasparConfig(profile,directory),{flag:'wx'});
-  }catch(error){if(directory)await fs.rm(directory,{recursive:true,force:true}).catch(()=>{});throw failure(['PROFILE_INVALID','PROFILE_PATHS','NDI_RUNTIME_MISSING','WINDOWS_REQUIRED'].includes(error.code)?error.code:'EVENT_PREPARE_FAILED');}
+    await fs.writeFile(path.join(directory,'caspar.config'),preparedCasparConfig(profile,directory,{relativePaths:true}),{flag:'wx'});
+  }catch(error){if(directory)await fs.rm(directory,{recursive:true,force:true}).catch(()=>{});throw failure(['PROFILE_INVALID','PROFILE_PATHS','NDI_RUNTIME_MISSING','MESA_RUNTIME_MISSING','WINDOWS_REQUIRED'].includes(error.code)?error.code:'EVENT_PREPARE_FAILED');}
   const spawn=spawnProcess||((exe,args,options,privateInput)=>spawnSupervisedProcess(exe,args,options,{forwardStdin:privateInput,...(privateInput?{productionWindow:nativeWindowPolicy}:{})}));
   let launcher,windowExpired=false,closed=false,started=false,startPromise,closePromise,state='prepared',lastError=null,stamp=0,current=null,standby=null;
   let accepted=initial,lastMode=profile.playback.mode,flight=null,candidate=null;
@@ -128,7 +130,7 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
   }
   function ownedSpawn(exe,args,options){
     const privateInput=exe===profile.caspar.executable;
-    const child=spawn(exe,args,{...options,env:{...process.env,...(privateInput&&profile.output.type==='ndi'?{NDI_RUNTIME_DIR_V6:profile.output.runtimeDirectory}:{})}},privateInput);
+    const child=spawn(exe,args,{...options,env:privateInput?casparRendererEnvironment({...process.env,...(profile.output.type==='ndi'?{NDI_RUNTIME_DIR_V6:profile.output.runtimeDirectory}:{})},profile.caspar.rendererProfile):{...process.env}},privateInput);
     if(privateInput){
       // Native expiry is terminal for this prepared event even if a backward
       // wall-clock adjustment would otherwise authorize a supervisor restart.
@@ -140,7 +142,11 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     }
     return child;
   }
-  launcher=new LauncherRuntime({productionWindow:profile.productionWindow,services:[{name:'spx',command:profile.spx.executable,args:profile.spx.args,cwd:profile.spx.cwd},{name:'casparcg',command:profile.caspar.executable,args:[path.join(directory,'caspar.config'),'--log-severity=disable','--disable-logging'],cwd:profile.caspar.cwd}]},{clock:()=>windowExpired?NaN:clock(),schedule,cancel,manageSpx,supervisorOptions:{...supervisorOptions,spawnProcess:ownedSpawn},onSenderRetiring:()=>{retire();}});
+  // Caspar's narrow argv/locale-based XML input must not receive Unicode
+  // event paths. Native CreateProcessW sets the actual private directory as
+  // cwd; the ASCII basename and relative config paths resolve there. Component
+  // loading still uses the unchanged real executable and absolute NDI env.
+  launcher=new LauncherRuntime({productionWindow:profile.productionWindow,services:[{name:'spx',command:profile.spx.executable,args:profile.spx.args,cwd:profile.spx.cwd},{name:'casparcg',command:profile.caspar.executable,args:['caspar.config','--log-severity=disable','--disable-logging'],cwd:directory}]},{clock:()=>windowExpired?NaN:clock(),schedule,cancel,manageSpx,supervisorOptions:{...supervisorOptions,spawnProcess:ownedSpawn},onSenderRetiring:()=>{retire();}});
   launcher.on('fault',value=>{if(!windowExpired&&(value?.name==='spx'||!current?.ready))lastError='SERVICE_FAULT';});
   function snapshot(){syncAccepted(current);const owned=current?.session?.snapshot(),p=owned?.presentation;return Object.freeze({eventId:profile.eventId,state,lastError:lastError||owned?.lastError||null,windowAllowed:launcher.allowed(),generation:stamp,ready:!!current&&gate(current),deckId:accepted.deck.id,slideCount:accepted.deck.slides.length,sourceName:profile.output.type==='ndi'?profile.output.name:null,mode:p?.controller?.mode||lastMode,index:p?.controller?.index??null,output:profile.output.type,preparing:flight!==null,closed});}
   function close(){
