@@ -1,5 +1,13 @@
 # Implementation backlog
 
+## Current BE-006 increment: detached selection integrity
+
+- PR42 merged `bfa3f50d1f1a499b3b19cff5c5f11b03a65dcb5b`, final tested source `fac939f0dde4700248eba5360a41f4d8364d86ee`, identical tree `b50f86373f8f39caff6544ab9bbc44b2e6162952`. All 12 checks passed: Windows 523/525 (two documented skips), Chromium 44/44, both schema oracles, and actual source/extracted NDI output. See the PR for final CI links and evidence. Earlier PR37–41 prerequisites are merged.
+- Acceptance: compose bounded owned JSON with the full structural gate, then enforce V1/V2/V3/V4/V6/V7/V18: exact one-based positions, unique occurrence/asset keys, resolved references/no unused assets, SHA/MIME delivery paths, tuple context/hash, preserved repetitions and both computed/advertised digests. Fixed diagnostics, immutable results, no source/cache/output integration; `ready:false` and explicit pending gates on every result. See `docs/design/EXCHANGE_SELECTION_INTEGRITY.md`.
+- Root and two reviewers found no scoped blocker. Each focused execution passed 10/10; root also passed the supplied 100 data-only golden manifests under this subset. Final combined Linux baseline: 535 tests, 508 passes, 27 explicit Windows-only skips, zero failures; syntax 141 files passed. Default final-SHA Windows/browser/native/schema CI must pass before merge. This is not the 59-step stateful fixture acceptance.
+- Next: V5/V20 problem-state checks and independent Chicago/calendar/window semantics; durable per-feed sequence/digest/binding/rebind ledger; unique verified bytes/full decode/512 MiB aggregate and ordered schema2 cache with schema1 compatibility; then integrate complete candidates. Eligibility/admission and external descriptor binding must remain explicit boundaries. Licensed setup, default browser/graceful close, diagnostics/recovery and four-hour soak still gate evaluation readiness.
+
+
 ## Current implementation state · 2026-11-16
 
 - PR37 metadata capture and PR38–40 native proof/teardown prerequisites are verified and merged. PR41 merged `29cf023c0c632439bd209e20493b72b29f4030ce` with the identical tested tree. Final SHA `96d224d681054c2c746a5fcc16139e0e006f37d2`: 12 checks passed, Windows512/514(two documented skips), Chromium44/44, independent schema9173 comparisons/13 numeric declarations, source/extracted11 actual NDI frame cases each.

@@ -1,5 +1,12 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Exchange selection integrity
+
+- Added a detached validator that rejects forged selection identities or fingerprints, broken slide order, missing/unused/duplicate asset references and mismatched delivery paths. Repeated slides remain ordered.
+- Composed the existing bounded JSON and structural schema gates. Results explicitly leave timing, problem-state, media verification, feed persistence, eligibility and external descriptor context pending; no playback or cache behavior changes.
+- Added synthetic failure and real metadata-capture composition tests. Linux baseline passed 508 tests with 27 Windows-only skips; final Windows CI remains required before merge. PR42's fingerprint and Unicode transport prerequisite is verified and merged.
+
+
 ## 2026-11-16 · Detached exchange fingerprint computation
 
 - Added bounded draft0.3.1 canonical JSON, selection IDs and separate playback/metadata fingerprints. Ordered occurrences retain repeated media; label/tick/time metadata changes do not alter the playback hash. No source, cache or output wiring is added; results remain `ready:false`.
