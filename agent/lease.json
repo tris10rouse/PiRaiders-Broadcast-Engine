@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-2026-11-16T21:16:55.866Z-cb1zpgk0v4n",
   "fence": 37,
-  "task": "Resume journal CI and catalog receipt after environment restart",
-  "workBranch": "feature/be-006-exchange-journal",
+  "task": "BE-006 raw catalog receipt integration",
+  "workBranch": "feature/be-006-catalog-receipt",
   "acquiredAt": "2026-11-16T21:16:55.866Z",
-  "lastHeartbeat": "2026-11-16T21:28:45.113Z",
-  "expiresAt": "2026-11-16T22:58:45.113Z",
+  "lastHeartbeat": "2026-11-16T21:31:19.326Z",
+  "expiresAt": "2026-11-16T23:01:19.326Z",
   "releasedAt": null
 }
