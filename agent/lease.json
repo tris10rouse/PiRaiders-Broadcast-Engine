@@ -6,7 +6,7 @@
   "task": "BE-006 pure exchange ledger transitions",
   "workBranch": "feature/be-006-exchange-ledger",
   "acquiredAt": "2026-11-16T20:45:26.094Z",
-  "lastHeartbeat": "2026-11-16T20:59:49.295Z",
-  "expiresAt": "2026-11-16T22:29:49.295Z",
+  "lastHeartbeat": "2026-11-16T21:06:51.174Z",
+  "expiresAt": "2026-11-16T22:36:51.174Z",
   "releasedAt": null
 }
