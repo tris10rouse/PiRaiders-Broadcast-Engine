@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 36,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-16T20:45:26.094Z",
-  "lastHeartbeat": "2026-11-16T21:16:19.083Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-16T21:16:19.083Z"
+  "status": "active",
+  "owner": "codex-2026-11-16T21:16:55.866Z-cb1zpgk0v4n",
+  "fence": 37,
+  "task": "Resume journal CI and catalog receipt after environment restart",
+  "workBranch": "feature/be-006-exchange-journal",
+  "acquiredAt": "2026-11-16T21:16:55.866Z",
+  "lastHeartbeat": "2026-11-16T21:16:55.866Z",
+  "expiresAt": "2026-11-16T22:46:55.866Z",
+  "releasedAt": null
 }
