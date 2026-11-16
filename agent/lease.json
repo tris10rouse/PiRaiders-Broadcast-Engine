@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-resume-2026-11-16T10:23:10.814Z-0lx2vo3sksc",
-  "fence": 34,
-  "task": "Validate exchange fingerprint computation and Unicode binding compatibility",
-  "workBranch": "feature/be-006-exchange-fingerprints",
-  "acquiredAt": "2026-11-16T10:23:10.814Z",
-  "lastHeartbeat": "2026-11-16T12:59:28.310Z",
-  "expiresAt": "2026-11-16T14:29:28.310Z",
+  "owner": "codex-run-2026-11-16T16:41:26.728Z-ftw4uerq25p",
+  "fence": 35,
+  "task": "Verify PR42 final evidence and integrate detached selection integrity",
+  "workBranch": "feature/be-006-selection-integrity",
+  "acquiredAt": "2026-11-16T16:41:26.728Z",
+  "lastHeartbeat": "2026-11-16T16:41:26.728Z",
+  "expiresAt": "2026-11-16T18:11:26.728Z",
   "releasedAt": null
 }
