@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 31,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-15T23:39:29.693Z",
-  "lastHeartbeat": "2026-11-15T23:43:57.919Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-15T23:45:02.530Z"
+  "status": "active",
+  "owner": "codex-extracted-output-2026-11-16T00:05:26.632Z-ivjzd3a46mo",
+  "fence": 32,
+  "task": "Finish checkpoint PR35 and prove extracted application output",
+  "workBranch": "feature/be-008-extracted-app-output",
+  "acquiredAt": "2026-11-16T00:05:26.632Z",
+  "lastHeartbeat": "2026-11-16T00:05:26.632Z",
+  "expiresAt": "2026-11-16T01:35:26.632Z",
+  "releasedAt": null
 }
