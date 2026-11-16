@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-caspar-path-fix-2026-11-16T04:39:45.206Z-gzk9sif3ynh",
   "fence": 33,
-  "task": "Verify metadata PR37 and detached schema gate",
-  "workBranch": "feature/be-006-exchange-metadata-capture",
+  "task": "Verify bounded complete process capture prerequisite to metadata PR37",
+  "workBranch": "feature/be-002-process-capture",
   "acquiredAt": "2026-11-16T04:39:45.206Z",
-  "lastHeartbeat": "2026-11-16T05:47:23.719Z",
-  "expiresAt": "2026-11-16T07:17:23.719Z",
+  "lastHeartbeat": "2026-11-16T05:53:24.454Z",
+  "expiresAt": "2026-11-16T07:23:24.454Z",
   "releasedAt": null
 }
