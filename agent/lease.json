@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-caspar-path-fix-2026-11-16T04:39:45.206Z-gzk9sif3ynh",
   "fence": 33,
-  "task": "Finish verified Caspar launch path fix and PR36 output proof",
-  "workBranch": "feature/be-008-extracted-app-output",
+  "task": "Implement detached BE-006 exchange metadata capture foundation",
+  "workBranch": "feature/be-006-exchange-metadata-capture",
   "acquiredAt": "2026-11-16T04:39:45.206Z",
-  "lastHeartbeat": "2026-11-16T04:55:41.795Z",
-  "expiresAt": "2026-11-16T06:25:41.795Z",
+  "lastHeartbeat": "2026-11-16T05:05:40.352Z",
+  "expiresAt": "2026-11-16T06:35:40.352Z",
   "releasedAt": null
 }
