@@ -6,7 +6,7 @@
   "task": "Validate exchange fingerprint computation and Unicode binding compatibility",
   "workBranch": "feature/be-006-exchange-fingerprints",
   "acquiredAt": "2026-11-16T10:23:10.814Z",
-  "lastHeartbeat": "2026-11-16T12:48:40.591Z",
-  "expiresAt": "2026-11-16T14:18:40.591Z",
+  "lastHeartbeat": "2026-11-16T12:59:28.310Z",
+  "expiresAt": "2026-11-16T14:29:28.310Z",
   "releasedAt": null
 }
