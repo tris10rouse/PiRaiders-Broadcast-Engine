@@ -1,0 +1,1138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.piraiders.invalid/exchange/selection.schema.json",
+  "x-contract": "piraiders-event-selection/1",
+  "title": "To Engine/selections/<selectionId>/generations/<generation>/manifest.json (draft 0.3.1, not frozen). Cross-field rules V1-V20 are in R-176-engine-contract.md section 5.3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "feedId",
+    "epoch",
+    "selectionId",
+    "identityTuple",
+    "generation",
+    "generationSequence",
+    "generatedAt",
+    "manifestState",
+    "problems",
+    "schoolYear",
+    "event",
+    "board",
+    "button",
+    "sourceTicks",
+    "occurrences",
+    "assets",
+    "playbackFingerprint",
+    "metadataFingerprint"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "piraiders-event-selection/1"
+    },
+    "feedId": {
+      "$ref": "#/$defs/feedId"
+    },
+    "epoch": {
+      "$ref": "#/$defs/epoch"
+    },
+    "selectionId": {
+      "$ref": "#/$defs/selectionId"
+    },
+    "identityTuple": {
+      "$ref": "#/$defs/identityTuple"
+    },
+    "generation": {
+      "$ref": "#/$defs/generation"
+    },
+    "generationSequence": {
+      "$ref": "#/$defs/seq"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Diagnostic only; never an ordering key."
+    },
+    "manifestState": {
+      "$ref": "#/$defs/manifestState"
+    },
+    "problems": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/problem"
+      }
+    },
+    "schoolYear": {
+      "$ref": "#/$defs/schoolYear"
+    },
+    "event": {
+      "$ref": "#/$defs/event"
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boardKey",
+        "displayName"
+      ],
+      "properties": {
+        "boardKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "The selection's target board. null only for an event selection with BOARD_UNRESOLVED."
+        },
+        "displayName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200
+        }
+      }
+    },
+    "button": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "displayLabel",
+        "normalizedLabel",
+        "templateButtonKey"
+      ],
+      "properties": {
+        "origin": {
+          "enum": [
+            "event",
+            "season"
+          ]
+        },
+        "displayLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "normalizedLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "templateButtonKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "Season Button Key (reusable content identity); null for event buttons. Never a directory or report key."
+        }
+      }
+    },
+    "sourceTicks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "onBoardAll",
+        "eventBoardLoaded",
+        "loadedForYear"
+      ],
+      "description": "The owner's manual ticks. Never prepared/sent/received/on-air evidence.",
+      "properties": {
+        "onBoardAll": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Event selections: every row ticked On Board. null for season selections."
+        },
+        "eventBoardLoaded": {
+          "type": "boolean"
+        },
+        "loadedForYear": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Season selections: Loaded For equals this school year. null for event selections."
+        }
+      }
+    },
+    "occurrences": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/occurrence"
+      }
+    },
+    "assets": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    },
+    "playbackFingerprint": {
+      "$ref": "#/$defs/sha256"
+    },
+    "metadataFingerprint": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "manifestState": {
+            "const": "complete"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "occurrences": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "assetKey": {
+                  "type": "string"
+                },
+                "problem": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          "assets": {
+            "minItems": 1
+          },
+          "problems": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "manifestState": {
+            "enum": [
+              "empty",
+              "removed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "occurrences": {
+            "maxItems": 0
+          },
+          "assets": {
+            "maxItems": 0
+          },
+          "problems": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "button": {
+            "properties": {
+              "origin": {
+                "const": "season"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "identityTuple": {
+            "prefixItems": [
+              true,
+              true,
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              true,
+              true
+            ]
+          },
+          "board": {
+            "properties": {
+              "boardKey": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "button": {
+            "properties": {
+              "templateButtonKey": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "sourceTicks": {
+            "properties": {
+              "onBoardAll": {
+                "type": "null"
+              },
+              "loadedForYear": {
+                "type": "boolean"
+              }
+            }
+          },
+          "occurrences": {
+            "items": {
+              "properties": {
+                "fileKey": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "button": {
+            "properties": {
+              "origin": {
+                "const": "event"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "button": {
+            "properties": {
+              "templateButtonKey": {
+                "type": "null"
+              }
+            }
+          },
+          "sourceTicks": {
+            "properties": {
+              "onBoardAll": {
+                "type": "boolean"
+              },
+              "loadedForYear": {
+                "type": "null"
+              }
+            }
+          },
+          "occurrences": {
+            "items": {
+              "properties": {
+                "fileKey": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "identityTuple[3] equals button.origin",
+      "if": {
+        "properties": {
+          "button": {
+            "properties": {
+              "origin": {
+                "const": "season"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "identityTuple": {
+            "prefixItems": [
+              true,
+              true,
+              true,
+              {
+                "const": "season"
+              },
+              true
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "identityTuple": {
+            "prefixItems": [
+              true,
+              true,
+              true,
+              {
+                "const": "event"
+              },
+              true
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "manifestState": {
+            "const": "incomplete"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "problems": {
+            "minItems": 1
+          }
+        },
+        "if": {
+          "properties": {
+            "problems": {
+              "contains": {
+                "properties": {
+                  "code": {
+                    "const": "LIMIT_EXCEEDED"
+                  },
+                  "detail": {
+                    "enum": [
+                      "occurrences",
+                      "assets",
+                      "total_bytes"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "detail"
+                ]
+              }
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "occurrences": {
+              "maxItems": 0
+            },
+            "assets": {
+              "maxItems": 0
+            },
+            "problems": {
+              "minItems": 1,
+              "maxItems": 1
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "occurrences": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A selection-level LIMIT_EXCEEDED only appears on an incomplete manifest",
+      "if": {
+        "properties": {
+          "problems": {
+            "contains": {
+              "properties": {
+                "code": {
+                  "const": "LIMIT_EXCEEDED"
+                },
+                "detail": {
+                  "enum": [
+                    "occurrences",
+                    "assets",
+                    "total_bytes"
+                  ]
+                }
+              },
+              "required": [
+                "code",
+                "detail"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "manifestState": {
+            "const": "incomplete"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "feedId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9999999999
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "selectionId": {
+      "type": "string",
+      "pattern": "^sel_[0-9a-f]{32}$"
+    },
+    "generation": {
+      "type": "string",
+      "pattern": "^e[0-9]{1,6}-g[0-9]{10}-[0-9a-f]{12}$"
+    },
+    "schoolYear": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{4}$"
+    },
+    "manifestState": {
+      "enum": [
+        "complete",
+        "incomplete",
+        "empty",
+        "removed"
+      ]
+    },
+    "identityTuple": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/schoolYear"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        {
+          "type": "string",
+          "maxLength": 64,
+          "description": "targetBoardKey; empty string when unresolved"
+        },
+        {
+          "enum": [
+            "event",
+            "season"
+          ]
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "event: normalizedLabel; season: Button Key"
+        }
+      ]
+    },
+    "instantOrNull": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](-05:00|-06:00)$"
+        }
+      ]
+    },
+    "eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligible",
+        "reasonCodes"
+      ],
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "reasonCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 3,
+          "items": {
+            "enum": [
+              "CANCELLED",
+              "FINISHED",
+              "TENTATIVE"
+            ]
+          }
+        }
+      },
+      "description": "Event-wide only. eligible is false exactly when reasonCodes contains CANCELLED or FINISHED. TENTATIVE is informational. Board/content readiness is per selection (manifestState, problems).",
+      "if": {
+        "properties": {
+          "reasonCodes": {
+            "contains": {
+              "enum": [
+                "CANCELLED",
+                "FINISHED"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "eligible": {
+            "const": false
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "eligible": {
+            "const": true
+          }
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeZone",
+        "eventStartsAt",
+        "startSource",
+        "eventEndsAt",
+        "endSource",
+        "broadcastWindow",
+        "operatingWindow",
+        "unavailableReasons"
+      ],
+      "properties": {
+        "timeZone": {
+          "const": "America/Chicago"
+        },
+        "eventStartsAt": {
+          "$ref": "#/$defs/instantOrNull"
+        },
+        "startSource": {
+          "enum": [
+            "typed",
+            "missing"
+          ]
+        },
+        "eventEndsAt": {
+          "$ref": "#/$defs/instantOrNull"
+        },
+        "endSource": {
+          "enum": [
+            "typed",
+            "sport_length",
+            "missing"
+          ]
+        },
+        "broadcastWindow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "startsAt",
+            "endsAt",
+            "startSource",
+            "endSource"
+          ],
+          "description": "startsAt already includes the event type's lead. Apply Engine prewarm once on top; never subtract the lead again.",
+          "properties": {
+            "startsAt": {
+              "$ref": "#/$defs/instantOrNull"
+            },
+            "endsAt": {
+              "$ref": "#/$defs/instantOrNull"
+            },
+            "startSource": {
+              "enum": [
+                "override",
+                "event_type_lead_tail",
+                "missing"
+              ]
+            },
+            "endSource": {
+              "enum": [
+                "override",
+                "event_type_lead_tail",
+                "event_type_fixed_end",
+                "missing"
+              ]
+            }
+          }
+        },
+        "operatingWindow": {
+          "type": "null",
+          "description": "Always null: the Engine operator confirms a window."
+        },
+        "unavailableReasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "START_NOT_DEFINED",
+              "END_NOT_DEFINED",
+              "DATE_INVALID",
+              "AMBIGUOUS_LOCAL_TIME",
+              "NONEXISTENT_LOCAL_TIME"
+            ]
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventKey",
+        "displayName",
+        "eventDate",
+        "eligibility",
+        "timing"
+      ],
+      "properties": {
+        "eventKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "eventDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "eligibility": {
+          "$ref": "#/$defs/eligibility"
+        },
+        "timing": {
+          "$ref": "#/$defs/timing"
+        }
+      }
+    },
+    "problem": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "detail",
+            "occurrenceKey"
+          ],
+          "properties": {
+            "code": {
+              "const": "UNSUPPORTED_KIND"
+            },
+            "detail": {
+              "enum": [
+                "video",
+                "pdf",
+                "slides_deck_not_converted",
+                "link",
+                "other"
+              ]
+            },
+            "occurrenceKey": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 200
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "detail",
+            "occurrenceKey"
+          ],
+          "properties": {
+            "code": {
+              "const": "UNSUPPORTED_IMAGE"
+            },
+            "detail": {
+              "enum": [
+                "apng",
+                "interlaced_png",
+                "jpeg_restart_markers",
+                "not_png_or_jpeg",
+                "too_large"
+              ]
+            },
+            "occurrenceKey": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 200
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "detail",
+            "occurrenceKey"
+          ],
+          "properties": {
+            "code": {
+              "const": "MISSING_FILE"
+            },
+            "detail": {
+              "enum": [
+                "no_drive_id",
+                "trashed",
+                "no_access",
+                "not_found"
+              ]
+            },
+            "occurrenceKey": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 200
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "detail",
+            "occurrenceKey"
+          ],
+          "properties": {
+            "code": {
+              "const": "BOARD_UNRESOLVED"
+            },
+            "detail": {
+              "type": "null"
+            },
+            "occurrenceKey": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 200
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "detail",
+            "occurrenceKey"
+          ],
+          "properties": {
+            "code": {
+              "const": "LIMIT_EXCEEDED"
+            },
+            "detail": {
+              "enum": [
+                "dimensions",
+                "pixels"
+              ]
+            },
+            "occurrenceKey": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 200
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "detail",
+            "occurrenceKey",
+            "observed",
+            "limit"
+          ],
+          "properties": {
+            "code": {
+              "const": "LIMIT_EXCEEDED"
+            },
+            "detail": {
+              "enum": [
+                "occurrences",
+                "assets",
+                "total_bytes"
+              ]
+            },
+            "occurrenceKey": {
+              "type": "null"
+            },
+            "observed": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "description": "Selection-level limit (0.3.1): the manifest is the bounded diagnostic: incomplete, occurrences [], assets [], this one problem."
+        }
+      ]
+    },
+    "lineage": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "deckDriveId",
+            "slideObjectId",
+            "slide",
+            "slides"
+          ],
+          "properties": {
+            "deckDriveId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "slideObjectId": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 128
+            },
+            "slide": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "slides": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        }
+      ]
+    },
+    "occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "position",
+        "occurrenceKey",
+        "fileKey",
+        "assetKey",
+        "problem",
+        "sourceName",
+        "lineage"
+      ],
+      "properties": {
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "occurrenceKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "File Key; season: Button Key; live deck (Part 3): deckDriveId:slideObjectId"
+        },
+        "fileKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "assetKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^a[0-9]{1,3}$"
+        },
+        "problem": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/problem"
+            }
+          ]
+        },
+        "sourceName": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "lineage": {
+          "$ref": "#/$defs/lineage"
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assetKey",
+        "originalDriveId",
+        "viaShortcutId",
+        "sourceRevision",
+        "mimeType",
+        "deliveryPath",
+        "byteLength",
+        "sha256",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "assetKey": {
+          "type": "string",
+          "pattern": "^a[0-9]{1,3}$"
+        },
+        "originalDriveId": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 128,
+          "description": "The canonical image whose bytes are delivered; never a deck or a shortcut."
+        },
+        "viaShortcutId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "sourceRevision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "md5",
+            "size",
+            "modifiedTime",
+            "headRevisionId"
+          ],
+          "description": "Change detection only; never an ordering key.",
+          "properties": {
+            "md5": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "size": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "modifiedTime": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "headRevisionId": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 128
+            }
+          }
+        },
+        "mimeType": {
+          "enum": [
+            "image/png",
+            "image/jpeg"
+          ]
+        },
+        "deliveryPath": {
+          "type": "string",
+          "pattern": "^assets/[0-9a-f]{64}\\.(png|jpg)$"
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20971520
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        }
+      },
+      "description": "Per-image limits: bytes <= 20,971,520; width, height <= 8192; width*height <= 16,777,216 (V20, semantic)."
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999999
+    },
+    "manifestPath": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^selections/sel_[0-9a-f]{32}/generations/e[0-9]{1,6}-g[0-9]{10}-[0-9a-f]{12}/manifest\\.json$"
+    }
+  }
+}

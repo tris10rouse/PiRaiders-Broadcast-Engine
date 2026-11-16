@@ -19,8 +19,9 @@ async function fixture(t,{appMode=true,auth=false,policy=false,badMachine=false,
  const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders actual SPX Game Day '))),httpPort=await port(),secret=randomBytes(32).toString('hex');
  const appRoot=path.join(root,'app');await fs.mkdir(appRoot);await fs.copyFile(path.join(repository,'server.js'),path.join(appRoot,'server.js'));await fs.copyFile(path.join(repository,'package.json'),path.join(appRoot,'package.json'));
  for(const name of ['utils','routes','views','static','ASSETS','locales','node_modules'])await link(path.join(repository,name),path.join(appRoot,name));
- await fs.mkdir(path.join(appRoot,'scripts','lib'),{recursive:true});await fs.copyFile(path.join(repository,'scripts','lib','game-day-web.cjs'),path.join(appRoot,'scripts','lib','game-day-web.cjs'));
- const names=await fs.readdir(path.join(repository,'scripts','lib'));for(const name of names)if(name!=='game-day-web.cjs')await fs.copyFile(path.join(repository,'scripts','lib',name),path.join(appRoot,'scripts','lib',name));
+ await fs.mkdir(path.join(appRoot,'scripts','lib'),{recursive:true});
+ // Runtime libraries now include fixed schema resources as well as CJS files.
+ await fs.cp(path.join(repository,'scripts','lib'),path.join(appRoot,'scripts','lib'),{recursive:true});
  // Copy runtime workers too, so actual production requires remain rooted at the isolated app.
  for(const name of await fs.readdir(path.join(repository,'scripts')))if(name.endsWith('.cjs'))await fs.copyFile(path.join(repository,'scripts',name),path.join(appRoot,'scripts',name));
  const dataRoot=path.join(appRoot,'DATAROOT'),logRoot=path.join(appRoot,'LOG'),catalog=path.join(appRoot,'catalog');await fs.mkdir(path.join(dataRoot,'Bench','data'),{recursive:true});await fs.mkdir(logRoot);await fs.mkdir(catalog);

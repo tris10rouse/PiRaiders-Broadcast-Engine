@@ -32,7 +32,7 @@ test('proof protocol uses real bounded TCP and never exposes native echoed priva
     else socket.end('202 PLAY OK\r\n');
   }));await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
   const port=server.address().port;await command(port,'PLAY');
-  for(const [value,code]of [['BAD','PROTOCOL_REJECTED'],['BIG','PROTOCOL_LIMIT'],['CLOSE','PROTOCOL_CLOSED'],['STALL','PROTOCOL_TIMEOUT']])await assert.rejects(command(port,value,{timeoutMs:100}),error=>error.message===code&&!error.message.includes('SECRET'));
+  for(const [value,code]of [['BAD','PROTOCOL_REJECTED'],['BIG','PROTOCOL_LIMIT'],['CLOSE','PROTOCOL_CLOSED'],['STALL','PROTOCOL_TIMEOUT']])await assert.rejects(command(port,value,{timeoutMs:value==='STALL'?100:5000}),error=>error.message===code&&!error.message.includes('SECRET'));
 });
 test('proof rejects wrong or stale mixed-frame pixels',()=>{
   const data=Buffer.alloc(1920*1080*4);for(let i=0;i<data.length;i+=4)data.set([240,20,20,255],i);

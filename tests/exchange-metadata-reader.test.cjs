@@ -13,6 +13,16 @@ const bytes=value=>Buffer.from(JSON.stringify(value,null,2));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(predicate){for(let n=0;n<1000;n++){if(predicate())return;await wait(5);}throw Error('TEST_FLIGHT_DID_NOT_DRAIN');}
 async function started(promise){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('TEST_READ_NOT_REACHED')),5000);})]);}finally{clearTimeout(timer);}}
+// Control only this deadline's clock/timer. Actual filesystem I/O and physical
+// flight cleanup remain real; separate late-completion tests use real clocks.
+function logicalDeadline(t,delayMs){
+ const performance=require('node:perf_hooks').performance,schedule=global.setTimeout,cancel=global.clearTimeout,timers=new Map();let clock=0;
+ t.mock.method(performance,'now',()=>clock);
+ t.mock.method(global,'setTimeout',(fn,ms,...args)=>{if(ms!==delayMs)return schedule(fn,ms,...args);const timer=schedule(()=>{},3600000);timer.unref();timers.set(timer,()=>fn(...args));return timer;});
+ t.mock.method(global,'clearTimeout',timer=>{timers.delete(timer);return cancel(timer);});
+ t.after(()=>{for(const timer of timers.keys())cancel(timer);});
+ return{expire(){assert.equal(timers.size,1,'ONE_CAPTURE_DEADLINE');clock+=delayMs;const[timer,callback]=timers.entries().next().value;timers.delete(timer);cancel(timer);callback();}};
+}
 async function fixture(t){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders metadata capture '));t.after(()=>fs.rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100}));
  const binding={feedId:'00000000-0000-4000-8000-000000000001',epoch:1,identityTuple:['2026-2027','EV-SYNTHETIC','BOARD-SYNTHETIC','event','synthetic button']};
@@ -75,10 +85,10 @@ test('links and observed file replacement are rejected with no accepted pin',asy
  try{const reader=f.reader(),result=await reader.capture();assert.equal(result.code,'INPUT_CHANGED');assert.equal(reader.lastPin(),null);}finally{fs.open=open;}
 });
 test('timeout retains the physical flight and fences its late result; retry recovers after drain',async t=>{
- const f=await fixture(t),reader=f.reader({timeoutMs:1000});await f.publish(f.bundle());const first=await reader.capture();assert.equal(first.ok,true);await f.publish(f.bundle(2));
+ const f=await fixture(t),deadline=logicalDeadline(t,1000),reader=f.reader({timeoutMs:1000});await f.publish(f.bundle());const first=await reader.capture();assert.equal(first.ok,true);await f.publish(f.bundle(2));
  const open=fs.open,catalog=path.join(f.root,'catalog.json');let unblock,entered;const blocked=new Promise(resolve=>unblock=resolve),start=new Promise(resolve=>entered=resolve);let opens=0;
  fs.open=async function(file,...args){if(file===catalog){opens++;entered();await blocked;}return open.call(fs,file,...args);};
- try{const pending=reader.capture();await started(start);const timedOut=await pending;assert.equal(timedOut.code,'CAPTURE_TIMEOUT');assert.equal(reader.snapshot().busy,true);assert.equal((await reader.capture()).code,'READER_BUSY');assert.equal(opens,1);assert.equal(reader.lastPin(),first.pin);unblock();await until(()=>!reader.snapshot().busy);assert.equal(reader.lastPin(),first.pin);}finally{unblock();fs.open=open;}
+ try{const pending=reader.capture();await started(start);deadline.expire();const timedOut=await pending;assert.equal(timedOut.code,'CAPTURE_TIMEOUT');assert.equal(reader.snapshot().busy,true);assert.equal((await reader.capture()).code,'READER_BUSY');assert.equal(opens,1);assert.equal(reader.lastPin(),first.pin);unblock();await until(()=>!reader.snapshot().busy);assert.equal(reader.lastPin(),first.pin);}finally{unblock();fs.open=open;}
  const recovered=await reader.capture();assert.equal(recovered.ok,true);assert.equal(recovered.pin.descriptor.generationSequence,2);
 });
 test('close is immediate and fences a blocked flight without clearing its physical ownership',async t=>{

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.piraiders.invalid/exchange/current.schema.json",
+  "x-contract": "piraiders-event-current/1",
+  "title": "To Engine/selections/<selectionId>/current.json (draft 0.3.1, not frozen). V15/V17: manifestPath must equal selections/<selectionId>/generations/<generation>/manifest.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "feedId",
+    "epoch",
+    "selectionId",
+    "identityTuple",
+    "generation",
+    "generationSequence",
+    "manifestPath",
+    "manifestSha256",
+    "playbackFingerprint",
+    "metadataFingerprint",
+    "manifestState"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "piraiders-event-current/1"
+    },
+    "feedId": {
+      "$ref": "selection.schema.json#/$defs/feedId"
+    },
+    "epoch": {
+      "$ref": "selection.schema.json#/$defs/epoch"
+    },
+    "selectionId": {
+      "$ref": "selection.schema.json#/$defs/selectionId"
+    },
+    "identityTuple": {
+      "$ref": "selection.schema.json#/$defs/identityTuple"
+    },
+    "generation": {
+      "$ref": "selection.schema.json#/$defs/generation"
+    },
+    "generationSequence": {
+      "$ref": "selection.schema.json#/$defs/seq"
+    },
+    "manifestPath": {
+      "$ref": "selection.schema.json#/$defs/manifestPath"
+    },
+    "manifestSha256": {
+      "$ref": "selection.schema.json#/$defs/sha256"
+    },
+    "playbackFingerprint": {
+      "$ref": "selection.schema.json#/$defs/sha256"
+    },
+    "metadataFingerprint": {
+      "$ref": "selection.schema.json#/$defs/sha256"
+    },
+    "manifestState": {
+      "$ref": "selection.schema.json#/$defs/manifestState"
+    }
+  }
+}

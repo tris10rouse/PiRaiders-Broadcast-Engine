@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.piraiders.invalid/exchange/catalog.schema.json",
+  "x-contract": "piraiders-event-catalog/1",
+  "title": "To Engine/catalog.json (draft 0.3.1, not frozen). Absence is never Stop, cancel or delete (V14). Each selection entry inherits feedId and epoch from this root; root + entry form one complete descriptor (4.7, V15-V17).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "feedId",
+    "epoch",
+    "catalogSequence",
+    "generatedAt",
+    "sourceVersion",
+    "schoolYear",
+    "events"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "piraiders-event-catalog/1"
+    },
+    "feedId": {
+      "$ref": "selection.schema.json#/$defs/feedId"
+    },
+    "epoch": {
+      "$ref": "selection.schema.json#/$defs/epoch"
+    },
+    "catalogSequence": {
+      "$ref": "selection.schema.json#/$defs/seq"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "schoolYear": {
+      "$ref": "selection.schema.json#/$defs/schoolYear"
+    },
+    "events": {
+      "type": "array",
+      "maxItems": 800,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eventKey",
+          "displayName",
+          "eventDate",
+          "eventType",
+          "homeSchool",
+          "venue",
+          "playbackArea",
+          "boardOnly",
+          "eventBoard",
+          "eligibility",
+          "timing",
+          "selections"
+        ],
+        "properties": {
+          "eventKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "eventDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "eventType": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "homeSchool": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "venue": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "playbackArea": {
+            "enum": [
+              "Stadium Playback",
+              "Arena Playback"
+            ]
+          },
+          "boardOnly": {
+            "type": "boolean"
+          },
+          "eventBoard": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "boardKey",
+              "displayName"
+            ],
+            "description": "Events.Board: the target of this event's own buttons. Season selections carry their own target.",
+            "properties": {
+              "boardKey": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 64
+              },
+              "displayName": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              }
+            }
+          },
+          "eligibility": {
+            "$ref": "selection.schema.json#/$defs/eligibility"
+          },
+          "timing": {
+            "$ref": "selection.schema.json#/$defs/timing"
+          },
+          "selections": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "selectionId",
+                "identityTuple",
+                "origin",
+                "targetBoardKey",
+                "displayLabel",
+                "templateButtonKey",
+                "labelShared",
+                "generation",
+                "generationSequence",
+                "manifestPath",
+                "manifestSha256",
+                "playbackFingerprint",
+                "occurrenceCount",
+                "manifestState",
+                "metadataFingerprint"
+              ],
+              "properties": {
+                "selectionId": {
+                  "$ref": "selection.schema.json#/$defs/selectionId"
+                },
+                "identityTuple": {
+                  "$ref": "selection.schema.json#/$defs/identityTuple"
+                },
+                "origin": {
+                  "enum": [
+                    "event",
+                    "season"
+                  ]
+                },
+                "targetBoardKey": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 64
+                },
+                "displayLabel": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "templateButtonKey": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 64
+                },
+                "labelShared": {
+                  "type": "boolean",
+                  "description": "Another selection at this event has the same normalizedLabel. Informational; never merged."
+                },
+                "generation": {
+                  "$ref": "selection.schema.json#/$defs/generation"
+                },
+                "generationSequence": {
+                  "$ref": "selection.schema.json#/$defs/seq"
+                },
+                "manifestPath": {
+                  "$ref": "selection.schema.json#/$defs/manifestPath"
+                },
+                "manifestSha256": {
+                  "$ref": "selection.schema.json#/$defs/sha256"
+                },
+                "playbackFingerprint": {
+                  "$ref": "selection.schema.json#/$defs/sha256"
+                },
+                "occurrenceCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "manifestState": {
+                  "$ref": "selection.schema.json#/$defs/manifestState"
+                },
+                "metadataFingerprint": {
+                  "$ref": "selection.schema.json#/$defs/sha256"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "origin": {
+                        "const": "season"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "targetBoardKey": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "templateButtonKey": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "templateButtonKey": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
