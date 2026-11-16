@@ -1,5 +1,10 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest software progress · 2026-11-16: problem-state semantics
+
+PR43 merged the detached selection-integrity gate after all 12 final checks passed, including real Windows source/extracted output. The next BE-006 increment validates incomplete selections, BOARD diagnostics and bounded limit declarations while preserving contract-permitted representations. Every result remains `ready:false`; source playback is not connected. Chicago timing, durable feed state, verified ordered-asset staging and complete-candidate integration still precede evaluation readiness. Licensed clean-machine setup, default browser/graceful close, diagnostics and four-hour soak remain open.
+
+
 ## Latest software progress · 2026-11-16: selection integrity
 
 The exchange fingerprint prerequisite (PR42) is verified and merged. The next BE-006 increment checks selection identity, ordered occurrences, asset references and paths, and advertised fingerprints after the existing bounded JSON and schema gates. This remains a detached validator with `ready:false`; it cannot activate playback. Problem-state rules, Chicago timing, durable feed state and verified ordered-asset staging still precede source integration. Clean-machine setup, graceful close/default browser proof, diagnostics and soak remain evaluation gates.

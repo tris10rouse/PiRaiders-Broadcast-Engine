@@ -75,12 +75,15 @@ test('close cancels Stop, its followers and queued work without waiting on actua
  assert.ok(calls.every(c=>c.signal.aborted));normal.resolve();black.resolve();await wait(20);assert.equal(bridge.snapshot().completed,0);
 });
 
-test('silent write-half-close releases connection slots while preserving accepted callback ordering',async t=>{
- const normal=gate(),calls=[];const {bridge}=await fixture(t,c=>{calls.push(c.action);return c.action==='launch'?normal.promise:undefined;},{maxConnections:1,handlerTimeoutMs:5000});
+test('silent write-half-close releases connection slots while preserving accepted callback ordering',{timeout:30000},async t=>{
+ // Exercise connection/ordering ownership with real TCP, independently of the
+ // held callback's watchdog. The separate120ms test verifies that deadline.
+ const normal=gate(),calls=[];const {bridge}=await fixture(t,c=>{calls.push(c.action);return c.action==='launch'?normal.promise:undefined;},{maxConnections:1,handlerTimeoutMs:120000});
  const first=await peer(t,bridge);first.socket.end('GPI 1\r\n');await until(()=>calls.length===1&&first.closed&&bridge.snapshot().connections===0);
  for(let i=0;i<30;i++){const p=await peer(t,bridge);p.socket.end('GPI 8\r\n');await until(()=>p.closed&&bridge.snapshot().connections===0);}
  assert.equal(calls.filter(c=>c==='stop').length,1);assert.equal(bridge.snapshot().completed,30);assert.equal(bridge.snapshot().outstandingCallbacks,1);
  normal.resolve();await until(()=>bridge.snapshot().outstandingCallbacks===0);assert.equal(bridge.snapshot().rejected,0);
+ assert.equal(bridge.snapshot().callbackTimeouts,0);assert.equal(bridge.snapshot().faulted,false);
 });
 
 test('priority keeps malformed-frame rejection and listener recovery',async t=>{

@@ -1,5 +1,14 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Exchange problem-state semantics
+
+- Added detached checks for incomplete selections, BOARD_UNRESOLVED diagnostics, selection-level problem scope and over-limit declarations. Contract-permitted listed/inline problems and repeated summaries remain valid.
+- Added 15 synthetic failure and real-capture tests. Diagnostics, empty selections and tombstones never imply playback readiness or Stop.
+- Separated a RossTalk network fixture's callback watchdog from its overall test duration after a recorded full-suite failure. Production deadlines and the real timeout regression are unchanged; all 30 TCP connection/order checks remain.
+- Aligned non-deadline Node launcher fixtures with the unchanged production 15-second startup allowance; dedicated short deadline tests remain unchanged. Earlier failures remain recorded.
+- PR43's preceding integrity gate is verified and merged with all 12 checks passing. Complete source integration and evaluation-release gates remain open.
+
+
 ## 2026-11-16 · Exchange selection integrity
 
 - Added a detached validator that rejects forged selection identities or fingerprints, broken slide order, missing/unused/duplicate asset references and mismatched delivery paths. Repeated slides remain ordered.

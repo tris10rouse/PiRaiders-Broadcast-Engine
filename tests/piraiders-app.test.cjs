@@ -31,9 +31,11 @@ async function fixture(t,{mode='good',descendant=false}={}){
  await fs.writeFile(path.join(root,'server.js'),`const fs=require('node:fs'),http=require('node:http'),crypto=require('node:crypto');const cfg=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const descendant=${descendant?"require('node:child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'}).pid":"null"};fs.writeFileSync('captured.json',JSON.stringify({pid:process.pid,descendant,cwd:process.cwd(),args:process.argv.slice(2),appConfig:process.env.PIRAIDERS_APP_CONFIG,keyPresent:/^[a-f0-9]{64}$/.test(process.env.PIRAIDERS_APP_STARTUP_SECRET)}));http.createServer((q,s)=>{s.setHeader('Content-Type','application/json');const nonce=q.headers['x-piraiders-startup-probe'];s.end(JSON.stringify({app:'piraiders',proof:${mode==='good'?"crypto.createHmac('sha256',Buffer.from(process.env.PIRAIDERS_APP_STARTUP_SECRET,'hex')).update(nonce||'','ascii').digest('hex')":"'0'.repeat(64)"}}));}).listen(cfg.general.port,'127.0.0.1');`);
  const raw={schemaVersion:1,spxConfigFile:'config/spx.json',catalogDirectory:'events',mediaRoot:'media',cacheRoot:'cache',runtimeRoot:'run',caspar:{executable:'components/casparcg.exe',cwd:'components'},output:{type:'none'},rossTalk:{host:'127.0.0.1',port:7788,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',8:'stop'}}};await fs.writeFile(file,JSON.stringify(raw));
  const settings=await loadAppSettings(file,{appRoot:root,nodeExecutable:process.execPath});
+ // Non-deadline fixtures use the actual launcher's15s default; dedicated
+ // timeout cases below retain their explicit300ms/2000ms budgets.
  const calls=[],opened=[];
  const spawnProcess=(command,args,options)=>{calls.push({command,args,options});const child=spawn(command,args,{...options,stdio:['ignore','ignore','ignore']});child.done=new Promise(r=>child.once('close',r));children.push(child);return child;};
- return{root,file,spxFile,configBytes,raw,settings,calls,children,opened,spawnProcess,cleanup:fn=>cleanups.push(fn),create(extra={}){app=new PersistentAppLauncher(settings,{spawnProcess,openBrowser:async url=>opened.push(url),startupTimeoutMs:3000,probeIntervalMs:20,...extra});return app;}};
+ return{root,file,spxFile,configBytes,raw,settings,calls,children,opened,spawnProcess,cleanup:fn=>cleanups.push(fn),create(extra={}){app=new PersistentAppLauncher(settings,{spawnProcess,openBrowser:async url=>opened.push(url),startupTimeoutMs:15000,probeIntervalMs:20,...extra});return app;}};
 }
 test('identity proves fresh nonce possession without sending the secret or accepting replay',async t=>{
  const secret=key(),seen=[];let previous;
@@ -106,8 +108,32 @@ test('close settles startup before an ignored browser opener and late completion
  const f=await fixture(t);let release,entered=false;const held=new Promise(resolve=>release=resolve);const app=f.create({openBrowser:async()=>{entered=true;await held;}}),starting=app.start(),rejected=assert.rejects(starting,{code:'APP_CLOSED'});
  await until(()=>entered);await app.close();await rejected;assert.equal(app.snapshot().browserOpened,false);release();await wait(20);assert.equal(app.snapshot().browserOpened,false);assert.equal(app.snapshot().state,'closed');
 });
-test('ignored browser work cannot extend the whole startup deadline',async t=>{
- const f=await fixture(t);let release,entered=false;const held=new Promise(resolve=>release=resolve),app=f.create({startupTimeoutMs:2000,openBrowser:async()=>{entered=true;await held;}});const now=Date.now();await assert.rejects(app.start(),{code:'APP_STARTUP_TIMEOUT'});assert.equal(entered,true);assert.ok(Date.now()-now<4000,'startup budget remains bounded');assert.equal(app.snapshot().browserOpened,false);assert.equal(app.snapshot().closed,true);release();
+test('ignored browser work cannot extend the original whole startup deadline after real ownership admission',{timeout:20000},async t=>{
+ const f=await fixture(t),performance=require('node:perf_hooks').performance;
+ const schedule=global.setTimeout,cancel=global.clearTimeout,deadlines=[];let clock=0,capture=true,release,entered=false;
+ // Control only the whole2000ms startup deadline and its monotonic clock.
+ // Node spawning, HTTP/HMAC proof, probe timers and process cleanup remain real.
+ t.mock.method(performance,'now',()=>clock);
+ t.mock.method(global,'setTimeout',(fn,ms,...args)=>{
+  if(ms!==2000||!capture)return schedule(fn,ms,...args);
+  const timer=schedule(()=>{},3600000);timer.unref();
+  const deadline={timer,at:clock,beforeBrowser:!entered,active:true,fire(){
+   assert.equal(deadline.active,true,'original startup deadline is still armed');
+   deadline.active=false;cancel(timer);fn(...args);
+  }};deadlines.push(deadline);return timer;
+ });
+ t.mock.method(global,'clearTimeout',timer=>{const deadline=deadlines.find(item=>item.timer===timer);if(deadline)deadline.active=false;return cancel(timer);});
+ t.after(()=>{for(const deadline of deadlines){deadline.active=false;cancel(deadline.timer);}});
+ const held=new Promise(resolve=>release=resolve),app=f.create({startupTimeoutMs:2000,openBrowser:async()=>{entered=true;await held;}});
+ app.on('status',event=>{if(event.event==='ready')clock=500;});
+ const starting=app.start(),rejected=assert.rejects(starting,{code:'APP_STARTUP_TIMEOUT'});let settled=false;
+ starting.then(()=>{settled=true;},()=>{settled=true;});
+ await until(()=>entered);assert.equal(deadlines.length,1);assert.equal(deadlines[0].beforeBrowser,true);assert.equal(deadlines[0].at,0);assert.equal(deadlines[0].active,true);
+ assert.equal(clock,500);await wait(20);assert.equal(settled,false);assert.equal(app.snapshot().browserOpened,false);
+ // Fire the very same deadline installed before port/proof/browser admission.
+ clock=2000;capture=false;deadlines[0].fire();await rejected;
+ assert.equal(app.snapshot().browserOpened,false);assert.equal(app.snapshot().closed,true);
+ release();await wait(20);assert.equal(app.snapshot().browserOpened,false);
 });
 test('actual Windows JobHost contains application stand-in and terminates it on close',{skip:process.platform!=='win32'?'Requires real Windows JobHost; Linux OS boundary is explicitly not simulated evidence':false,timeout:20000},async t=>{
  const f=await fixture(t),app=f.create({spawnProcess:undefined});await app.start({browser:false});assert.equal(app.snapshot().state,'ready');await app.close();await assertPortFree(f.settings.port,{timeoutMs:1000});
