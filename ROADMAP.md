@@ -1,5 +1,9 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest software progress · 2026-11-16: local exchange journal
+
+PR46's retained feed/selection transition model is verified and merged after all12 checks passed, including actual source/extracted Windows output. Current BE-006 work adds explicit store initialization, bounded hash-linked history and atomic no-overwrite publication with revision/hash comparison. It remains detached from Drive, Game Day, media caches and output. Local process-crash/contention tests pass; actual Windows storage validation remains required before merge. Next: independent validated catalog receipts, verified ordered-asset staging, complete source integration and59-step acceptance. Licensed clean-machine setup, default browser/graceful close, diagnostics, cold-start headroom and four-hour soak still gate an honest evaluation release.
+
 ## Latest software progress · 2026-11-16: exchange ledger transitions
 
 PR45's selected-manifest timing gate is verified and merged after all 12 checks passed, including real source/extracted Windows output. Current BE-006 work adds detached, revision-fenced feed/binding/catalog/selection transitions with retained sequence floors and fixed capacity limits. These are uncommitted proposals, not durable storage or source readiness. Next: an atomic no-overwrite journal with real Windows crash/contention tests, an independent validated-catalog receipt, verified ordered-asset staging and complete source integration. Clean-machine setup, default browser/graceful close, diagnostics, cold-start headroom and four-hour soak remain evaluation gates. First evaluation release is not ready.
