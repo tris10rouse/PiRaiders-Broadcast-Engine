@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Local exchange journal candidate
+
+- Added explicit initialization/opening of a private local version journal. Immutable records retain accepted facts across process restarts; competing writers use atomic no-overwrite publication and exact parent revision/hash checks.
+- Added fail-closed replay, fixed capacity limits and uncertain-commit recovery without deleting committed history. This remains detached from source imports and output; it cannot authorize playback.
+- Added26 process, corruption and I/O failure tests. Full Linux baseline585passes/27 Windows-only skips/zero failures; actual Windows validation remains required. PR46's transition model is verified and merged.
+
 ## 2026-11-16 · Exchange ledger transition model
 
 - Added detached feed/epoch confirmation and separate catalog/selection version tracking. Switching events, feeds or approved epochs retains prior sequence floors; stale data and equal-version byte conflicts fail closed.
