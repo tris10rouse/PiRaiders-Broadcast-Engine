@@ -39,6 +39,42 @@ internal sealed class ProbeFailure : Exception
     internal ProbeFailure(string code) { Code = code; }
 }
 
+// Pure observation policy shared by the real receiver and compiled Windows tests.
+// Resetting a run never resets the command deadline or admits replayed timestamps.
+internal sealed class NdiFrameWindow
+{
+    private readonly int MinFrames, MinDurationMs, TimeoutMs;
+    // Independent of the 512-frame matching-run bound. At the validated 30fps,
+    // this admits over three times the longest command's 20-second frame budget.
+    // Retaining all observed timestamps prevents replay credit after a reset,
+    // without assuming that a reconnect preserves timestamp ordering.
+    private readonly HashSet<long> ObservedTimestamps = new HashSet<long>();
+    private long FirstMatch = -1;
+    internal int MatchedFrames { get; private set; }
+    internal long SampleDurationMs(long elapsedMs) { return FirstMatch < 0 ? 0 : elapsedMs - FirstMatch; }
+    internal NdiFrameWindow(int minFrames, int minDurationMs, int timeoutMs)
+    { MinFrames = minFrames; MinDurationMs = minDurationMs; TimeoutMs = timeoutMs; }
+    internal bool WithinBudget(long elapsedMs) { return elapsedMs < TimeoutMs; }
+    internal void Reset() { FirstMatch = -1; MatchedFrames = 0; }
+    internal bool ConfirmConnection(int connections, long elapsedMs)
+    {
+        if (connections > 0 && WithinBudget(elapsedMs)) return true;
+        Reset(); return false;
+    }
+    internal bool Observe(long timestamp, long elapsedMs, bool connectedBefore, bool connectedAfter, bool pixelsMatch)
+    {
+        bool fresh = ObservedTimestamps.Add(timestamp);
+        if (ObservedTimestamps.Count > 2048) throw new ProbeFailure("VIDEO_TIMESTAMP_LIMIT");
+        if (!connectedBefore || !connectedAfter || !pixelsMatch || !WithinBudget(elapsedMs))
+        { Reset(); return false; }
+        if (!fresh) return false;
+        if (MatchedFrames >= 512) throw new ProbeFailure("VIDEO_FRAME_LIMIT");
+        MatchedFrames++;
+        if (FirstMatch < 0) FirstMatch = elapsedMs;
+        return MatchedFrames >= MinFrames && SampleDurationMs(elapsedMs) >= MinDurationMs;
+    }
+}
+
 internal static class NdiProbe
 {
     private const int Video = 1;
@@ -313,39 +349,40 @@ internal static class NdiProbe
     private static Dictionary<string, object> Frame(string name, int[] expected, int minFrames, int minDurationMs, int timeoutMs)
     {
         Require(Receiver != IntPtr.Zero, "RECEIVER_REQUIRED");
-        Stopwatch watch = Stopwatch.StartNew(); long firstMatch = -1; int matched = 0;
-        HashSet<long> timestamps = new HashSet<long>();
-        while (watch.ElapsedMilliseconds < timeoutMs)
+        Stopwatch watch = Stopwatch.StartNew();
+        NdiFrameWindow window = new NdiFrameWindow(minFrames, minDurationMs, timeoutMs);
+        while (window.WithinBudget(watch.ElapsedMilliseconds))
         {
             CheckDeadline(); VideoFrame frame = new VideoFrame();
+            bool connectedBefore = GetConnections(Receiver) > 0;
+            if (!connectedBefore) window.Reset();
             int type = CaptureVideo(Receiver, ref frame, IntPtr.Zero, IntPtr.Zero, 100);
             if (type != Video)
             {
-                // Initial connection/reconnect may notify an error before the
-                // stream becomes available. It never counts as a valid frame.
-                if (type == 4) { matched = 0; firstMatch = -1; timestamps.Clear(); continue; }
-                if (type != 0 && type != 100 && type != 101) throw new ProbeFailure("CAPTURE_TYPE_" + type.ToString());
+                // Errors and source changes invalidate the entire observation run.
+                // None/metadata/status frames cannot supply video evidence.
+                if (type == 4 || type == 101) { window.Reset(); continue; }
+                if (type != 0 && type != 100) throw new ProbeFailure("CAPTURE_TYPE_" + type.ToString());
+                window.ConfirmConnection(GetConnections(Receiver), watch.ElapsedMilliseconds);
                 continue;
             }
             try
             {
+                bool connectedAfter = GetConnections(Receiver) > 0;
                 ValidateFrame(frame);
-                if (!PixelsMatch(frame, expected)) { matched = 0; firstMatch = -1; timestamps.Clear(); continue; }
-                if (!timestamps.Add(frame.Timestamp)) continue;
-                Require(timestamps.Count <= 512, "VIDEO_FRAME_LIMIT");
-                matched++; if (firstMatch < 0) firstMatch = watch.ElapsedMilliseconds;
-                if (matched >= minFrames && watch.ElapsedMilliseconds - firstMatch >= minDurationMs)
-                {
-                    Require(GetConnections(Receiver) > 0, "RECEIVER_DISCONNECTED");
-                    SavePng(frame, name);
-                    Dictionary<string, object> result = Stats();
-                    result["matchedFrames"] = matched; result["distinctTimestamps"] = timestamps.Count;
-                    result["sampleDurationMs"] = watch.ElapsedMilliseconds - firstMatch;
-                    result["format"] = frame.FourCC == Bgra ? "BGRA" : "BGRX";
-                    result["width"] = frame.Width; result["height"] = frame.Height;
-                    result["frameRateN"] = frame.FrameN; result["frameRateD"] = frame.FrameD;
-                    return result;
-                }
+                if (!window.Observe(frame.Timestamp, watch.ElapsedMilliseconds, connectedBefore,
+                    connectedAfter, PixelsMatch(frame, expected))) continue;
+                if (!window.ConfirmConnection(GetConnections(Receiver), watch.ElapsedMilliseconds)) continue;
+                SavePng(frame, name);
+                Dictionary<string, object> result = Stats();
+                if (!window.ConfirmConnection((int)result["connections"], watch.ElapsedMilliseconds)) continue;
+                Require((int)result["connections"] > 0, "RECEIVER_DISCONNECTED");
+                result["matchedFrames"] = window.MatchedFrames; result["distinctTimestamps"] = window.MatchedFrames;
+                result["sampleDurationMs"] = window.SampleDurationMs(watch.ElapsedMilliseconds);
+                result["format"] = frame.FourCC == Bgra ? "BGRA" : "BGRX";
+                result["width"] = frame.Width; result["height"] = frame.Height;
+                result["frameRateN"] = frame.FrameN; result["frameRateD"] = frame.FrameD;
+                return result;
             }
             finally { ReleaseVideo(Receiver, ref frame); }
         }

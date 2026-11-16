@@ -172,3 +172,12 @@ PR34 merged9eb7a54 after all nine final checks passed: all five new native Windo
 ## 2026-11-16 · Managed Caspar launch-path correction
 
 - A controlled Windows test confirmed that the pinned Caspar binary fails its Unicode config filename argument while the identical ASCII control succeeds. Keep the managed config in its owned event directory, launch with an ASCII basename/private cwd and generate relative paths. Preserve default absolute config generation, SPX/legacy launchers, renderer environment and native event deadline. Final actual Unicode-extracted output must pass before merge.
+
+
+## Verified NDI proof prerequisite (PR38)
+
+PR38 merged `81a64da6c2550d316ef87674551973100a4c8ad5`, tested source `d1a188a25edfe117c2fffd586936a1eb33662412`, identical tree `687de927389204baab2beb376cab478104311f7c`. All ten checks passed: Foundation43810125517/43810112123, full-app43810125609, prepared43810125512, Console43810125553, Caspar43810125584 and NDI43810125518. Windows baseline462/464(two documented skips), Chromium44/44; Linux438/464 with26 Windows-only skips; syntax126. Compiled actual-C# policy tests passed on Windows. Standalone receiver passed ten frames; source and extracted app each received eleven actual frame cases, stable identity, window-end and parent-loss silence. Extracted original5587 files remained unchanged; inner CLI-owned tree disappeared while outer benchmark stayed alive.
+
+The proof receiver discards disconnected evidence and restarts a fresh connected observation run inside its unchanged deadline; bounded retained timestamp history prevents replay across resets. Final connection, pixel and duration assertions remain. This changes proof tooling, not sender behavior, and does not establish the original SDK disconnection cause. Earlier failed attempts remain evidence. See WINDOWS_NDI_PROOF.md.
+
+PR37 is synchronized through a non-force merge commit with this verified prerequisite. Its final combined SHA still requires CI before merge. The detached metadata reader remains ready:false and is not wired to output. Next isolated schema candidate is work/exchange-schema-gate/ACCEPTANCE.md: seven Node tests and9173 independent comparisons reported by its author, pending root review/integration; no application dependency change yet. Full schema/semantics, durable ledger, ordered source staging, clean-machine setup, browser/graceful-close proof and4h soak remain evaluation gates. No Windows10/LAN/stadium compatibility or release readiness follows.

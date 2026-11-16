@@ -41,3 +41,10 @@ Rollback removes the unreferenced proof files/workflow; default launcher and SPX
 ## Native NDI proof diagnostic increment · 2026-11-15
 
 Acceptance: distinguish intentional missing-runtime failure from the active receiver; report fixed crash enumeration, root selection, termination and recovery phases; preserve safe assertion labels and allowlisted OS error categories without raw arguments, paths, output or private URLs. Keep native connection/fresh-frame, strict process identity, cleanup and timing assertions unchanged. Master run43758140180 and its single retry failed at different stages; neither cause is established. This diagnostic increment must pass final-SHA Windows CI before merge and does not establish a failure fix or release readiness.
+
+
+## Receiver observation window correction
+
+A zero SDK connection sample after buffered matching frames remains a failed observation, but no longer terminates the whole command immediately. The receiver clears run count/duration, drops disconnected pre/post-capture evidence and waits within the original20second maximum budget. Errors/source changes and a disconnected final Stats snapshot reset the run too. Success still asserts positive final connections, required fresh distinct timestamps, pixels and duration.
+
+A bounded2048-observation per-command history prevents timestamp replay receiving credit after resets; it imposes no monotonic ordering. The existing512 matching-run bound remains. Exhaustion/permanent disconnect fails closed, and native video memory remains finally-released. A compiled Windows policy harness verifies the same C# state used by real capture; synthetic policy results alone do not establish SDK reconnection. Require actual standalone/source/extracted NDI results at final SHA before merge. Product output behavior, source data and hardware compatibility are unchanged.
