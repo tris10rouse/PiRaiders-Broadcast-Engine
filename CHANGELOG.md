@@ -1,5 +1,10 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Read-only exchange metadata foundation
+
+- Add detached bounded feed/catalog/current/manifest capture, strict transport parsing, explicit feed binding, descriptor/digest pinning, safe arrival/conflict retention and one physical flight. Enforce an absolute monotonic deadline at commit so delayed timers cannot store late pins. All captures remain ready:false with semantic validation pending; schemas, media/cache/ledger, UI and output integration are separate work.
+- PR36 mergedffab54e with ten passing final checks; source and extracted application each received eleven actual NDI frame cases while preserving inventory, window and independent parent-death evidence. The artifact remains development-only.
+
 ## 2026-11-16 · Explicit renderer and extracted application output proof
 
 - Add an optional strict machine-owned Mesa profile with Caspar-only environment overrides and safe missing-library preflight/retry. Preserve inherited defaults, SPX, catalog authority and native event deadlines.

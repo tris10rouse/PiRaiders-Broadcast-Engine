@@ -172,3 +172,8 @@ BE-002/BE-006: sample the native boot clock once per prepared event, retain the 
 ## Active BE-002/BE-008 acceptance · 2026-11-16
 
 PR34 verified the independent native deadline; PR35 records its final evidence. Next increment must prove actual output from the extracted development artifact with a fixed product-owned renderer profile, original manifest unchanged and the real inner CLI killed while its outer bench stays alive. Keep source proof, SPX/OGraf/native-window/package regressions and actual source/extracted Windows checks at the final SHA. Clean-machine licensed setup, default browser/graceful close verification, source exchange importer, diagnostics/preflight, soak and evaluation checklist remain open.
+
+
+## BE-006 detached metadata capture acceptance · 2026-11-16
+
+PR36 now verifies actual source/extracted output with ten passing final checks; do not reopen completed renderer/path wiring. Next coherent source step is bounded read-only feed/catalog/current/manifest capture with explicit binding, descriptor/digest/context pinning, safe error/last-pin retention and one physical flight. Deadline checks must be monotonic and run at the pin mutation, independent of timer delivery. Keep all results ready:false and unmounted until full schema/JCS/V1–V20/time/eligibility, assets/schema2 cache and durable ledger/rebind gates pass. Existing local/manual and SPX/output behavior stay untouched.

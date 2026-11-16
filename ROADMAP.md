@@ -1,6 +1,6 @@
 # PiRaiders Broadcast Engine: Roadmap
 
-Updated: 2026-11-16 · Status: actual full-application Windows Caspar/CEF/NDI software proof verified; persistent SPX/Game Day merged; application-entry development ZIP verified; first evaluation release remains gated · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
+Updated: 2026-11-16 · Status: actual full-application Windows Caspar/CEF/NDI software proof verified; persistent SPX/Game Day merged; actual extracted Windows output verified; first evaluation release remains gated · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
 
 ## Product contract
 
@@ -174,3 +174,10 @@ BE-002/BE-006 acceptance and clock contract: [native event deadline](docs/design
 ## Active extracted-output increment · 2026-11-16
 
 PR35 checkpoint merged after four passing final checks; PR34 independent native event deadline is integrated. BE-002/BE-008 now adds an optional fixed machine renderer profile and a separate actual extracted-ZIP output job, preserving the source proof. Acceptance: all eleven received-frame/lifecycle scenarios through the unchanged CMD/bundled Node, inherited renderer/preload/PATH removal, exact original manifest preserved, and inner-parent cleanup while the outer benchmark stays alive. Portable results are not native execution evidence; final Windows CI is required. See docs/design/EXTRACTED_APP_OUTPUT_PROOF.md and CASPAR_RENDERER_PROFILE.md.
+
+
+## Verified extracted output and next source transport step · 2026-11-16
+
+PR36 mergedffab54e after final161644c passed all ten checks with identical treef9e3b5b. Source and unchanged Unicode-extracted CMD/bundled Node each received eleven actual NDI frame cases; original5587-file inventory and independent inner-parent cleanup passed. A fixed application renderer and managed relative config launch avoid inherited-env and narrow-Unicode-argv requirements. The tested ZIP remains development-only.
+
+BE-006 now adds a detached read-only metadata capture reader with explicit binding, fixed paths/digests, bounded single flight and monotonic late-pin fencing. All results remain ready:false/semanticValidation:pending; no complete schemas/V1–V20, asset/cache/ledger, UI or output integration is claimed. See docs/design/EXCHANGE_METADATA_CAPTURE.md. Those stages and setup/preflight/soak/evaluation checklist remain release gates.
