@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-caspar-path-fix-2026-11-16T04:39:45.206Z-gzk9sif3ynh",
   "fence": 33,
-  "task": "Implement detached BE-006 exchange metadata capture foundation",
-  "workBranch": "feature/be-006-exchange-metadata-capture",
+  "task": "Verify bounded NDI reconnect observation proof before metadata PR37",
+  "workBranch": "feature/be-002-ndi-frame-window",
   "acquiredAt": "2026-11-16T04:39:45.206Z",
-  "lastHeartbeat": "2026-11-16T05:05:40.352Z",
-  "expiresAt": "2026-11-16T06:35:40.352Z",
+  "lastHeartbeat": "2026-11-16T05:19:56.453Z",
+  "expiresAt": "2026-11-16T06:49:56.453Z",
   "releasedAt": null
 }
