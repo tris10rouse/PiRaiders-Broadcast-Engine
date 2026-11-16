@@ -1,5 +1,13 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest software progress · 2026-11-16
+
+PR41 merged the detached draft0.3.1 structural schema gate after all 12 checks passed; the next BE-006 increment adds bounded safe-integer canonical JSON and selection/playback/metadata fingerprint computation. Computation remains detached and `ready:false`. Semantic validation, the durable feed ledger and ordered verified-asset import still gate Game Day integration. The first evaluation release remains gated by source integration, clean-machine setup, graceful close/default browser proof, diagnostics and soak.
+
+
+The fingerprint increment also corrects the transport binding's UTF16 admission bound so a schema-sized200-code-point supplementary Unicode label can reach validation without false rejection. It remains bounded and transport-only; no source activation is added.
+
+
 Updated: 2026-11-16 · Status: actual full-application Windows Caspar/CEF/NDI software proof verified; persistent SPX/Game Day merged; application-entry development ZIP verified; first evaluation release remains gated · Upstream: SPX Solo 1.4.1, `TuomoKu/SPX-GC` at `8bb7ec4e7b969fe7c777d2c2a9b03ed6de3f6981`.
 
 ## Product contract
