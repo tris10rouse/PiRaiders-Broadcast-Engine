@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-extracted-output-2026-11-16T00:05:26.632Z-ivjzd3a46mo",
   "fence": 32,
-  "task": "Finish checkpoint PR35 and prove extracted application output",
+  "task": "Resolve Caspar config argument boundary and verify extracted output PR36",
   "workBranch": "feature/be-008-extracted-app-output",
   "acquiredAt": "2026-11-16T00:05:26.632Z",
-  "lastHeartbeat": "2026-11-16T00:54:19.771Z",
-  "expiresAt": "2026-11-16T02:24:19.771Z",
+  "lastHeartbeat": "2026-11-16T01:05:23.723Z",
+  "expiresAt": "2026-11-16T02:35:23.723Z",
   "releasedAt": null
 }
