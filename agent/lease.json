@@ -6,7 +6,7 @@
   "task": "Verify metadata PR37 with merged full-app capture prerequisite",
   "workBranch": "feature/be-006-exchange-metadata-capture",
   "acquiredAt": "2026-11-16T10:23:10.814Z",
-  "lastHeartbeat": "2026-11-16T11:19:35.688Z",
-  "expiresAt": "2026-11-16T12:49:35.688Z",
+  "lastHeartbeat": "2026-11-16T11:34:48.419Z",
+  "expiresAt": "2026-11-16T13:04:48.419Z",
   "releasedAt": null
 }
