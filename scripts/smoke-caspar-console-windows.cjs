@@ -6,11 +6,12 @@ const path=require('node:path');
 const net=require('node:net');
 const {execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
+const {performance}=require('node:perf_hooks');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
-const {processTable:table,descendants,observeTree,identityReason}=require('./windows-process-evidence.cjs');
+const {processTable:table,observeTree,identityReason,captureProcessTree}=require('./windows-process-evidence.cjs');
 const {configuration,checkPixels}=require('./smoke-caspar-windows.cjs');
-const {spawnSupervisedProcess}=require('./lib/windows-job-process.cjs');
+const {spawnSupervisedProcess,JOB_HOST}=require('./lib/windows-job-process.cjs');
 const {CasparConsole}=require('./lib/caspar-console.cjs');
 const {LauncherRuntime}=require('./lib/launcher-runtime.cjs');
 const {stageSnapshot}=require('./lib/media-snapshot.cjs');
@@ -55,21 +56,22 @@ async function main(){
       try{await until(async()=>{try{const b=await fs.readFile(file);assert.ok(b.length<16*1024*1024);checkConsolePixels(b,rgb);return true;}catch{return false;}},'CAPTURE_PIXELS',5000);await fs.copyFile(file,path.join(evidence,name+'.png'));captures.push(name);return;}catch{await wait(200);}
     }throw Error('CAPTURE_PIXELS');
   }
-  function ownedRoot(){const rows=table(),matches=descendants(rows,activeHost.pid).filter(r=>r.ParentProcessId===activeHost.pid&&typeof r.ExecutablePath==='string'&&path.normalize(r.ExecutablePath).toLowerCase()===path.join(bin,'casparcg.exe').toLowerCase());assert.equal(matches.length,1,'OWNED_CASPAR_ROOT');return{rows,pid:matches[0].ProcessId};}
-  function noAmcpListener(){const{pid}=ownedRoot(),rows=listeners();assert.ok(rows.some(r=>r.OwningProcess===process.pid),'LISTENER_ENUM_POSITIVE_CONTROL');assert.ok(!rows.some(r=>r.OwningProcess===pid),'OWNED_ROOT_TCP_LISTENER');}
+  const hostIdentities=new WeakMap();
+  async function ownedRoot(host=activeHost){assert.ok(host.exitCode===null&&host.signalCode===null,'OWNED_HOST_LIVE');const captured=await captureProcessTree(host.pid,{deadline:performance.now()+15000,expectedParentPid:process.pid,expectedImage:JOB_HOST,expectedRoot:hostIdentities.get(host)||null});hostIdentities.set(host,captured.root);assert.equal(activeHost,host,'OWNED_HOST_UNCHANGED');assert.ok(host.exitCode===null&&host.signalCode===null,'OWNED_HOST_LIVE');const matches=captured.currentTree.filter(r=>r.ParentProcessId===host.pid&&typeof r.ExecutablePath==='string'&&path.normalize(r.ExecutablePath).toLowerCase()===path.join(bin,'casparcg.exe').toLowerCase());assert.equal(matches.length,1,'OWNED_CASPAR_ROOT');return{tree:captured.tree,pid:matches[0].ProcessId};}
+  async function noAmcpListener(){const{pid}=await ownedRoot(),rows=listeners();assert.ok(rows.some(r=>r.OwningProcess===process.pid),'LISTENER_ENUM_POSITIVE_CONTROL');assert.ok(!rows.some(r=>r.OwningProcess===pid),'OWNED_ROOT_TCP_LISTENER');}
   try{
     await new Promise((resolve,reject)=>listenerProbe.listen(0,'127.0.0.1',resolve).once('error',reject));
     runtime=new LauncherRuntime({productionWindow:{start:new Date(now-1000).toISOString(),end:new Date(end).toISOString(),prewarmMinutes:0},services:[{name:'spx',command:process.execPath,args:['-e','setInterval(()=>{},1000)']},{name:'casparcg',command:path.join(bin,'casparcg.exe'),args:[config,'--log-severity=disable','--disable-logging'],cwd:bin}]},{clock:()=>now,supervisorOptions:{spawnProcess:contained,maxRestarts:1,restartDelayMs:100}});
-    await runtime.start();await request('VERSION',201);noAmcpListener();await request('PLAY 1-10 RED');await capture('mixer-red',[255,0,0]);await request('CLEAR 1');
+    await runtime.start();await request('VERSION',201);await noAmcpListener();await request('PLAY 1-10 RED');await capture('mixer-red',[255,0,0]);await request('CLEAR 1');
     phase='CEF';session=await createRossTalkSession({presentation:{snapshotDir:snapshot.snapshotDir,commandTimeoutMs:20000,controllerOptions:{mode:'manual'}},rossTalk:{host:'127.0.0.1',port:0,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',8:'stop'},acknowledgements:true},canControl:()=>runtime.allowed(),resolvePreparedSnapshot:async()=>snapshot.snapshotDir},{allowEphemeral:true});await session.start();
     const url=session.getProgramURL();token=new URL(url).hash.split('=')[1];await request('PLAY 1-10 [HTML] "'+url+'"');await until(()=>session.snapshot().presentation.renderer.ready,'CEF_READY',60000);await capture('prepared-black',[0,0,0]);
     // Real loopback RossTalk, actual managed browser, private console AMCP.
     const{command}=require('./smoke-caspar-windows.cjs'),port=session.address().port;
     await command(port,'GPI 1',{prefix:'OK ',timeoutMs:30000});await capture('launch-red',[240,20,20]);await command(port,'GPI 2',{prefix:'OK ',timeoutMs:30000});await capture('next-blue',[20,20,240]);await command(port,'GPI 8',{prefix:'OK ',timeoutMs:30000});await capture('stop-black',[0,0,0]);
-    phase='RECOVERY';const oldHost=activeHost,oldEpoch=session.snapshot().presentation.renderer.epoch,{rows,pid}=ownedRoot(),oldTree=descendants(rows,oldHost.pid);
-    execFileSync('taskkill.exe',['/PID',String(pid),'/F'],{stdio:'ignore',windowsHide:true,timeout:15000});await until(()=>activeHost!==oldHost,'CONSOLE_RESTART',20000);await request('VERSION',201);noAmcpListener();await until(()=>treeGone(oldTree),'OLD_TREE',10000);await until(()=>!session.snapshot().presentation.renderer.connected,'OLD_RENDERER',10000);
+    phase='RECOVERY';const oldHost=activeHost,oldEpoch=session.snapshot().presentation.renderer.epoch,{tree:oldTree,pid}=await ownedRoot(oldHost);
+    execFileSync('taskkill.exe',['/PID',String(pid),'/F'],{stdio:'ignore',windowsHide:true,timeout:15000});await until(()=>activeHost!==oldHost,'CONSOLE_RESTART',20000);await request('VERSION',201);await noAmcpListener();await until(()=>treeGone(oldTree),'OLD_TREE',10000);await until(()=>!session.snapshot().presentation.renderer.connected,'OLD_RENDERER',10000);
     await request('PLAY 1-10 [HTML] "'+session.getProgramURL()+'"');await until(()=>session.snapshot().presentation.renderer.ready,'RESTART_CEF',60000);assert.notEqual(session.snapshot().presentation.renderer.epoch,oldEpoch);assert.equal(session.snapshot().presentation.controller.state,'stopped');await capture('restart-black',[0,0,0]);await command(port,'GPI 1',{prefix:'OK ',timeoutMs:30000});await capture('restart-launch-red',[240,20,20]);
-    phase='WINDOW_END';const ending=descendants(table(),activeHost.pid);now=end;await runtime.reconcile();assert.equal(runtime.sender,null);await until(()=>treeGone(ending),'WINDOW_TREE',10000);
+    phase='WINDOW_END';const{tree:ending}=await ownedRoot();now=end;await runtime.reconcile();assert.equal(runtime.sender,null);await until(()=>treeGone(ending),'WINDOW_TREE',10000);
     for(const file of await filesUnder(bin))if(/\.(?:log|txt|json|config)$/i.test(file)){if((await fs.stat(file)).size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');const b=await fs.readFile(file);if(b.includes(Buffer.from(token))||b.includes(Buffer.from(token,'utf16le')))throw Error('PRIVATE_URL_PERSISTED');}
     report={event:'caspar-private-console-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance:tools.provenance,actualConsoleAMCP:true,utf16Input:true,correlatedStatus:true,emptyTcpControllers:true,listenerEnumerationPositiveControl:true,noOwnedRootTcpListenerBeforeAndAfterRestart:true,actualManagedCEF:true,fullFrameOpaqueBlackVerified:true,actualMixedImages:captures,realRossTalk:true,rootCrashRecovery:true,freshStoppedEpoch:true,windowEndTreeGone:true,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){console.error(JSON.stringify({event:'caspar-console-fixed-failure',phase,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',captures}));throw Error('CONSOLE_PROOF_FAILED');}
