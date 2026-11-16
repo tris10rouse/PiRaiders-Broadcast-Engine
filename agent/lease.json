@@ -6,7 +6,7 @@
   "task": "Bound full-app recovery identity capture before metadata PR37",
   "workBranch": "feature/be-002-full-app-capture",
   "acquiredAt": "2026-11-16T10:23:10.814Z",
-  "lastHeartbeat": "2026-11-16T10:41:47.300Z",
-  "expiresAt": "2026-11-16T12:11:47.300Z",
+  "lastHeartbeat": "2026-11-16T10:54:02.739Z",
+  "expiresAt": "2026-11-16T12:24:02.739Z",
   "releasedAt": null
 }
