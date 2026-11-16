@@ -6,7 +6,7 @@
   "task": "Finish verified Caspar launch path fix and PR36 output proof",
   "workBranch": "feature/be-008-extracted-app-output",
   "acquiredAt": "2026-11-16T04:39:45.206Z",
-  "lastHeartbeat": "2026-11-16T04:44:18.205Z",
-  "expiresAt": "2026-11-16T06:14:18.205Z",
+  "lastHeartbeat": "2026-11-16T04:53:09.031Z",
+  "expiresAt": "2026-11-16T06:23:09.031Z",
   "releasedAt": null
 }
