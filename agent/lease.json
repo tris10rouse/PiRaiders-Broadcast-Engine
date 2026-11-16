@@ -6,7 +6,7 @@
   "task": "Validate strict detached exchange schema gate and isolated test fixtures",
   "workBranch": "feature/be-006-exchange-schema-gate",
   "acquiredAt": "2026-11-16T10:23:10.814Z",
-  "lastHeartbeat": "2026-11-16T12:01:14.419Z",
-  "expiresAt": "2026-11-16T13:31:14.419Z",
+  "lastHeartbeat": "2026-11-16T12:16:59.715Z",
+  "expiresAt": "2026-11-16T13:46:59.715Z",
   "releasedAt": null
 }
