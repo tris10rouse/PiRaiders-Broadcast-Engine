@@ -152,3 +152,8 @@ Final acceptance adds actual JPEG alongside PNG, forced termination of the prove
 
 
 Real Windows recovery implementation2988969558b5ab336e919e98a6cfe0240be62581 passed both [push CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43622879981) and [PR CI](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/actions/runs/43623042420). Eight actual1080p mixed captures cover PNG/JPEG, controls/Reload, opaque Stop black, forced identity-verified Caspar root termination, descendant cleanup/restart, fresh stopped epoch/black and explicit last-good Launch. Real window-end process cleanup passes with injected policy clock. Matching bootstrap Origin and absence of capability in referrers/logs are verified across both starts. Initial recovery PID assumption was corrected after a retained failing test; no test was skipped to obtain this result. Final documentation-head six-check CI/merge remain mandatory. NDI, Windows10 target and stadium proof remain untested; broader BE-002 and first application release remain open.
+
+
+## Verified native deadline evidence
+
+PR34 merged9eb7a54 after all nine final checks passed: all five new native Windows cases,440/442 Windows baseline passes(two documented skips),44 browser tests and11 received full-app NDI frame cases. The prepared-event sender now has an independent immutable deadline across sender restarts. This remains development software; extracted actual output and remaining evaluation gates are open.

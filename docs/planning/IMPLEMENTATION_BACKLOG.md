@@ -162,3 +162,8 @@ BE-002 next acceptance: separate deliberate missing-runtime diagnostics from the
 ## Active native deadline acceptance
 
 BE-002/BE-006: sample the native boot clock once per prepared event, retain the absolute cutoff across crashes, keep UTC admission and fail-closed full-job retirement independent of JavaScript. Preserve persistent SPX/legacy behavior and expiry/close fences. See NATIVE_EVENT_DEADLINE.md. Do not mark complete until actual native blocked-owner/restart and default full-app Windows output tests pass at the final SHA.
+
+
+## Verified native deadline milestone
+
+[PR34](https://github.com/tris10rouse/PiRaiders-Broadcast-Engine/pull/34) merged9eb7a54 after final source7460863 passed all nine checks with identical tree9722e81. Windows440/442 passes(two documented skips), Chromium44/44 and all five new native tests passed; full application received11 actual NDI frame cases. Independent prepared-event deadline across sender restarts is integrated. Next: explicit renderer configuration and actual full output from the extracted ZIP, followed by source exchange/setup/preflight/soak and evaluation checklist. See CODEX_CHECKPOINT.md for exact acceptance and evidence limits.
