@@ -37,7 +37,9 @@ function resources(t) {
   t.after(async () => {
     // Never discover or target arbitrary processes; only PIDs from our fixtures.
     for (const pid of owned) if (alive(pid)) await terminateProcessTree({ pid, kill() {} });
-    fs.rmSync(dir, { recursive: true, force: true });
+    // Keep process-exit assertions intact; Windows can briefly retain the directory.
+    // Bounded async retries yield for handle release; persistent failure still fails.
+    await fs.promises.rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
   return { dir, file: path.join(dir, 'state.json'), owned };
 }
