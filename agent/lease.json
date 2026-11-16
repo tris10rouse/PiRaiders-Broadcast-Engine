@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-caspar-path-fix-2026-11-16T04:39:45.206Z-gzk9sif3ynh",
-  "fence": 33,
-  "task": "Verify bounded complete process capture prerequisite to metadata PR37",
+  "owner": "codex-resume-2026-11-16T10:23:10.814Z-0lx2vo3sksc",
+  "fence": 34,
+  "task": "Verify and merge process prerequisite then resume metadata/source import",
   "workBranch": "feature/be-002-process-capture",
-  "acquiredAt": "2026-11-16T04:39:45.206Z",
-  "lastHeartbeat": "2026-11-16T05:53:24.454Z",
-  "expiresAt": "2026-11-16T07:23:24.454Z",
+  "acquiredAt": "2026-11-16T10:23:10.814Z",
+  "lastHeartbeat": "2026-11-16T10:23:10.814Z",
+  "expiresAt": "2026-11-16T11:53:10.814Z",
   "releasedAt": null
 }
