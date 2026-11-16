@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-run-2026-11-16T16:41:26.728Z-ftw4uerq25p",
-  "fence": 35,
-  "task": "Publish and verify detached Chicago timing semantics",
+  "owner": "codex-2026-11-16T20:45:26.094Z-h6c1cy0pec8",
+  "fence": 36,
+  "task": "Verify PR45 and resume ledger engineering",
   "workBranch": "feature/be-006-exchange-timing",
-  "acquiredAt": "2026-11-16T16:41:26.728Z",
-  "lastHeartbeat": "2026-11-16T18:17:30.946Z",
-  "expiresAt": "2026-11-16T19:47:30.946Z",
+  "acquiredAt": "2026-11-16T20:45:26.094Z",
+  "lastHeartbeat": "2026-11-16T20:45:26.094Z",
+  "expiresAt": "2026-11-16T22:15:26.094Z",
   "releasedAt": null
 }
