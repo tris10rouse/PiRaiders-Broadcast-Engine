@@ -4,11 +4,11 @@ This file is the interim source of truth for actionable work items. GitHub Issue
 
 Follow `ROADMAP.md`, `AGENTS.md`, the approved UI brief, and the SPX-first ADR. Use one focused feature branch/PR per independently testable unit. Mark work complete only with test evidence and a rollback path.
 
-## Current implementation state · 2026-11-15
+## Current implementation state · 2026-11-16
 
-- PR28–30 merged verified Game Day, persistent SPX ownership and actual full-application Windows output. PR30's two real runs each received11 frames, recovered offline, enforced a real window with SPX preserved and removed the nested tree on actual CLI-parent death. These are software proofs, not target hardware approval.
-- PR31 selects the persistent entry in one development ZIP launcher and verifies the actual extracted CMD/bundled Node/SPX path on Windows. Final source1bafbc0 passed9 checks and mergedd302ee5 with identical tree. No owner testing is requested yet.
-- Remaining evaluation gates: extracted output and reproducible licensed Mesa/NDI setup, source exchange import, preflight/diagnostics, soak and precise nonproduction installation/checklist. Hardware/off-air/signing/formal release remain separate.
+- PR39 merged01553c0 with identical tested tree after ten checks: Windows477/479(two explicit skips), Chromium44/44, real async process capture, Console seven captures and source/extracted fullapp eleven actual NDI cases. Native independent prepared-event deadlines were already verified in PR34. These are software proofs, not target hardware approval.
+- PR37 detached metadata capture remains draft at9e13c96: nine checks pass, extracted fullapp job133236167264 failed incomplete process identity after eight frames. The bounded full-app observation prerequisite is active; merge only after its final native CI and the final combined metadata CI pass. Structural schema gate is isolated/unpublished and not an importer.
+- Evaluation gates remain source semantics/ledger/ordered staging, licensed clean-machine setup, default browser/graceful full-output close, diagnostics/recovery,4h soak and precise nonproduction checklist. Windows10/LAN/Daktronics/DMP/off-air compatibility and formal release/signing remain separate. No owner action is needed for routine next work.
 
 ## Agent coordination prerequisite
 
@@ -189,3 +189,17 @@ New portable tests cover recovery, persistent unknown, fixed budget/late complet
 
 
 Root verification before publishing: all three candidate hashes inspected; focused process suite25 passes/3 native-Windows skips; complete baseline479 tests,452 passes/27 explicit Windows-only skips,0 failures; syntax127 files passed. Root changed the portable rollback regression's incidental1s elapsed assertion to a5s test watchdog plus shrinking-budget assertion, avoiding a scheduler-speed claim; the actual15s capture budget is unchanged. Independent candidate review/failure paths retained; real async Windows capture and final actual Console CI remain required.
+
+
+## Full-app bounded identity observation (BE-002)
+
+PR39 merged01553c0bd88cd60b3092dfc7009976bce8471375 with the identical tested tree85cca2599254d5f4d37b78951b58e565fb208651 after all ten checks. Windows477/479(two documented skips), Chromium44/44, actual async CIM and seven Console captures passed; source/extracted fullapp received eleven frames each. An initial merge request timed out after applying identical content at bd039644; fresh ref/tree/PR-state checks preceded safe reconciliation. PR39 is confirmed closed/merged; no force update occurred.
+
+PR37 final combined9e13c969bfb3cbfe50e592bf7a0d81ddfd244757 passed nine checks but extracted job133236167264 failed CASPAR_CRASH/IMAGE_MISSING after eight frames. Its old sender tree had already been observed gone9/unknown0 and runtime recovered ready; the broad phase does not pinpoint the exact failing read. Preserve this and earlier failures. Metadata is detached from this proof; do not merge or rerun until green.
+
+Acceptance for this focused follow-up: use complete pinned CLI and sender-JobHost captures for full-app sender identity/recovery and parent-loss capture; one original15s total monotonic budget shared across both ownership levels, capped by remaining production-window and outer60s recovery budget. Require the same sender generation after the second capture, retain complete transient sender children for cleanup, reject late synchronous validation, split crash phases and recheck parent termination within the window. Keep strict original identity/opaque-black/frame/unknown/surviving/outer-bench/inventory/real-window bounds. No sender/application runtime change or stadium/hardware claim.
+
+Portable tests cover missing-field recovery, pinned roots, wrong/ambiguous hosts, changed generations, retained cleanup, shrinking shared budgets, persistent unknown, late query/validation, UTC/window clipping and exact parent-loss pin. Final full baseline, source/extracted eleven actual-frame Windows proofs and all required checks remain mandatory. Rollback reverts disposable proof tools. Then merge verified prerequisite, synchronize PR37 via true non-force merge commit and verify final SHA again. Schema successor remains unmounted/unpublished; do not call metadata/schema success a playable import.
+
+
+Executed root validation before publication: initial parallel baseline486 tests459pass27Windows-only skips/0fail; focused final30 tests29pass/1native-Windows skip, syntax128 plus changed-file checks pass. After adding the final late-validation regression, the parallel487-test run reported457pass/3 existing startup-fixture timing failures/27Windows-only skips: exhausted restart budget APP_STARTUP_TIMEOUT, held-browser stale proof got timeout, and ignored-browser opener was never reached before its deadline. No assertion or product timeout was changed. Controlled SAME full test list at --test-concurrency=1 passed487 tests:460pass27Windows-only skips/0fail. These are different execution conditions, not a claim the earlier failures were fixed. Default-concurrency final CI remains mandatory. The schema candidate's separate43/44 browser failure and terminated Reload-fixture hang remain recorded; an unchanged focused timer diagnostic passed1/1.
