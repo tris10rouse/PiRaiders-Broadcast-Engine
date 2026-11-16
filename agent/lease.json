@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-resume-2026-11-16T10:23:10.814Z-0lx2vo3sksc",
   "fence": 34,
-  "task": "Verify metadata PR37 with merged full-app capture prerequisite",
-  "workBranch": "feature/be-006-exchange-metadata-capture",
+  "task": "Validate strict detached exchange schema gate and isolated test fixtures",
+  "workBranch": "feature/be-006-exchange-schema-gate",
   "acquiredAt": "2026-11-16T10:23:10.814Z",
-  "lastHeartbeat": "2026-11-16T11:34:48.419Z",
-  "expiresAt": "2026-11-16T13:04:48.419Z",
+  "lastHeartbeat": "2026-11-16T11:47:34.010Z",
+  "expiresAt": "2026-11-16T13:17:34.010Z",
   "releasedAt": null
 }
