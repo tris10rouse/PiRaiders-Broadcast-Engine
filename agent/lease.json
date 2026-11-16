@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-run-2026-11-16T16:41:26.728Z-ftw4uerq25p",
   "fence": 35,
-  "task": "Publish and verify selection problem-state gate and scoped fixture corrections",
+  "task": "Record final verification evidence for PR44 and preserve cold-start limitation",
   "workBranch": "feature/be-006-problem-state",
   "acquiredAt": "2026-11-16T16:41:26.728Z",
-  "lastHeartbeat": "2026-11-16T17:27:48.600Z",
-  "expiresAt": "2026-11-16T18:57:48.600Z",
+  "lastHeartbeat": "2026-11-16T17:36:46.535Z",
+  "expiresAt": "2026-11-16T19:06:46.535Z",
   "releasedAt": null
 }
