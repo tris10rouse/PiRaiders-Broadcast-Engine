@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-2026-11-16T20:45:26.094Z-h6c1cy0pec8",
   "fence": 36,
-  "task": "Verify PR45 and resume ledger engineering",
-  "workBranch": "feature/be-006-exchange-timing",
+  "task": "BE-006 pure exchange ledger transitions",
+  "workBranch": "feature/be-006-exchange-ledger",
   "acquiredAt": "2026-11-16T20:45:26.094Z",
-  "lastHeartbeat": "2026-11-16T20:45:26.094Z",
-  "expiresAt": "2026-11-16T22:15:26.094Z",
+  "lastHeartbeat": "2026-11-16T20:50:45.922Z",
+  "expiresAt": "2026-11-16T22:20:45.923Z",
   "releasedAt": null
 }
