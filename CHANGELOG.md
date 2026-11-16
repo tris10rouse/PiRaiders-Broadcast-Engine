@@ -1,5 +1,9 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Bounded NDI receiver observation windows
+
+- Discard disconnected or buffered capture evidence and require a full fresh connected run inside the original deadline. Preserve final connection/pixel/duration checks, bound replay history and retain native video release on every path. This changes disposable proof tooling only; actual Windows SDK validation remains required.
+
 ## 2026-11-16 · Explicit renderer and extracted application output proof
 
 - Add an optional strict machine-owned Mesa profile with Caspar-only environment overrides and safe missing-library preflight/retry. Preserve inherited defaults, SPX, catalog authority and native event deadlines.

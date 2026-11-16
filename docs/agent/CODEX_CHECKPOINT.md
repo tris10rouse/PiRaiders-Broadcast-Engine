@@ -68,3 +68,14 @@ Actual extracted job133025014712 recorded repeated CONSOLE_FAULT/SERVICE_FAULT b
 Four explicit reviewed files from work/caspar-relative-launch now supply a targeted managed-only fix: private event cwd, fixed ASCII caspar.config argv and relative ASCII media/log/data/template XML. The generator keeps default absolute semantics and validates its trusted option; SPX/legacy/exe/NDI environment/Mesa/native deadlines and Unicode extraction remain unchanged. Scoped13/13 and independent review13/13 passed; integrated syntax125 and Linux463 tests (438 passes/25 Windows-only skips) passed. Final real source/extracted eleven-frame and all regression checks are required before merge. See MANAGED_CASPAR_PATHS.md. No release-readiness claim.
 
 The interrupted fence32 expired without further writes. A fresh fence33 recovered exclusive ownership before this integration. Do not reuse either owner/fence in a new run.
+
+
+## Standalone NDI observation follow-up before PR37
+
+PR36 mergedffab54ee3e302f025f36a19cea222773cd997a9b after final161644c passed all ten checks, including eleven actual source and eleven actual Unicode-extracted NDI frame cases. The genuine development artifact at run43806003287/artifacts/14198432738 is not evaluation-ready.
+
+PR37 (f01f2ddcdefa12cf0c42d2836329d2c5c63c96a0) contains detached read-only metadata capture only and remains draft: standalone NDI job133103586742 repeated the existing PRESENTATION/PROBE_RECEIVER_DISCONNECTED failure after mixer-red. Metadata is not wired to that proof. Other checks must still be inspected; never rerun indefinitely until green or call the metadata reader an importer.
+
+A separate feature/be-002-ndi-frame-window fixes the receiver observation policy, not the product sender: reset disconnected/buffered runs, require positive pre/post/final connection and fresh distinct pixels/duration inside the unchanged20s maximum command budget. Retain512 matching-frame bound, add bounded2048 observed timestamps without monotonicity assumptions, and free every native capture in finally. An actual C# Windows harness covers replay/reconnect/deadlines/bounds; Linux skips it explicitly. Two independent reviews found no blocker; portable existing NDI tests5pass, native execution unrun locally. Final actual standalone/source/extracted proofs must pass before merge.
+
+Then merge the verified proof-only prerequisite into metadata PR37 through a non-force fast-forward merge commit and verify that final metadata SHA. Its source/schema/date/fingerprint/assets/cache/durable ledger/UI/output gates remain explicitly pending. An isolated schema-gate equivalence candidate may exist in work/exchange-schema-gate; do not assume it is complete or copy private originals. Rootfence33 alone publishes; new sessions acquire new owner/fence.
