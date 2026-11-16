@@ -28,3 +28,8 @@ The proof does not establish clean-machine licensed component setup, default Win
 ## First actual run and diagnostic follow-up
 
 The initial extracted job133016586088 failed before frames at renderer readiness; source job133016585847 received all eleven frame cases but failed a strict parent-loss identity observation. These failures remain unmerged evidence, not skipped checks. Bounded whitelisted runtime history and separate parent phases identify the failing boundary without raw state. A failure-only native differential probe compares byte-identical ASCII XML/common cwd/environment with ASCII and Unicode configuration argument filenames, no NDI consumer or external controller. Its result cannot make the original job green; do not infer a Unicode cause if both controls pass or both fail. Original scenario timeouts/assertions and production cwd remain unchanged.
+
+
+## Confirmed native argument-path differential
+
+Controlled Windows job133025014712 at30c2154 passed ASCII VERSION and failed Unicode VERSION with identical ASCII XML, cwd and environment; both contained cleanups succeeded. The managed fix uses its private cwd and ASCII config basename plus relative config paths, without narrowing the Unicode extraction test or writing beside the component executable. Default absolute generator/SPX/legacy behavior remains. Actual final source and extracted eleven-frame regressions remain mandatory; external Unicode component/runtime paths remain unclaimed.

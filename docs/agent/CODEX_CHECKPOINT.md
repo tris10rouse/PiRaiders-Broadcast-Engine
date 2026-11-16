@@ -57,3 +57,14 @@ Initial sourcead8832309b711354eb175d54ba9f3fd8b13895d5: eight checks passed, but
 The next diagnostic commit preserves every strict identity/frame/deadline assertion, adds bounded whitelisted runtime-state history and precise parent capture/verify/terminate/gone phases, and runs a failure-only same-binary/same-ASCII-XML/cwd/environment Caspar VERSION probe with ASCII versus Unicode config argv filenames. Only a successful ASCII control plus differing Unicode result can support that path hypothesis; both-pass/both-fail cannot. No production cwd/path workaround is adopted without evidence. Root focused17/17 and syntax125 pass; independent diagnostic review10/10 passes. Inspect the exact final CI/probe report before changing behavior.
 
 A separate unreviewed metadata-only candidate is available in work/exchange-metadata-reader/ACCEPTANCE.md (five explicit files, agent-reported18/18 Linux tests). It is NOT integrated: all returned pins/results remain ready:false/semanticValidation:pending; full schemas/V1–V20/JCS/time/assets/cache/persistent ledger and Game Day/output integration are pending. Do not publish private fixture originals or advertise conformance from this candidate. PR36 remains the priority.
+
+
+## Confirmed Caspar configuration argument boundary and proposed fix
+
+At source30c21541adba9654e0bad61caaec9dadd8a56fcf, nine checks passed and only actual extracted output failed. Source full-app job133025015113 passed all eleven frames and parent-death/window cleanup with explicit renderer configuration and inherited variables removed. The earlier IMAGE_MISSING capture is retained as an unproven, separate observation; no identity assertion was weakened.
+
+Actual extracted job133025014712 recorded repeated CONSOLE_FAULT/SERVICE_FAULT before any frame. Its controlled same-binary/same-ASCII-XML/cwd/environment test passed VERSION with an ASCII config argument but failed with a Unicode filename; both cases closed containment without fallback. This establishes the pinned Caspar config-argument path differential. It does not establish arbitrary external Unicode component/runtime support.
+
+Four explicit reviewed files from work/caspar-relative-launch now supply a targeted managed-only fix: private event cwd, fixed ASCII caspar.config argv and relative ASCII media/log/data/template XML. The generator keeps default absolute semantics and validates its trusted option; SPX/legacy/exe/NDI environment/Mesa/native deadlines and Unicode extraction remain unchanged. Scoped13/13 and independent review13/13 passed; integrated syntax125 and Linux463 tests (438 passes/25 Windows-only skips) passed. Final real source/extracted eleven-frame and all regression checks are required before merge. See MANAGED_CASPAR_PATHS.md. No release-readiness claim.
+
+The interrupted fence32 expired without further writes. A fresh fence33 recovered exclusive ownership before this integration. Do not reuse either owner/fence in a new run.

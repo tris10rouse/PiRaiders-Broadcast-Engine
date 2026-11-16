@@ -162,3 +162,8 @@ Real Windows recovery implementation2988969558b5ab336e919e98a6cfe0240be62581 pas
 ## Verified native deadline evidence
 
 PR34 merged9eb7a54 after all nine final checks passed: all five new native Windows cases,440/442 Windows baseline passes(two documented skips),44 browser tests and11 received full-app NDI frame cases. The prepared-event sender now has an independent immutable deadline across sender restarts. This remains development software; extracted actual output and remaining evaluation gates are open.
+
+
+## 2026-11-16 · Managed Caspar launch-path correction
+
+- A controlled Windows test confirmed that the pinned Caspar binary fails its Unicode config filename argument while the identical ASCII control succeeds. Keep the managed config in its owned event directory, launch with an ASCII basename/private cwd and generate relative paths. Preserve default absolute config generation, SPX/legacy launchers, renderer environment and native event deadline. Final actual Unicode-extracted output must pass before merge.
