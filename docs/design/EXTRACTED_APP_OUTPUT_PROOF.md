@@ -23,3 +23,8 @@ Use synthetic media/configuration only. Keep the private producer capability out
 Portable tests validate inventory mutation/link refusal, descriptor membership, case-insensitive environment removal, exact inner/outer ownership, image alias handling and private-capability scans. Those are not Windows execution evidence. Final Windows source and extracted-output jobs must pass at the final SHA before merge, together with existing SPX/OGraf, package, native-window, Caspar/Console and NDI regressions.
 
 The proof does not establish clean-machine licensed component setup, default Windows browser dispatch, graceful app close, real target sleep, Windows10, LAN/NDI receiver interoperability, Daktronics/DMP/stadium compatibility or evaluation-release readiness. No production installation, network change, system-clock manipulation or live equipment interaction occurs.
+
+
+## First actual run and diagnostic follow-up
+
+The initial extracted job133016586088 failed before frames at renderer readiness; source job133016585847 received all eleven frame cases but failed a strict parent-loss identity observation. These failures remain unmerged evidence, not skipped checks. Bounded whitelisted runtime history and separate parent phases identify the failing boundary without raw state. A failure-only native differential probe compares byte-identical ASCII XML/common cwd/environment with ASCII and Unicode configuration argument filenames, no NDI consumer or external controller. Its result cannot make the original job green; do not infer a Unicode cause if both controls pass or both fail. Original scenario timeouts/assertions and production cwd remain unchanged.

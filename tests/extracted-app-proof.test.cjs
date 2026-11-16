@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const {createManifest}=require('../scripts/lib/windows-bundle.cjs');
-const {canonicalImage,cleanAppEnvironment,inventory,verifyOriginalInventory,sourceLocation,extractedLocation,captureAppParent,assertOuterBench}=require('../scripts/extracted-app-proof.cjs');
+const {createRuntimeDiagnostics,canonicalImage,cleanAppEnvironment,inventory,verifyOriginalInventory,sourceLocation,extractedLocation,captureAppParent,assertOuterBench}=require('../scripts/extracted-app-proof.cjs');
 const {ownedCaspar,privateText}=require('../scripts/smoke-full-app-windows.cjs');
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'extracted-proof-test-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true,maxRetries:10,retryDelay:100}));
@@ -53,4 +53,20 @@ test('packaged image comparison resolves physical aliases and rejects unresolved
  const realpath=value=>{if(value===long||value===short)return long;throw Error('private path');};
  assert.equal(canonicalImage(long,{realpath}),canonicalImage(short,{realpath}));
  assert.throws(()=>canonicalImage('C:\\missing.exe',{realpath}),/^Error: PROOF_IMAGE_IDENTITY_UNVERIFIED$/);
+});
+
+
+test('runtime diagnostics retain only bounded whitelisted readiness fields, never raw state data',()=>{
+ const trace=createRuntimeDiagnostics(),secret='http://127.0.0.1/private#piraiders='+ 'A'.repeat(43);
+ const forbidden=()=>{throw Error('unselected state read');};
+ const runtime={state:'starting',lastError:'EVENT_BOOTSTRAP_FAILED',generation:3,ready:false,windowAllowed:true};
+ Object.defineProperty(runtime,'privateURL',{get:forbidden});
+ const value={active:{eventId:secret,runtime},privateRoot:secret};trace.record(value);trace.record(value);
+ assert.deepEqual(trace.snapshot(),{observations:2,history:[{state:'starting',lastError:'EVENT_BOOTSTRAP_FAILED',generation:3,ready:false,windowAllowed:true}]});
+ runtime.state=secret;runtime.lastError='A'.repeat(43);runtime.generation=Infinity;runtime.ready={secret};runtime.windowAllowed=secret;trace.record(value);
+ const last=trace.snapshot().history.at(-1);assert.deepEqual(last,{state:'unknown',lastError:'UNRECOGNIZED',generation:null,ready:null,windowAllowed:null});
+ assert.equal(JSON.stringify(trace.snapshot()).includes(secret),false);assert.equal(JSON.stringify(trace.snapshot()).includes('A'.repeat(43)),false);
+ for(let generation=0;generation<40;generation++)trace.record({active:{runtime:{state:'ready',lastError:null,generation,ready:true,windowAllowed:true,privateRoot:secret}}});
+ const snapshot=trace.snapshot();assert.equal(snapshot.history.length,16);assert.equal(snapshot.history.at(-1).generation,39);assert.equal(snapshot.history[0].generation,24);assert.equal(Object.isFrozen(snapshot.history),true);assert.equal(Object.isFrozen(snapshot.history[0]),true);
+ trace.record(null);assert.equal(trace.snapshot().history.at(-1).state,'unavailable');
 });

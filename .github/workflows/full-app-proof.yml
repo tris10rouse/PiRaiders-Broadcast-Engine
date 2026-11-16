@@ -89,9 +89,15 @@ jobs:
       - name: Install pinned headless browser for actual workstation controls
         run: npx --no-install playwright install --with-deps --only-shell chromium
       - name: Prove extracted CMD bundled Node SPX and native NDI output
+        id: extracted_output
         env:
           PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/smoke-full-app-windows.cjs build/caspar-proof-tools build/windows/PiRaiders-Development-win-x64.zip
+      - name: Diagnose ASCII versus Unicode Caspar configuration argv after failed output
+        if: ${{ failure() && steps.extracted_output.outcome == 'failure' }}
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/probe-caspar-config-path-windows.cjs
       - name: Retain synthetic received pixels and sanitized application evidence only
         if: always()
         uses: actions/upload-artifact@v4

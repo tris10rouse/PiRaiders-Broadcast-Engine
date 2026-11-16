@@ -79,4 +79,19 @@ function prepareExtracted(archive,expectedSource){
   return Object.freeze({...location,work,powershell,archiveEvidence:Object.freeze({archiveSHA256,manifestSHA256:record.manifestSHA256,sourceCommit:record.sourceCommit,nodeVersion,originalInventoryFiles:record.files.length})});
  }catch(error){fs.rmSync(work,{recursive:true,force:true,maxRetries:10,retryDelay:100});throw error;}
 }
-module.exports={canonicalImage,cleanAppEnvironment,inventory,verifyOriginalInventory,sourceLocation,extractedLocation,assertOuterBench,captureAppParent,prepareExtracted};
+// Fixed fields only: an application snapshot can contain paths, event data and
+// private capabilities elsewhere. Never retain or serialize the raw snapshot.
+function createRuntimeDiagnostics(){
+ const states=new Set(['prepared','waiting','starting','ready','expired','closing','closed']);
+ const errors=new Set(['SESSION_CLOSE_FAILED','STATE_UNAVAILABLE','CONSOLE_CLOSE_FAILED','EVENT_BOOTSTRAP_FAILED','PRODUCTION_WINDOW_EXPIRED','EVENT_CLOSE_FAILED','CONSOLE_FAULT','SERVICE_FAULT','EVENT_START_FAILED','DISCONNECTED','PROTOCOL_ERROR','RENDERER_TIMEOUT','TRANSPORT_FAULT','RESOLVER_FAILED','CLOSE_FAILED','LISTEN_FAILED']);
+ const history=[];let observations=0;
+ function record(value){
+  const runtime=value?.active?.runtime;
+  const safe=Object.freeze({state:runtime?(states.has(runtime.state)?runtime.state:'unknown'):'unavailable',lastError:runtime?.lastError==null?null:(errors.has(runtime.lastError)?runtime.lastError:'UNRECOGNIZED'),generation:Number.isSafeInteger(runtime?.generation)&&runtime.generation>=0&&runtime.generation<=1000000?runtime.generation:null,ready:typeof runtime?.ready==='boolean'?runtime.ready:null,windowAllowed:typeof runtime?.windowAllowed==='boolean'?runtime.windowAllowed:null});
+  observations=Math.min(observations+1,1000000);
+  if(!history.length||JSON.stringify(history[history.length-1])!==JSON.stringify(safe)){history.push(safe);if(history.length>16)history.shift();}
+ }
+ function snapshot(){return Object.freeze({observations,history:Object.freeze(history.slice())});}
+ return Object.freeze({record,snapshot});
+}
+module.exports={createRuntimeDiagnostics,canonicalImage,cleanAppEnvironment,inventory,verifyOriginalInventory,sourceLocation,extractedLocation,assertOuterBench,captureAppParent,prepareExtracted};

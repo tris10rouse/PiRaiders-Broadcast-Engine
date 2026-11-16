@@ -48,3 +48,12 @@ PR35 merged1d111a19438eea0931bae34eb7e839f37dabccb0 after all four final Foundat
 This replaces the earlier interrupted-delegation note: candidates now exist, but native output is not yet claimed for this increment. Do not call the profile a provenance/loaded-driver check or the development ZIP an evaluation release. Preserve the source fixture requirements above.
 
 Final integrated Linux validation before publishing: syntax123 files passed; baseline458 tests,433 passes,25 explicitly Windows-only skips,0 failures. Existing browser44/44 passed against the same production renderer code. No Windows/Caspar/NDI result is claimed until final CI.
+
+
+## PR36 first Windows results — unresolved failures
+
+Initial sourcead8832309b711354eb175d54ba9f3fd8b13895d5: eight checks passed, but both full-app jobs failed. Extracted job133016586088 stopped INITIAL_READY/APP_RENDERER_READY with zero frame cases. Source job133016585847 completed all eleven actual frame cases, then failed PARENT_LOSS/PROCESS_IDENTITY_UNVERIFIED with IMAGE_MISSING; prior treeCounts described earlier recovery, not the failing capture. Neither failure is a demonstrated product fix or evaluation result. Keep PR36 draft.
+
+The next diagnostic commit preserves every strict identity/frame/deadline assertion, adds bounded whitelisted runtime-state history and precise parent capture/verify/terminate/gone phases, and runs a failure-only same-binary/same-ASCII-XML/cwd/environment Caspar VERSION probe with ASCII versus Unicode config argv filenames. Only a successful ASCII control plus differing Unicode result can support that path hypothesis; both-pass/both-fail cannot. No production cwd/path workaround is adopted without evidence. Root focused17/17 and syntax125 pass; independent diagnostic review10/10 passes. Inspect the exact final CI/probe report before changing behavior.
+
+A separate unreviewed metadata-only candidate is available in work/exchange-metadata-reader/ACCEPTANCE.md (five explicit files, agent-reported18/18 Linux tests). It is NOT integrated: all returned pins/results remain ready:false/semanticValidation:pending; full schemas/V1–V20/JCS/time/assets/cache/persistent ledger and Game Day/output integration are pending. Do not publish private fixture originals or advertise conformance from this candidate. PR36 remains the priority.
