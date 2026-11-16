@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-extracted-output-2026-11-16T00:05:26.632Z-ivjzd3a46mo",
-  "fence": 32,
-  "task": "Resolve Caspar config argument boundary and verify extracted output PR36",
+  "owner": "codex-caspar-path-fix-2026-11-16T04:39:45.206Z-gzk9sif3ynh",
+  "fence": 33,
+  "task": "Finish verified Caspar launch path fix and PR36 output proof",
   "workBranch": "feature/be-008-extracted-app-output",
-  "acquiredAt": "2026-11-16T00:05:26.632Z",
-  "lastHeartbeat": "2026-11-16T01:05:23.723Z",
-  "expiresAt": "2026-11-16T02:35:23.723Z",
+  "acquiredAt": "2026-11-16T04:39:45.206Z",
+  "lastHeartbeat": "2026-11-16T04:39:45.206Z",
+  "expiresAt": "2026-11-16T06:09:45.206Z",
   "releasedAt": null
 }
