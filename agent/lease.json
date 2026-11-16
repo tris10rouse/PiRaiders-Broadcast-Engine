@@ -6,7 +6,7 @@
   "task": "Verify bounded NDI reconnect observation proof before metadata PR37",
   "workBranch": "feature/be-002-ndi-frame-window",
   "acquiredAt": "2026-11-16T04:39:45.206Z",
-  "lastHeartbeat": "2026-11-16T05:23:46.417Z",
-  "expiresAt": "2026-11-16T06:53:46.417Z",
+  "lastHeartbeat": "2026-11-16T05:36:11.390Z",
+  "expiresAt": "2026-11-16T07:06:11.390Z",
   "releasedAt": null
 }
