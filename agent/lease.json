@@ -6,7 +6,7 @@
   "task": "Synchronize verified PR39 into metadata PR37 and verify combined CI",
   "workBranch": "feature/be-006-exchange-metadata-capture",
   "acquiredAt": "2026-11-16T10:23:10.814Z",
-  "lastHeartbeat": "2026-11-16T10:25:29.751Z",
-  "expiresAt": "2026-11-16T11:55:29.751Z",
+  "lastHeartbeat": "2026-11-16T10:28:18.954Z",
+  "expiresAt": "2026-11-16T11:58:18.954Z",
   "releasedAt": null
 }
