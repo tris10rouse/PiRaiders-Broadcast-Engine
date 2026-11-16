@@ -6,7 +6,7 @@
   "task": "Finish checkpoint PR35 and prove extracted application output",
   "workBranch": "feature/be-008-extracted-app-output",
   "acquiredAt": "2026-11-16T00:05:26.632Z",
-  "lastHeartbeat": "2026-11-16T00:26:03.721Z",
-  "expiresAt": "2026-11-16T01:56:03.721Z",
+  "lastHeartbeat": "2026-11-16T00:40:37.970Z",
+  "expiresAt": "2026-11-16T02:10:37.970Z",
   "releasedAt": null
 }
