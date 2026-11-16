@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-run-2026-11-16T16:41:26.728Z-ftw4uerq25p",
   "fence": 35,
-  "task": "Diagnose launcher deadline fixture and validate problem-state increment",
+  "task": "Publish and verify selection problem-state gate and scoped fixture corrections",
   "workBranch": "feature/be-006-problem-state",
   "acquiredAt": "2026-11-16T16:41:26.728Z",
-  "lastHeartbeat": "2026-11-16T17:19:44.043Z",
-  "expiresAt": "2026-11-16T18:49:44.043Z",
+  "lastHeartbeat": "2026-11-16T17:27:48.600Z",
+  "expiresAt": "2026-11-16T18:57:48.600Z",
   "releasedAt": null
 }
