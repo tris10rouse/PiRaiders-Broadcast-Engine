@@ -1,5 +1,10 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest software progress · 2026-11-16: selected-manifest timing
+
+PR44 merged problem-state validation with all 12 final checks passing. The current BE-006 timing increment checks the selected manifest's Chicago instants and elapsed broadcast window, preserves unavailable metadata for review and always requires operator confirmation. It adds no source scheduling or output integration. Durable feed/version state, a separately validated catalog boundary, verified ordered-asset staging and complete-candidate integration remain. Clean-machine setup, default browser/graceful close, diagnostics, cold-start headroom and four-hour soak still gate evaluation readiness.
+
+
 ## Latest software progress · 2026-11-16: problem-state semantics
 
 PR43 merged the detached selection-integrity gate after all 12 final checks passed, including real Windows source/extracted output. The next BE-006 increment validates incomplete selections, BOARD diagnostics and bounded limit declarations while preserving contract-permitted representations. Every result remains `ready:false`; source playback is not connected. Chicago timing, durable feed state, verified ordered-asset staging and complete-candidate integration still precede evaluation readiness. Licensed clean-machine setup, default browser/graceful close, diagnostics and four-hour soak remain open.

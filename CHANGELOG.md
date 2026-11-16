@@ -1,5 +1,13 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Exchange timing metadata
+
+- Added detached Chicago calendar, offset, DST and interval validation for selected-manifest event/broadcast timestamps. Midnight and DST crossings use elapsed UTC duration; broadcast windows are capped at24 hours.
+- Preserve correct ambiguous instants and unavailable source dates/times for operator review. No source reason is rewritten, and no operating window is confirmed or armed.
+- Added16 synthetic boundary and real metadata-capture tests. Final Linux baseline passed539 tests with27 Windows-only skips; final Windows CI remains required before merge.
+- PR44's problem-state prerequisite is verified and merged. Its prior local SPX startup timeout remains recorded; no production timeout was relaxed.
+
+
 ## 2026-11-16 · Exchange problem-state semantics
 
 - Added detached checks for incomplete selections, BOARD_UNRESOLVED diagnostics, selection-level problem scope and over-limit declarations. Contract-permitted listed/inline problems and repeated summaries remain valid.
