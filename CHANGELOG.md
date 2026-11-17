@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-16 · Independent catalog receipt candidate
+
+- Added full feed/catalog validation from bounded owned raw bytes with exact delivered SHA256, approved feed/epoch context and descriptor identity/path checks. Missing selected manifests cannot prevent independently valid catalog facts.
+- Added17 tests, including a real large catalog and actual missing-manifest → journal → reopen conflict retention. Full Linux baseline602passes/27 explicit Windows-only skips/zero failures; Windows validation remains required.
+- PR47's journal is verified and merged with26 real Windows journal cases passing. Source reader integration and playable media staging remain open; this gate cannot activate output.
+
 ## 2026-11-16 · Local exchange journal candidate
 
 - Added explicit initialization/opening of a private local version journal. Immutable records retain accepted facts across process restarts; competing writers use atomic no-overwrite publication and exact parent revision/hash checks.
