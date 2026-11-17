@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-2026-11-17T05:42:03.745Z-roft5ngsaem",
-  "fence": 39,
-  "task": "Integrate explicit exchange source provider and runtime admission",
+  "owner": "codex-2026-11-17T10:45:51.274Z-7tloxqd8c9",
+  "fence": 40,
+  "task": "Resume explicit exchange provider and runtime admission",
   "workBranch": "feature/be-006-exchange-provider",
-  "acquiredAt": "2026-11-17T05:42:03.745Z",
-  "lastHeartbeat": "2026-11-17T07:05:07.688Z",
-  "expiresAt": "2026-11-17T08:35:07.688Z",
+  "acquiredAt": "2026-11-17T10:45:51.274Z",
+  "lastHeartbeat": "2026-11-17T10:45:51.274Z",
+  "expiresAt": "2026-11-17T12:15:51.274Z",
   "releasedAt": null
 }
