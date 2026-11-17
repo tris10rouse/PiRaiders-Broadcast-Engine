@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 42,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-17T16:30:04.508Z",
-  "lastHeartbeat": "2026-11-17T17:12:17.078Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-17T17:12:17.078Z"
+  "status": "active",
+  "owner": "codex-2026-11-17T17:45:41.164Z-iyhoj2v8lz8",
+  "fence": 43,
+  "task": "Integrate PC source selection and explicit confirmed-window workflow",
+  "workBranch": "feature/be-006-source-confirmation",
+  "acquiredAt": "2026-11-17T17:45:41.164Z",
+  "lastHeartbeat": "2026-11-17T17:45:41.164Z",
+  "expiresAt": "2026-11-17T19:15:41.164Z",
+  "releasedAt": null
 }
