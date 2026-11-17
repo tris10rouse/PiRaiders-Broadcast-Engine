@@ -1,5 +1,12 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Source policy and candidate approval refresh
+
+- Recovered interrupted source-confirmation work under fresh lease44. Added strict opt-in source identities/private roots and retained canonical-root policy without mount/store initialization; source config cannot silently construct the lexical local catalog.
+- Added copied/frozen same-selected-capture identity, timing proposal, review flags and source ticks, preserving full labels and distinguishing source metadata from confirmed/prepared/active output.
+- Added awaited candidate approval refresh with physical ownership across logical close, caller-side source/policy checks after every lifecycle await and trusted callback, preserved Stop/active-window authority, and source200-codepoint labels. Reproduced scheduling, policy-clock and late-cleanup defects were fixed before publication.
+- PR54 merged after all12 checks, including corrected native deadline proof, Windows835/837(two documented skips), Chromium44/44 and source/extracted output proofs. Final Windows validation and PC source/service screen wiring remain unfinished.
+
 ## 2026-11-17 · Source catalog pages and durable approvals
 
 - Added metadata-only, revision-pinned event/selection pages preserving800-event/100-selection hierarchy and200-code-point labels. Reject conflicting repeated event headers and merged selection overflow; stale/invalid/aborted/superseded refreshes cannot restore browse authority.

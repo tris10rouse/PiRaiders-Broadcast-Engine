@@ -1,5 +1,12 @@
 # Implementation backlog
 
+## Current BE-006 increment: source machine policy and refreshed admission
+
+- Recover unfinished fence43 draft under fresh fence44; no old lease reused. Success: strict opt-in source policy with separately retained journal/approval IDs, approved canonical source spelling and disjoint named private roots, with no source mount/store initialization at config load.
+- Selected inspection exposes only copied/frozen fields from the same fully verified selected pin and verified timing result; never approve a window from catalog summary or claim content ready.
+- Await trusted approval refresh across candidate publication/retirement/start boundaries while retaining physical ownership. Mandatory synchronous source admission remains final. Closed/late/revoked callbacks cannot start or publish; active controls/Stop remain independent. Preserve legacy128 label/list policy and allow full200-codepoint source candidate labels.
+- Actual PC service/routes/screen wiring follows these proven boundaries; this increment does not enable a source UI automatically. Run failure/recovery, legacy regression and final-SHA Windows checks before merge.
+
 ## Current BE-006 increment: paged source catalog and durable approval primitives
 
 - Initial Windows proof failure and correction: Initial PR54 Windows source462dc221cdf51fa31b1d2891f3502c86c5cb470f job134205268290 failed the unchanged native sender-deadline proof at post-termination treeState: executable path missing in a still-enumerated row. New catalog/store tests all passed; baseline836 total/833pass/2skip/1fail. This failure remains retained, and the original strict failure was independently reproduced with a synthetic incomplete row. Teardown now uses the existing UNKNOWN observation path and requires BOTH zero survivors and zero unknowns within the unchanged ready.end+2500 deadline and shared10s cleanup bound. Preaction capture, strict live persistent checks, native deadlines and product behavior are unchanged. Review separately reproduced a malformed-present-image hidden by missing creation ticks; helper now validates every present field before UNKNOWN. New regression failed before fix; corrected focused49:41pass/8 explicit Windows-only skips/0fail. Initial full Linux836:809pass/27skip/0fail and syntax172 passed before this proof correction; corrected full regression and final-SHA Windows CI remain required. No unchanged rerun is used to claim success.
