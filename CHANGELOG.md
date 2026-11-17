@@ -1,5 +1,14 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Source coordination verified; decoder performance gate
+
+- Decoder candidate full Linux regression:716passed/27 explicit Windows-only skips/0fail (743total), syntax161, focused99/99. Final Windows/source/extracted evidence remains required before merge.
+- Reuse one operation-scoped worker for schema2 stage/load while preserving the full codec core, original limits and one-shot validation. Added request isolation, permanent fault state and actual-exit cancellation/cleanup barriers; idle worker faults cannot publish content.
+- Added real-worker lifecycle and public500-file source/cache regressions. Root99 focused cases passed; fresh full regression and Windows CI remain required. A separate4096² image timeout is retained as unresolved evidence.
+- PR51 merged with all12 final checks passing: Windows722/724(two documented skips), Chromium44/44 and source/extracted11 actual output states each. Initial failed Windows evidence remains recorded.
+- Independent hardened fixture execution exposed a500-image preparation timeout under the unchanged60-second cap; failed content was not acknowledged. Preserve that result and valid retained metadata facts. An operation-scoped decoder-session correction is in progress; fresh regression and Windows validation remain required.
+- Explicit source-provider/runtime and PC selection integration remain separate unfinished work. No release or hardware compatibility claim.
+
 ## 2026-11-17 · Detached source preparation coordinator
 
 Corrected local verification before publication: full Linux724tests/697pass/27 explicit Windows-only skips/0fail; root focused75/72pass/3native skips/0fail; independent proof43/40pass/3native skips/0fail; syntax156. Proof-helper SHA2565851fcfb36860e49bf836a2d86d3efa1cee0fb1215204b00830acfc82e0d7f46; full-app proofc3656c2f07a3df8f2ec1de4a5c8718d3739286a3886756f2751849bda8b7f125. Source coordinator/test unchanged from initial1496. Fresh final-SHA Windows/all12 checks required; original failed job remains evidence, not a proven diagnosis.

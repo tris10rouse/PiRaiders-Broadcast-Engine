@@ -1,5 +1,17 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest progress · 2026-11-17: decoder performance prerequisite
+
+Full Linux regression passed716 tests with27 explicit Windows-only skips and zero failures; syntax161 and99 focused tests passed. The reviewed change is ready for a focused PR and fresh Windows validation, including its public real500-file source/cache regression. The first evaluation release is still not ready.
+
+The operation-scoped decoder implementation passed99 focused root tests and independent review, including a public real500-file source/cache regression. The same private500-file case now staged in5.86s and verified cache in3.48s under the unchanged60-second cap. Full regression and fresh Windows CI are next. A separate large-image timeout remains explicitly unresolved.
+
+PR51 is verified and merged after all12 final checks passed: Windows722 tests(two documented skips), Chromium44/44 and both source/extracted eleven-state actual output proofs. Source preparation is detached and does not yet enable the exchange provider in Game Day.
+
+The hardened private fixture runner independently exposed a real500-image timeout at the existing60-second maximum. Earlier faster prototype runs remain recorded; this failure blocks claiming that boundary is validated. The next focused change removes per-image worker startup overhead while preserving full decoding, limits, cancellation and physical cleanup. It must pass actual500-image source/offline-cache validation and fresh Windows CI without increasing the cap.
+
+Then resume the explicit provider/runtime bridge and paged PC source selection. Licensed setup, browser/graceful-close proof, diagnostics/recovery, startup headroom and four-hour soak remain. The first evaluation release is not ready. Older entries below record historical states.
+
 ## Latest software progress · 2026-11-17: source preparation coordinator
 
 Corrected local verification before publication: full Linux724tests/697pass/27 explicit Windows-only skips/0fail; root focused75/72pass/3native skips/0fail; independent proof43/40pass/3native skips/0fail; syntax156. Proof-helper SHA2565851fcfb36860e49bf836a2d86d3efa1cee0fb1215204b00830acfc82e0d7f46; full-app proofc3656c2f07a3df8f2ec1de4a5c8718d3739286a3886756f2751849bda8b7f125. Source coordinator/test unchanged from initial1496. Fresh final-SHA Windows/all12 checks required; original failed job remains evidence, not a proven diagnosis.
