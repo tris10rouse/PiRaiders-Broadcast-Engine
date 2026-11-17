@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 41,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-17T15:46:37.147Z",
-  "lastHeartbeat": "2026-11-17T16:19:30.326Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-17T16:19:30.326Z"
+  "status": "active",
+  "owner": "codex-2026-11-17T16:30:04.508Z-t5uzmubqmme",
+  "fence": 42,
+  "task": "Implement PC source catalog and persistent approval prerequisite",
+  "workBranch": "feature/be-006-source-selection",
+  "acquiredAt": "2026-11-17T16:30:04.508Z",
+  "lastHeartbeat": "2026-11-17T16:30:04.508Z",
+  "expiresAt": "2026-11-17T18:00:04.508Z",
+  "releasedAt": null
 }
