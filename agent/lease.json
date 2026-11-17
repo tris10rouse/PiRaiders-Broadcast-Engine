@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-2026-11-17T05:42:03.745Z-roft5ngsaem",
   "fence": 39,
-  "task": "Review and integrate detached exchange source coordinator",
-  "workBranch": "feature/be-006-source-coordinator",
+  "task": "Integrate explicit exchange source provider and runtime admission",
+  "workBranch": "feature/be-006-exchange-provider",
   "acquiredAt": "2026-11-17T05:42:03.745Z",
-  "lastHeartbeat": "2026-11-17T06:58:07.611Z",
-  "expiresAt": "2026-11-17T08:28:07.611Z",
+  "lastHeartbeat": "2026-11-17T07:05:07.688Z",
+  "expiresAt": "2026-11-17T08:35:07.688Z",
   "releasedAt": null
 }
