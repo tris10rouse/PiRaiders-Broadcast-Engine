@@ -6,7 +6,7 @@
   "task": "Review and integrate detached exchange source coordinator",
   "workBranch": "feature/be-006-source-coordinator",
   "acquiredAt": "2026-11-17T05:42:03.745Z",
-  "lastHeartbeat": "2026-11-17T06:35:58.242Z",
-  "expiresAt": "2026-11-17T08:05:58.242Z",
+  "lastHeartbeat": "2026-11-17T06:45:33.652Z",
+  "expiresAt": "2026-11-17T08:15:33.652Z",
   "releasedAt": null
 }
