@@ -70,6 +70,15 @@ test('sustained unknown observation cannot pass a bounded polling deadline',asyn
   async function boundedCheck(){const deadline=Date.now()+35;do{polls++;last=observeTree(observations,captured);if(last.surviving===0&&last.unknown===0)return;await wait(5);}while(Date.now()<deadline);throw Error('CLEANUP_DEADLINE');}
   await assert.rejects(boundedCheck(),/CLEANUP_DEADLINE/);assert.ok(polls>=1);assert.equal(last.unknown,1);assert.equal(last.gone,1);
 });
+test('missing teardown fields cannot mask a malformed present identity field',()=>{
+  const child=row(20,10,1),captured=descendants([root,child],10);
+  for(const broken of [
+    {...child,CreationUtcTicks:null,ExecutablePath:'relative.exe'},
+    {...child,CreationUtcTicks:null,ExecutablePath:'C:\\bad\0image.exe'},
+    {...child,CreationUtcTicks:null,ExecutablePath:42},
+    {...child,CreationUtcTicks:'invalid',ExecutablePath:null}
+  ])assert.throws(()=>observeTree([broken],captured),error=>['IMAGE_INVALID','CREATION_INVALID'].includes(identityReason(error)));
+});
 test('failure diagnostics distinguish missing, malformed and contradictory evidence without row contents',()=>{
   const captured=descendants([root,row(20,10,1)],10);
   for(const [rows,reason]of [[[{...row(20,10,1),ExecutablePath:null}],'IMAGE_MISSING'],[[{...row(20,10,1),CreationUtcTicks:null}],'CREATION_MISSING'],[[{...row(20,10,1),ExecutablePath:'private-relative.exe'}],'IMAGE_INVALID'],[[{...row(20,10,1),ParentProcessId:99}],'LIVE_CONTRADICTION']]){

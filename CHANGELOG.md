@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Source catalog pages and durable approvals
+
+- Added metadata-only, revision-pinned event/selection pages preserving800-event/100-selection hierarchy and200-code-point labels. Reject conflicting repeated event headers and merged selection overflow; stale/invalid/aborted/superseded refreshes cannot restore browse authority.
+- Added detached UUID-bound immutable approval journal with exact-head CAS, normalized machine-policy/binding/tuple/window/cache confirmations, revocation, unchanged no-ops and observed file ownership checks. Actual child races/crashes, partial writes, I/O errors, corruption and offline composition are tested. It supplies persistence data, not implicit playback authorization.
+- PR53 provider/runtime admission merged after all12 checks. PC screen/machine-policy wiring and evaluation-release gates remain open; final Windows checks for this increment are still required.
+
 ## 2026-11-17 · Explicit source provider and candidate admission
 
 - Added backend exchange profile/driver integration with independent verified ordered caches, trusted offline authorization, mandatory manager admission and changed-Reload guards at actual dispatch.
