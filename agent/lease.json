@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "codex-2026-11-17T15:46:37.147Z-lfu9kcisg4",
+  "status": "idle",
+  "owner": null,
   "fence": 41,
-  "task": "Integrate reviewed exchange provider with manager admission",
-  "workBranch": "feature/be-006-exchange-provider",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-17T15:46:37.147Z",
-  "lastHeartbeat": "2026-11-17T16:17:56.531Z",
-  "expiresAt": "2026-11-17T17:47:56.531Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-17T16:19:30.326Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-17T16:19:30.326Z"
 }
