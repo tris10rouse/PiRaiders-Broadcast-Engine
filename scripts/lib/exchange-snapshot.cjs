@@ -24,9 +24,7 @@ const {
   createExchangeTimingGate
 } = require('./exchange-timing.cjs');
 
-const {
-  validateImage
-} = require('./image-validator.cjs');
+const {createImageValidationSession} = require('./image-validator-session.cjs');
 
 const LIMITS = Object.freeze({
   maxFiles: 500,
@@ -362,6 +360,7 @@ async function stageExchangeSnapshot(raw = {}) {
       if (temporaryId === null || await directoryIdentity(temporary) !== temporaryId) fail('SOURCE_CHANGED');
       if (mediaId !== null && await directoryIdentity(mediaDir) !== mediaId) fail('SOURCE_CHANGED');
     }
+    let decoderSession;
     try {
       await stableRoot(r.cacheDir, r.cache, r.cacheId);
       await fs.mkdir(temporary);
@@ -379,7 +378,7 @@ async function stageExchangeSnapshot(raw = {}) {
         const b = await capture(path.join(r.source, ...delivery.split('/')), r.source, a.byteLength, c);
         await stableRoot(r.sourceRoot, r.source, r.rootId);
         if (hash(b) !== a.sha256) fail('HASH_MISMATCH');
-        const decoded = await validateImage(b, {
+        const decoded = await (decoderSession ??= createImageValidationSession()).validate(b, {
           extension: path.extname(delivery),
           maxPixels: c.maxPixels,
           maxDimension: c.maxDimension,
@@ -406,6 +405,9 @@ async function stageExchangeSnapshot(raw = {}) {
         files.push(f);
         byPath.set(delivery, f.id);
       }
+      await decoderSession?.close();
+      if(decoderSession?.snapshot().faultCode)fail(decoderSession.snapshot().faultCode);
+      abort(c);
       files.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
       const m = {
         schemaVersion: 2,
@@ -449,6 +451,7 @@ async function stageExchangeSnapshot(raw = {}) {
       abort(c);
       return result(published, m);
     } finally {
+      let decoderCloseError;try{await decoderSession?.close();}catch(error){decoderCloseError=error;}
       if (owns && temporaryId !== null) {
         let removable = false;
         try {
@@ -463,6 +466,7 @@ async function stageExchangeSnapshot(raw = {}) {
         }
         if (removable) await fs.rm(temporary, {recursive: true, force: true});
       }
+      if(decoderCloseError)throw decoderCloseError;
     }
   });
 }
@@ -516,6 +520,8 @@ async function names(dir, max, c) {
 
 async function loadExchangeSnapshot(snapshotDir, raw = {}) {
   return translated(async () => {
+    let decoderSession;
+    try {
     const c = config(raw);
     abort(c);
     if (typeof snapshotDir !== 'string' || !path.isAbsolute(snapshotDir) || !UUID.test(path.basename(snapshotDir))) fail('INVALID_SNAPSHOT');
@@ -555,7 +561,7 @@ async function loadExchangeSnapshot(snapshotDir, raw = {}) {
       regular(before, 'UNSAFE_CACHE');
       const data = await capture(file, folder, f.bytes, c);
       if (hash(data) !== f.sha256) fail('CACHE_CHANGED');
-      const d = await validateImage(data, {
+      const d = await (decoderSession ??= createImageValidationSession()).validate(data, {
         extension: path.extname(f.src),
         maxPixels: c.maxPixels,
         maxDimension: c.maxDimension,
@@ -565,6 +571,8 @@ async function loadExchangeSnapshot(snapshotDir, raw = {}) {
       if (d.width !== f.width || d.height !== f.height || d.format !== f.format) fail('CACHE_CHANGED');
       signatures.push([ file, sig(before) ]);
     }
+    await decoderSession?.close();
+    if(decoderSession?.snapshot().faultCode)fail(decoderSession.snapshot().faultCode);
     abort(c);
     await noLinks(snapshotDir);
     if (sig(await fs.lstat(snapshotDir, {
@@ -584,6 +592,7 @@ async function loadExchangeSnapshot(snapshotDir, raw = {}) {
     }
     abort(c);
     return result(folder, m);
+    } finally {await decoderSession?.close();}
   });
 }
 

@@ -738,12 +738,12 @@ test('inconsistent alias metadata rejects before asset I/O and offline aliases c
 for (const mode of [ 'abort', 'timeout' ]) test('controlled ' + mode + ' after real decoder worker start propagates only after worker cleanup', {
   timeout: 1e4
 }, async t => {
-  const f = await fixture(t), controller = new AbortController(), snapshotFile = require.resolve('../scripts/lib/exchange-snapshot.cjs'), validator = require('../scripts/lib/image-validator.cjs'), real = validator.validateImage, previous = require.cache[snapshotFile];
+  const f = await fixture(t), controller = new AbortController(), snapshotFile = require.resolve('../scripts/lib/exchange-snapshot.cjs'), validator = require('../scripts/lib/image-validator-session.cjs'), real = validator.createImageValidationSession, previous = require.cache[snapshotFile];
   let calls = 0, callback, timer;
   if (mode === 'timeout') {
     const schedule = global.setTimeout;
     t.mock.method(global, 'setTimeout', (fn, ms, ...args) => {
-      if (ms !== 4321) return schedule(fn, ms, ...args);
+      if (!(ms > 4000 && ms <= 4321)) return schedule(fn, ms, ...args);
       assert.equal(callback, undefined);
       callback = () => fn(...args);
       timer = schedule(() => {}, 36e5);
@@ -752,22 +752,25 @@ for (const mode of [ 'abort', 'timeout' ]) test('controlled ' + mode + ' after r
     });
     t.after(() => clearTimeout(timer));
   }
-  validator.validateImage = (buffer, options) => {
-    assert.equal(options.signal.aborted, false);
-    const pending = real(buffer, options);
-    calls++;
-    if (mode === 'abort') controller.abort(); else {
-      assert.equal(typeof callback, 'function', 'real worker validator installed its original deadline');
-      callback();
-    }
-    return pending;
+  validator.createImageValidationSession = () => {
+    const session = real();
+    return {...session, validate(buffer, options) {
+      assert.equal(options.signal.aborted, false);
+      const pending = session.validate(buffer, options);
+      calls++;
+      if (mode === 'abort') controller.abort(); else {
+        assert.equal(typeof callback, 'function', 'real worker session installed its original deadline');
+        callback();
+      }
+      return pending;
+    }};
   };
   delete require.cache[snapshotFile];
   let candidate;
   try {
     candidate = require(snapshotFile).stageExchangeSnapshot;
   } finally {
-    validator.validateImage = real;
+    validator.createImageValidationSession = real;
   }
   try {
     await rejects(candidate(request(f, {
@@ -778,7 +781,7 @@ for (const mode of [ 'abort', 'timeout' ]) test('controlled ' + mode + ' after r
     assert.deepEqual(await fs.readdir(f.cacheDir), []);
   } finally {
     require.cache[snapshotFile] = previous;
-    validator.validateImage = real;
+    validator.createImageValidationSession = real;
   }
 });
 
@@ -875,4 +878,45 @@ test('a replaced pending directory is neither written, published nor deleted', a
   } finally {
     fs.open = open;
   }
+});
+
+test('idle real decoder fault after final decode blocks publication and cleans owned pending tree', {timeout:15000},async t=>{
+ const {Worker}=require('node:worker_threads');
+ const f=await fixture(t),good=await stageExchangeSnapshot(request(f)),post=Worker.prototype.postMessage,write=fs.writeFile;
+ let worker,mediaWrites=0;
+ t.mock.method(Worker.prototype,'postMessage',function(...args){worker=this;return post.apply(this,args);});
+ t.mock.method(fs,'writeFile',async(file,...args)=>{const result=await write.call(fs,file,...args);if(String(file).includes('.pending-')&&String(file).includes(path.sep+'media'+path.sep)&&++mediaWrites===2)worker.emit('message',{id:999,ok:true,format:'png',width:2,height:1});return result;});
+ await rejects(stageExchangeSnapshot(request(f)),'IMAGE_DECODE_FAILED');
+ assert.equal(mediaWrites,2);assert.equal(worker.threadId,-1);assert.deepEqual(await fs.readdir(f.cacheDir),[good.manifest.id]);await fs.access(good.snapshotDir);
+});
+
+test('failed actual terminate holds staging cleanup until real exit then removes only owned pending tree',{timeout:15000},async t=>{
+ const {Worker}=require('node:worker_threads'),{once}=require('node:events');
+ const f=await fixture(t,[image()],[0]),good=await stageExchangeSnapshot(request(f)),controller=new AbortController();
+ const terminate=Worker.prototype.terminate,remove=fs.rm;
+ let entered;const start=new Promise(resolve=>entered=resolve);let worker,removeCalls=0;
+ t.mock.method(Worker.prototype,'postMessage',function(){worker=this;entered();});
+ t.mock.method(Worker.prototype,'terminate',()=>Promise.reject(Error('PRIVATE_TERMINATION_FAILURE')));
+ t.mock.method(fs,'rm',async(file,...args)=>{if(path.basename(String(file)).startsWith('.pending-')){removeCalls++;assert.equal(worker.threadId,-1,'owned cleanup requires actual worker exit');}return remove.call(fs,file,...args);});
+ const pending=stageExchangeSnapshot(request(f,{signal:controller.signal}));const failure=assert.rejects(pending,e=>e.code==='IMAGE_DECODE_FAILED');
+ t.after(async()=>{if(worker?.threadId!==-1)await terminate.call(worker);await pending.catch(()=>{});});
+ await start;await once(worker,'online');controller.abort();
+ let settled=false;void pending.then(()=>settled=true,()=>settled=true);await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(settled,false);assert.equal(removeCalls,0);assert.notEqual(worker.threadId,-1);assert.equal((await fs.readdir(f.cacheDir)).filter(n=>n.startsWith('.pending-')).length,1);
+ await terminate.call(worker);await failure;
+ assert.equal(removeCalls,1);assert.deepEqual(await fs.readdir(f.cacheDir),[good.manifest.id]);await fs.access(good.snapshotDir);
+});
+
+for(const mode of ['stage','load'])test('schema2 '+mode+' waits real session close before publication or final acknowledgement',{timeout:15000},async t=>{
+ const {Worker}=require('node:worker_threads');
+ const f=await fixture(t),good=await stageExchangeSnapshot(request(f)),terminate=Worker.prototype.terminate,rename=fs.rename;
+ let enter,release;const entered=new Promise(resolve=>enter=resolve),held=new Promise(resolve=>release=resolve);let worker,renames=0;
+ t.mock.method(Worker.prototype,'terminate',function(){worker=this;return terminate.call(this).then(async code=>{enter();await held;return code;});});
+ t.mock.method(fs,'rename',(...args)=>{renames++;return rename.apply(fs,args);});
+ const pending=mode==='stage'?stageExchangeSnapshot(request(f)):loadExchangeSnapshot(good.snapshotDir);
+ let acknowledged=false;void pending.then(()=>acknowledged=true,()=>acknowledged=true);
+ t.after(async()=>{release();await pending.catch(()=>{});});
+ await entered;await new Promise(resolve=>setImmediate(resolve));assert.equal(worker.threadId,-1,'native worker actually exited');assert.equal(acknowledged,false);assert.equal(renames,0);
+ if(mode==='stage')assert.equal((await fs.readdir(f.cacheDir)).filter(n=>n.startsWith('.pending-')).length,1);
+ release();const complete=await pending;assert.equal(renames,mode==='stage'?1:0);assert.equal(complete.deck.slides.length,3);if(mode==='load')assert.equal(complete.snapshotDir,good.snapshotDir);
 });
