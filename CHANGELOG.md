@@ -1,5 +1,19 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Detached source preparation coordinator
+
+Corrected local verification before publication: full Linux724tests/697pass/27 explicit Windows-only skips/0fail; root focused75/72pass/3native skips/0fail; independent proof43/40pass/3native skips/0fail; syntax156. Proof-helper SHA2565851fcfb36860e49bf836a2d86d3efa1cee0fb1215204b00830acfc82e0d7f46; full-app proofc3656c2f07a3df8f2ec1de4a5c8718d3739286a3886756f2751849bda8b7f125. Source coordinator/test unchanged from initial1496. Fresh final-SHA Windows/all12 checks required; original failed job remains evidence, not a proven diagnosis.
+
+- Initial PR51 Windows baseline passed715 tests(two documented skips) and44 browser cases; source actual output passed. Extracted crash-recovery proof failed process identity capture after8 frame cases. PR remains draft pending investigation/correction and fresh final-SHA CI; no release claim.
+- Independently reproduced and corrected proof ancestry handling for new older rows with missing images; prior partial/known identities remain obligations even off-tree. Added fixed-scope diagnostic counts/time and seven regressions without changing capture deadlines or application runtime. The original Windows failure cause remains unproven.
+Root, author and independent reviewer each passed32/32 focused tests (zero skips/failures). Final Linux regression717:690 passed/27 explicit Windows-only skips/0fail; syntax156 passed. New module SHA2562c2fe30ab8e8e82bdfed19db895131c64f2d39dbb2c354ebec1a379b9ee9555a; test64868c274d7bea9c0b38c2d717060a343350a16d1f3b6fe13f23af2f6a752c01. Native Windows/final-SHA all12 checks remain required before merge.
+
+- Compose approved feed binding, independent catalog capture, full selected metadata validation and separate exact-byte journal facts before staging actual ordered image content.
+- Verify and reuse an existing cache for unchanged playback fingerprints; retain prior prepared content through missing, invalid, empty, incomplete or removed source data. Source eligibility and timing proposals cannot arm output.
+- Hold the physical preparation slot through reader close, journal settlement and actual image-worker cleanup, even after logical cancellation. No automatic journal initialization, rebind or retry after uncertain publication.
+- Reject source/journal overlap before facts, including actual canonical aliases. A real nested-journal regression failed before the fix. Require present current metadata with a generation at least as new as catalog before selected admission; catalog facts remain independent.
+- PR50 is verified and merged after all 12 final checks passed: Windows 683 passes/two documented skips, Chromium 44/44, and source/extracted actual output proofs. Earlier failed fixture runs remain recorded. Final Windows evidence for this new coordinator remains required.
+
 ## 2026-11-17 · Snapshot ownership and Windows fixture correction
 
 - Corrected fault-injection fixtures to use canonical temporary paths and assert actual fault admission. Retained both original Windows failures; no product deadline or limit was relaxed.

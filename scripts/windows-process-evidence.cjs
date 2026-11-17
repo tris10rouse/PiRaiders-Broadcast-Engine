@@ -8,7 +8,8 @@ const {performance}=require('node:perf_hooks');
 const path=require('node:path');
 // Bypass WindowsPowerShell5 console code pages; JSON is an explicit UTF8 byte protocol.
 const PROCESS_QUERY="$ErrorActionPreference='Stop'; $rows = @(Get-CimInstance Win32_Process -ErrorAction Stop | Select-Object ProcessId,ParentProcessId,ExecutablePath,@{Name='CreationUtcTicks';Expression={if($null -eq $_.CreationDate){$null}else{$_.CreationDate.ToUniversalTime().Ticks.ToString([System.Globalization.CultureInfo]::InvariantCulture)}}}); $json = ConvertTo-Json -Compress -InputObject $rows; $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($json); $stream = [Console]::OpenStandardOutput(); $stream.Write($bytes,0,$bytes.Length); $stream.Flush()";
-const failures=new WeakMap();
+const failures=new WeakMap(),captureDiagnostics=new WeakMap();
+function identityCaptureDiagnostics(error){return captureDiagnostics.get(error)||null;}
 function fail(reason){const error=Error('PROCESS_IDENTITY_UNVERIFIED');failures.set(error,reason);throw error;}
 function identityReason(error){return failures.get(error)||null;}
 function index(rows){
@@ -39,10 +40,10 @@ function descendants(rows,parent){
   const byPid=index(rows),root=identity(byPid.get(parent)),found=new Map([[parent,root]]);
   for(let again=true;again;){again=false;for(const row of rows){
     const ancestor=found.get(row.ParentProcessId);if(!ancestor||found.has(row.ProcessId))continue;
-    const child=identity(row);
-    // An older process cannot be this generation's child. Windows retains a
-    // numeric PPID after its original parent exits; no ancestry is inferred.
-    if(BigInt(child.CreationUtcTicks)<BigInt(ancestor.CreationUtcTicks))continue;
+    // Validate present fields before using creation time to exclude a stale PPID.
+    const observed=captureIdentity(row);
+    if(row.CreationUtcTicks&&BigInt(row.CreationUtcTicks)<BigInt(ancestor.CreationUtcTicks))continue;
+    const child=observed.value||identity(row);
     found.set(child.ProcessId,child);again=true;
   }}
   return Object.freeze([...found.values()]);
@@ -111,7 +112,7 @@ function readCaptureTable(timeoutMs){
 // never means gone: only a later complete positive-control snapshot may establish
 // that the incomplete candidate PID is no longer present. No identity is invented
 // for that candidate and it is not counted as a captured generation.
-async function captureProcessTree(parent,{deadline,expectedParentPid,expectedImage,expectedRoot=null,readTable=readCaptureTable,now=()=>performance.now(),pause=wait,pollMs=100,controlPid=process.pid}={}){
+async function captureProcessTreeImpl(parent,{deadline,expectedParentPid,expectedImage,expectedRoot=null,readTable=readCaptureTable,now=()=>performance.now(),pause=wait,pollMs=100,controlPid=process.pid}={},diagnostics){
   if(!Number.isSafeInteger(parent)||parent<=0||!Number.isSafeInteger(controlPid)||controlPid<=0||!Number.isFinite(deadline)||!Number.isSafeInteger(pollMs)||pollMs<1||pollMs>1000||!Number.isSafeInteger(expectedParentPid)||expectedParentPid<0||typeof expectedImage!=='string'||!path.win32.isAbsolute(expectedImage)||expectedImage.includes('\0'))fail('CAPTURE_INVALID');
   const known=new Map(),partial=new Map();let root=expectedRoot===null?null:identity(expectedRoot),control=null,lastMissing=null;
   const image=path.win32.normalize(expectedImage).toLowerCase();
@@ -132,15 +133,16 @@ async function captureProcessTree(parent,{deadline,expectedParentPid,expectedIma
       ExecutablePath:current.ExecutablePath||previous?.ExecutablePath||null,complete:!!(current.CreationUtcTicks&&current.ExecutablePath)});
   }
   while(now()<deadline){
+    diagnostics.queries=Math.min(65536,diagnostics.queries+1);
     const rows=await readTable(Math.max(1,Math.min(15000,Math.floor(deadline-now()))));
     if(now()>=deadline)fail(lastMissing||'CAPTURE_DEADLINE');
-    const byPid=index(rows),missing=new Set();
-    function inspect(row){const observed=captureIdentity(row);checkPartial(row);if(observed.missing)missing.add(observed.missing);return observed.value;}
-    const controlRow=byPid.get(controlPid),observedControl=inspect(controlRow);
+    const byPid=index(rows),missing=new Set(),pendingBefore=new Set([...partial].filter(([,value])=>!value.complete).map(([pid])=>pid));
+    function inspect(row,role){const observed=captureIdentity(row);checkPartial(row);if(observed.missing){missing.add(observed.missing);diagnostics.missingRoles[role]=Math.min(65536,diagnostics.missingRoles[role]+1);}return observed.value;}
+    const controlRow=byPid.get(controlPid),observedControl=inspect(controlRow,'control');
     if(control&&((controlRow.CreationUtcTicks&&controlRow.CreationUtcTicks!==control.CreationUtcTicks)||controlRow.ParentProcessId!==control.ParentProcessId||(controlRow.ExecutablePath&&path.win32.normalize(controlRow.ExecutablePath).toLowerCase()!==control.ExecutablePath)))fail('LIVE_CONTRADICTION');
     if(control&&observedControl&&(control.CreationUtcTicks!==observedControl.CreationUtcTicks||control.ExecutablePath!==observedControl.ExecutablePath||control.ParentProcessId!==observedControl.ParentProcessId))fail('LIVE_CONTRADICTION');
     if(observedControl)control=observedControl;
-    const rootRow=byPid.get(parent),observedRoot=inspect(rootRow);
+    const rootRow=byPid.get(parent),observedRoot=inspect(rootRow,'root');
     if(root&&rootRow.CreationUtcTicks&&rootRow.CreationUtcTicks!==root.CreationUtcTicks)fail('CAPTURE_GENERATION_CHANGED');
     if(rootRow.ParentProcessId!==expectedParentPid||(rootRow.ExecutablePath&&path.win32.normalize(rootRow.ExecutablePath).toLowerCase()!==image))fail('CAPTURE_ROOT_OWNER');
     if(root&&observedRoot&&(root.CreationUtcTicks!==observedRoot.CreationUtcTicks||root.ExecutablePath!==observedRoot.ExecutablePath||root.ParentProcessId!==observedRoot.ParentProcessId))fail('CAPTURE_GENERATION_CHANGED');
@@ -148,9 +150,18 @@ async function captureProcessTree(parent,{deadline,expectedParentPid,expectedIma
     // Check all related rows, not only until the first missing field. This also
     // prevents an earlier incomplete sibling from masking contradictory data.
     const reached=new Map([[parent,observedRoot]]),proven=new Set(observedRoot?[parent]:[]);
+    const excluded=new Set();
     for(let again=true;again;){again=false;for(const row of rows){
-      if(!reached.has(row.ParentProcessId)||reached.has(row.ProcessId))continue;
-      const value=inspect(row),ancestor=reached.get(row.ParentProcessId);
+      if(!reached.has(row.ParentProcessId)||reached.has(row.ProcessId)||excluded.has(row.ProcessId))continue;
+      const ancestor=reached.get(row.ParentProcessId);
+      // A newly encountered, provably older row belongs to another parent PID
+      // generation. Validate syntax, but do not create an incomplete obligation.
+      // Previously tracked partial/complete candidates must still be resolved.
+      captureIdentity(row);
+      if(!partial.has(row.ProcessId)&&ancestor&&row.CreationUtcTicks&&BigInt(row.CreationUtcTicks)<BigInt(ancestor.CreationUtcTicks)){
+        excluded.add(row.ProcessId);diagnostics.excludedOlderRows=Math.min(65536,diagnostics.excludedOlderRows+1);continue;
+      }
+      const value=inspect(row,'related');
       if(value&&ancestor&&BigInt(value.CreationUtcTicks)<BigInt(ancestor.CreationUtcTicks))continue;
       reached.set(row.ProcessId,value);if(value&&ancestor&&proven.has(row.ParentProcessId))proven.add(row.ProcessId);again=true;
     }}
@@ -158,9 +169,19 @@ async function captureProcessTree(parent,{deadline,expectedParentPid,expectedIma
     // shows them absent. Present-but-incomplete previous rows still block capture.
     for(const old of known.values()){
       const row=byPid.get(old.ProcessId);if(!row)continue;
-      const value=inspect(row);if(!value)continue;
+      const value=inspect(row,'previouslyCaptured');if(!value)continue;
       if(BigInt(value.CreationUtcTicks)<BigInt(old.CreationUtcTicks))fail('CREATION_BACKWARDS');
       if(value.CreationUtcTicks===old.CreationUtcTicks&&(value.ExecutablePath!==old.ExecutablePath||value.ParentProcessId!==old.ParentProcessId))fail('LIVE_CONTRADICTION');
+    }
+    // Incomplete candidates from prior tables remain obligations while present,
+    // even if a disappeared/reused immediate parent cuts off current reachability.
+    // A newly complete but off-tree candidate cannot gain historical ownership
+    // from a numeric PPID alone; fail closed instead of inventing an identity.
+    for(const pid of pendingBefore){
+      if(proven.has(pid)||pid===parent||pid===controlPid)continue;
+      const row=byPid.get(pid);if(!row)continue;
+      const value=inspect(row,'previouslyCaptured');
+      if(value)fail('CAPTURE_ANCESTRY_UNVERIFIED');
     }
     for(const [pid,value]of reached)if(value&&proven.has(pid))known.set(value.ProcessId+':'+value.CreationUtcTicks,value);
     if(known.size>65536)fail('CAPTURE_LIMIT');
@@ -176,4 +197,19 @@ async function captureProcessTree(parent,{deadline,expectedParentPid,expectedIma
   }
   fail(lastMissing||'CAPTURE_DEADLINE');
 }
-module.exports={PROCESS_QUERY,processTable,descendants,treeState,observeTree,identityReason,captureProcessTree};
+// Fixed-schema, bounded diagnostics contain counts and timing only. They never
+// retain raw tables, process identifiers, executable paths or caller strings.
+async function captureProcessTree(parent,options={}){
+  const scope=['application','sender','tree'].includes(options.scope)?options.scope:'tree';
+  const now=options.now||(()=>performance.now()),started=now();
+  const diagnostics={scope,queries:0,missingRoles:{control:0,root:0,related:0,previouslyCaptured:0},excludedOlderRows:0};
+  try{
+    if(options.scope!==undefined&&!['application','sender','tree'].includes(options.scope))fail('CAPTURE_INVALID');
+    return await captureProcessTreeImpl(parent,options,diagnostics);
+  }catch(error){
+    const bounded=value=>Number.isFinite(value)?Math.max(0,Math.min(15000,Math.floor(value))):0;
+    if(error&&(typeof error==='object'||typeof error==='function'))captureDiagnostics.set(error,Object.freeze({...diagnostics,missingRoles:Object.freeze({...diagnostics.missingRoles}),elapsedMs:bounded(now()-started),remainingMs:bounded(options.deadline-now())}));
+    throw error;
+  }
+}
+module.exports={PROCESS_QUERY,processTable,descendants,treeState,observeTree,identityReason,identityCaptureDiagnostics,captureProcessTree};

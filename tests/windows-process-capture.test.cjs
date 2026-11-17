@@ -2,7 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {performance}=require('node:perf_hooks');
-const {captureProcessTree,descendants,observeTree,identityReason}=require('../scripts/windows-process-evidence.cjs');
+const {captureProcessTree,descendants,observeTree,identityReason,identityCaptureDiagnostics}=require('../scripts/windows-process-evidence.cjs');
 const stamp=638987654321000000n;
 function row(pid,parent,offset=pid,image='C:\\proof\\child.exe'){return{ProcessId:pid,ParentProcessId:parent,CreationUtcTicks:String(stamp+BigInt(offset)),ExecutablePath:image};}
 const root=row(10,1,0,'C:\\proof\\host.exe'),control=row(99,90,1,'C:\\proof\\node.exe'),child=row(20,10,1),sibling=row(30,10,2);
@@ -117,4 +117,61 @@ test('real Windows bounded preaction capture proves a live child generation and 
  const{processTable}=require('../scripts/windows-process-evidence.cjs'),deadline=Date.now()+10000;let state;
  do{state=observeTree(processTable(),captured.tree);if(state.surviving===0&&state.unknown===0)break;await wait(100);}while(Date.now()<deadline);
  assert.equal(state.surviving,0);assert.equal(state.unknown,0);
+});
+
+test('older unrelated row with missing image is excluded before incomplete tracking',async()=>{
+ const older={...child,CreationUtcTicks:String(stamp-1n),ExecutablePath:null},grandchild=row(30,20,2);
+ assert.deepEqual(descendants(table(older,grandchild),10).map(value=>value.ProcessId),[10]);
+ const h=harness([table(older,grandchild)]),captured=await h.capture();
+ assert.equal(h.calls(),1);assert.deepEqual(captured.currentTree.map(value=>value.ProcessId),[10]);assert.deepEqual(captured.tree.map(value=>value.ProcessId),[10]);
+});
+test('older-row exclusion still validates present syntax and cannot exclude unknown/equal/newer creation',async()=>{
+ for(const [candidate,expected]of [
+  [{...child,CreationUtcTicks:String(stamp-1n),ExecutablePath:'private-relative.exe'},'IMAGE_INVALID'],
+  [{...child,CreationUtcTicks:'private-invalid',ExecutablePath:null},'CREATION_INVALID'],
+  [{...child,CreationUtcTicks:null,ExecutablePath:null},'CREATION_MISSING'],
+  [{...child,CreationUtcTicks:String(stamp),ExecutablePath:null},'IMAGE_MISSING'],
+  [{...child,CreationUtcTicks:String(stamp+1n),ExecutablePath:null},'IMAGE_MISSING']
+ ]){const h=harness([table(candidate)]);await assert.rejects(h.capture(),reason(expected));assert.throws(()=>descendants(table(candidate),10),reason(expected));}
+});
+test('previously partial owned candidate stays unresolved after immediate parent PID reuse',async()=>{
+ const parent=row(20,10,1),partial=row(30,20,2,null),reused={...parent,CreationUtcTicks:String(stamp+3n)};
+ const h=harness([table(parent,partial),table(reused,partial)]);
+ await assert.rejects(h.capture(),reason('IMAGE_MISSING'));assert.equal(h.clock(),15);
+});
+test('known complete owned generation stays unresolved when older than reused parent and incomplete',async()=>{
+ const parent=row(20,10,1),owned=row(30,20,2),blocker=row(40,10,4,null),reused={...parent,CreationUtcTicks:String(stamp+3n)};
+ const h=harness([table(parent,owned,blocker),table(reused,{...owned,ExecutablePath:null})]);
+ await assert.rejects(h.capture(),reason('IMAGE_MISSING'));assert.equal(h.clock(),15);
+});
+
+
+test('prior partial candidate present after parent disappears remains an unresolved obligation',async()=>{
+ const parent=row(20,10,1),partial=row(30,20,2,null);
+ const h=harness([table(parent,partial),table(partial)]);
+ await assert.rejects(h.capture(),reason('IMAGE_MISSING'));assert.equal(h.clock(),15);
+ const resolved=harness([table(parent,partial),table({...partial,ExecutablePath:'C:\\proof\\child.exe'})]);
+ await assert.rejects(resolved.capture(),reason('CAPTURE_ANCESTRY_UNVERIFIED'));
+});
+test('capture failure diagnostics use fixed roles/scope and bounded counts and timing only',async()=>{
+ const older={...child,CreationUtcTicks:String(stamp-1n),ExecutablePath:null};
+ const h=harness([[{...control,ExecutablePath:null},root,older,{...sibling,ExecutablePath:null}]],{scope:'sender'});
+ let caught;await assert.rejects(h.capture(),error=>{caught=error;return identityReason(error)==='IMAGE_MISSING';});
+ const diagnostic=identityCaptureDiagnostics(caught);
+ assert.deepEqual(Object.keys(diagnostic).sort(),['elapsedMs','excludedOlderRows','missingRoles','queries','remainingMs','scope']);
+ assert.equal(diagnostic.scope,'sender');assert.equal(diagnostic.queries,3);assert.equal(diagnostic.excludedOlderRows,3);
+ assert.equal(diagnostic.missingRoles.control,3);assert.equal(diagnostic.missingRoles.root,0);assert.ok(diagnostic.missingRoles.related>=3);
+ assert.equal(diagnostic.elapsedMs,15);assert.equal(diagnostic.remainingMs,0);assert.ok(Object.isFrozen(diagnostic)&&Object.isFrozen(diagnostic.missingRoles));
+ assert.deepEqual(Object.keys(diagnostic.missingRoles).sort(),['control','previouslyCaptured','related','root']);
+ assert.equal(identityCaptureDiagnostics(Error('not a capture')),null);
+ const invalid=harness([table()],{scope:'PRIVATE_SCOPE'});await assert.rejects(invalid.capture(),error=>{assert.equal(identityCaptureDiagnostics(error).scope,'tree');assert.ok(!JSON.stringify(identityCaptureDiagnostics(error)).includes('PRIVATE'));return identityReason(error)==='CAPTURE_INVALID';});
+ const long=harness([table()],{deadline:100000,queryCost:100000});await assert.rejects(long.capture(),error=>{const d=identityCaptureDiagnostics(error);assert.equal(d.elapsedMs,15000);assert.equal(d.remainingMs,0);return identityReason(error)==='CAPTURE_DEADLINE';});
+});
+test('diagnostics distinguish missing root and prior off-tree obligations without query contents',async()=>{
+ const rootMissing=harness([[control,{...root,ExecutablePath:null}]],{scope:'application'});
+ await assert.rejects(rootMissing.capture(),error=>{const d=identityCaptureDiagnostics(error);assert.equal(d.scope,'application');assert.equal(d.missingRoles.root,3);assert.equal(d.missingRoles.control,0);return identityReason(error)==='IMAGE_MISSING';});
+ const parent=row(20,10,1),partial=row(30,20,2,null),offTree=harness([table(parent,partial),table(partial)]);
+ await assert.rejects(offTree.capture(),error=>{const d=identityCaptureDiagnostics(error);assert.ok(d.missingRoles.previouslyCaptured>=2);return identityReason(error)==='IMAGE_MISSING';});
+ const privateError=Error('PRIVATE_QUERY_OUTPUT'),query=harness([privateError]);
+ await assert.rejects(query.capture(),error=>{assert.equal(error,privateError);const d=identityCaptureDiagnostics(error);assert.equal(d.queries,1);assert.ok(!JSON.stringify(d).includes('PRIVATE'));return true;});
 });

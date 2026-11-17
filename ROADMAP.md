@@ -1,5 +1,21 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest software progress · 2026-11-17: source preparation coordinator
+
+Corrected local verification before publication: full Linux724tests/697pass/27 explicit Windows-only skips/0fail; root focused75/72pass/3native skips/0fail; independent proof43/40pass/3native skips/0fail; syntax156. Proof-helper SHA2565851fcfb36860e49bf836a2d86d3efa1cee0fb1215204b00830acfc82e0d7f46; full-app proofc3656c2f07a3df8f2ec1de4a5c8718d3739286a3886756f2751849bda8b7f125. Source coordinator/test unchanged from initial1496. Fresh final-SHA Windows/all12 checks required; original failed job remains evidence, not a proven diagnosis.
+
+PR51 is draft and blocked by an extracted Windows proof failure during crash-recovery process identity capture. Its Windows baseline passed715 tests(two documented skips) and Chromium44/44; source output proof passed. Preserve the failure and investigate the proof boundary before merging; a passing baseline is insufficient.
+
+A proof-only correction excludes new processes demonstrably older than their reused parent PID while retaining prior incomplete/known ownership obligations and the original deadline. Sanitized diagnostic counts are added; the exact failed Windows process remains unavailable. Corrected final-SHA CI is required, and no runtime deadline or output assertion is weakened.
+
+Root, author and independent reviewer each passed32/32 focused tests (zero skips/failures). Final Linux regression717:690 passed/27 explicit Windows-only skips/0fail; syntax156 passed. New module SHA2562c2fe30ab8e8e82bdfed19db895131c64f2d39dbb2c354ebec1a379b9ee9555a; test64868c274d7bea9c0b38c2d717060a343350a16d1f3b6fe13f23af2f6a752c01. Native Windows/final-SHA all12 checks remain required before merge.
+
+PR50 is verified and merged as `6b3c91902a048d1686b4588bd2b734f636afe525`, with the identical tested tree. All 12 checks passed on corrected source `800b262edd2ebbc3827f55746da9e4c44872135a`: Windows 683/685 tests (two documented skips), Chromium 44/44, and both source/extracted actual Windows output proofs. Initial Windows fixture failures and the separately reproduced ownership defects remain recorded below.
+
+The current BE-006 increment composes independent catalog capture, exact-byte catalog/manifest journal facts and ordered verified caches behind a detached source coordinator. Metadata-only refresh verifies and reuses the existing cache; failures retain prior content. It does not change Game Day, source-provider configuration, playback or confirmed production windows. Final Windows validation is still required for this increment.
+
+Next: explicit source/provider admission and hierarchical/paged PC selection, full stateful source fixtures, licensed clean-machine setup, default-browser/graceful-close proof, diagnostics/recovery, cold-start headroom and four-hour soak. The first evaluation release is not ready. All older progress entries below describe their historical state.
+
 ## PR50 validation correction · 2026-11-17
 
 The ordered-snapshot PR remains unmerged. Both initial Windows runs failed five fault-injection cases; the fixture now uses canonical temporary paths and asserts that each intended fault is reached. Separate real-filesystem regressions reproduced and fixed pending-directory ownership bugs. Corrected Linux regression passed 658 tests with 27 Windows-only skips; fresh Windows CI is still required. Source/Game Day coordination and the remaining evaluation gates are unchanged.

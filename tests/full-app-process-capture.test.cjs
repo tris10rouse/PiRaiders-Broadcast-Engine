@@ -14,7 +14,7 @@ function harness(tables,deadline=30){let clock=0,calls=0;const stages=[],budgets
 test('full-app sender capture pins CLI then selected JobHost under exactly one original budget',async()=>{
  const a=rows(),b=rows();a[5].ExecutablePath=null;b[5].CreationUtcTicks=null;b.push(row(16,14,141,'C:\\bench\\retired-cef.exe'));
  const h=harness([a,rows(),b,rows()]);const result=await captureOwnedCaspar(parent,caspar,h.options);
- assert.deepEqual(h.stages.map(value=>value.pid),[10,13]);assert.ok(h.stages.every(value=>value.deadline===30));
+ assert.deepEqual(h.stages.map(value=>value.pid),[10,13]);assert.deepEqual(h.stages.map(value=>value.scope),['application','sender']);assert.ok(h.stages.every(value=>value.deadline===30));
  assert.deepEqual(h.budgets,[30,26,25,21]);assert.deepEqual(h.stages[0].expectedRoot,parent);assert.equal(h.stages[1].expectedRoot.CreationUtcTicks,'120');
  assert.equal(h.stages[1].expectedParentPid,12);assert.equal(normalized(h.stages[1].expectedImage),normalized(host));
  assert.equal(result.root.ProcessId,14);assert.equal(result.host.ProcessId,13);assert.deepEqual(result.tree.map(value=>value.ProcessId),[13,14,16,15]);
@@ -49,7 +49,7 @@ test('window and outer recovery limits cap capture rather than extending the pro
 });
 test('parent-loss capture passes the exact pinned CLI identity and preserves complete captured generations',async()=>{
  let options;const expected={tree:descendants(rows(),10)};const actual=await capturePinnedTree(parent,{deadline:77,capture:async(pid,value)=>{assert.equal(pid,10);options=value;return expected;}});
- assert.equal(actual,expected);assert.deepEqual(options,{deadline:77,expectedParentPid:1,expectedImage:parent.ExecutablePath,expectedRoot:parent});
+ assert.equal(actual,expected);assert.deepEqual(options,{deadline:77,scope:'tree',expectedParentPid:1,expectedImage:parent.ExecutablePath,expectedRoot:parent});
 });
 
 
