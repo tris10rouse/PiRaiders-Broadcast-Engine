@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-2026-11-17T10:45:51.274Z-7tloxqd8c9",
-  "fence": 40,
-  "task": "Remove decoder startup overhead for bounded 500-image preparation",
+  "owner": "codex-2026-11-17T15:46:37.147Z-lfu9kcisg4",
+  "fence": 41,
+  "task": "Verify PR52 and resume exchange provider runtime",
   "workBranch": "feature/be-006-decoder-session",
-  "acquiredAt": "2026-11-17T10:45:51.274Z",
-  "lastHeartbeat": "2026-11-17T11:33:53.665Z",
-  "expiresAt": "2026-11-17T13:03:53.665Z",
+  "acquiredAt": "2026-11-17T15:46:37.147Z",
+  "lastHeartbeat": "2026-11-17T15:46:37.147Z",
+  "expiresAt": "2026-11-17T17:16:37.147Z",
   "releasedAt": null
 }
