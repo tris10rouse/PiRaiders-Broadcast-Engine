@@ -1,5 +1,14 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Current progress · 2026-11-17: explicit source provider admission
+
+PR52 merged as34c9a79b8d7798e2e43ee7645e2faf2e07e9d24c, identical tested treebf1ff83214c6e2d553a6c89ea90663adf5813085. All12 checks passed at3e70f2d34f020a054a6c7301f621268af7e3cad4: Windows741pass/2 documented skips, Chromium44/44, source and extracted actual11-frame output proofs. Windows500-image stage/cache4156/2207ms under unchanged60s. These are development evidence, not targetWindows10/LAN/stadium compatibility or evaluation readiness.
+
+Current BE-006 backend integration adds explicit branded exchange profiles/drivers, mandatory manager candidate admission, offline cache authorization and changed-Reload dispatch guards. Review reproduced and fixed offline-only cancellation/omission/failure admission, reentrant authorizer/manager close and cancelled controller Reload mutation/render defects. Combined focused51/51 and expanded manager15/15 passed. The real manager/provider/runtime/session composition also passed (native processes and renderer ACKs synthetic). Initial full Linux run exposed the existing synchronous-deadline test racing its real filesystem setup; its test now controls the original timer/clock and asserts that validation actually ran. Targeted corrected case passed; initial failure remains retained. Revised full regression and final-SHA Windows checks remain required before merge.
+
+Default PC source selection/approval persistence remains unfinished. Next: hierarchical/paged source selection and confirmed windows, licensed clean-machine setup, diagnostics/recovery, browser/graceful-close proof, cold-start headroom and four-hour soak. First Windows evaluation release NOT READY. Earlier entries below are historical.
+
+
 ## Latest progress · 2026-11-17: decoder performance prerequisite
 
 Full Linux regression passed716 tests with27 explicit Windows-only skips and zero failures; syntax161 and99 focused tests passed. The reviewed change is ready for a focused PR and fresh Windows validation, including its public real500-file source/cache regression. The first evaluation release is still not ready.

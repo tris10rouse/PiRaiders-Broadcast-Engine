@@ -4,7 +4,7 @@ const { RossTalkBridge } = require('./rosstalk-bridge.cjs');
 const { createPresentationHost } = require('./presentation-host.cjs');
 const ACTIONS = new Set(['launch','next','previous','toggle-auto','auto','manual','reload','stop']);
 const HOST_CODES = new Set(['NOT_READY','CLOSED','CANCELLED','FAULTED','BUSY','RENDER_FAILED','RENDER_TIMEOUT',
-  'INVALID_SNAPSHOT','PREPARE_FAILED','PREPARE_TIMEOUT','SNAPSHOT_CONFLICT','NOT_PLAYING']);
+  'INVALID_SNAPSHOT','PREPARE_FAILED','PREPARE_TIMEOUT','SNAPSHOT_CONFLICT','NOT_PLAYING','ADMISSION_DENIED']);
 const FAULT_CODES = new Set(['HANDLER_TIMEOUT','LISTENER_FAILED','SEQUENCE_LIMIT']);
 function plain(value) { return !!value && typeof value === 'object' && [null,Object.prototype].includes(Object.getPrototypeOf(value)); }
 function known(value,keys) { return plain(value) && Reflect.ownKeys(value).every(key=>keys.includes(key)); }
@@ -12,12 +12,12 @@ function error(code) { return Object.assign(Error('Managed RossTalk '+code),{cod
 function integer(value,min,max) { return Number.isSafeInteger(value)&&value>=min&&value<=max; }
 /** Owns a real host and transport; no browser controls, source staging or sender. */
 async function createRossTalkSession(raw = {}, options = {}) {
-  let presentation, rossTalk, canControl, resolvePreparedSnapshot, resolverTimeoutMs, allowEphemeral, budget;
+  let presentation, rossTalk, canControl, resolvePreparedSnapshot, resolverTimeoutMs, allowEphemeral, budget, canCommitPreparedSnapshot;
   try {
-    if (!known(raw,['presentation','rossTalk','canControl','resolvePreparedSnapshot','resolverTimeoutMs']) ||
+    if (!known(raw,['presentation','rossTalk','canControl','resolvePreparedSnapshot','resolverTimeoutMs','canCommitPreparedSnapshot']) ||
       !known(options,['allowEphemeral']) || !plain(raw.presentation) || !plain(raw.rossTalk) ||
-      typeof raw.canControl !== 'function' || typeof raw.resolvePreparedSnapshot !== 'function') throw error('INVALID_OPTIONS');
-    ({canControl,resolvePreparedSnapshot,resolverTimeoutMs=5000}=raw);
+      typeof raw.canControl !== 'function' || typeof raw.resolvePreparedSnapshot !== 'function'||(raw.canCommitPreparedSnapshot!==undefined&&typeof raw.canCommitPreparedSnapshot!=='function')) throw error('INVALID_OPTIONS');
+    ({canControl,resolvePreparedSnapshot,resolverTimeoutMs=5000,canCommitPreparedSnapshot}=raw);
     ({allowEphemeral=false}=options);
     if (typeof allowEphemeral !== 'boolean' || !integer(resolverTimeoutMs,100,120000)) throw error('INVALID_OPTIONS');
     presentation={...raw.presentation};rossTalk={...raw.rossTalk};
@@ -91,7 +91,7 @@ async function createRossTalkSession(raw = {}, options = {}) {
           if (!gate()) { diagnostic('CONTROL_INHIBITED');await requestStop();throw error('CONTROL_INHIBITED'); }
           if (typeof candidate!=='string'||!path.isAbsolute(candidate)) throw error('INVALID_SNAPSHOT');
         } finally { clearTimeout(job.timer);if(resolver===job)resolver=null; }
-        requireSuccess(await host.reloadSnapshot(candidate));
+        requireSuccess(await host.reloadSnapshot(candidate,canCommitPreparedSnapshot===undefined?{}:{canCommit:()=>canCommitPreparedSnapshot(candidate)}));
       } else {
         requireSuccess(await host.dispatch(action));
       }

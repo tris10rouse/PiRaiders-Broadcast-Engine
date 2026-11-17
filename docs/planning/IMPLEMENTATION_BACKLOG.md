@@ -1,4 +1,11 @@
 # Implementation backlog
+## Current BE-006 increment: provider/runtime admission
+
+- Success criteria: explicit branded exchange profiles/drivers with verified ordered caches; no source writes or automatic arming; offline authorization revoked by known cancellation, omission or failed refresh; reentrant callbacks cannot admit closed candidates or render cancelled Reloads.
+- Manager checks mandatory source admission before publication/start and after awaited start, including after optional trusted callbacks. Active playback/Stop and confirmed windows remain sticky.
+- Validate real temporary source/journal/cache and regression paths locally, then all final-SHA CI including real Windows process/output tests. Synthetic process/ACK tests do not prove native output.
+- PC hierarchical selection/approval persistence remains a subsequent increment; this backend bridge alone is not an evaluation release.
+
 
 ## Active BE-006 bounded decoder session · 2026-11-17
 

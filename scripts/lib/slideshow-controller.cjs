@@ -94,17 +94,18 @@ class SlideshowController extends EventEmitter {
   }
   /** Explicit trusted-candidate activation; dispatch('reload') cannot discover media. */
   replaceDeck(candidate, options = {}) {
-    let signal, deck;
+    let signal, deck, canCommit;
     try {
-      if (!exact(options, ['signal'])) return Promise.resolve(this.result('reload', false, 'INVALID_OPTIONS'));
-      signal = options.signal;
+      if (!exact(options, ['signal','canCommit'])) return Promise.resolve(this.result('reload', false, 'INVALID_OPTIONS'));
+      signal = options.signal;canCommit=options.canCommit;
+      if(canCommit!==undefined&&typeof canCommit!=='function')return Promise.resolve(this.result('reload',false,'INVALID_OPTIONS'));
     } catch { return Promise.resolve(this.result('reload', false, 'INVALID_OPTIONS')); }
     if (signal !== undefined && !(signal instanceof AbortSignal)) return Promise.resolve(this.result('reload', false, 'INVALID_SIGNAL'));
     try { deck = normalizeDeck(candidate); }
     catch { return Promise.resolve(this.result('reload', false, 'INVALID_DECK')); }
     if (this.closed || this.faulted) return Promise.resolve(this.result('reload', false, this.faulted ? 'FAULTED' : 'CLOSED'));
     if (signal?.aborted) return Promise.resolve(this.result('reload', false, 'CANCELLED'));
-    return this.enqueue('reload', false, signal, deck);
+    return this.enqueue('reload', false, signal, deck,undefined,canCommit);
   }
   /** Audience feedback only; preparing content must not restart Auto timing. */
   setReloadState(state, options = {}) {
@@ -118,10 +119,10 @@ class SlideshowController extends EventEmitter {
     if (signal?.aborted) return Promise.resolve(this.result('feedback', false, 'CANCELLED'));
     return this.enqueue('feedback', false, signal, undefined, state);
   }
-  enqueue(action, automatic, signal, candidate, feedback) {
+  enqueue(action, automatic, signal, candidate, feedback, canCommit) {
     if (this.closed || this.faulted) return Promise.resolve(this.result(action, false, this.faulted ? 'FAULTED' : 'CLOSED'));
     if (this.queue.length >= this.maxQueue) return Promise.resolve(this.result(action, false, 'BUSY'));
-    const request = { action, automatic, signal, candidate, feedback };
+    const request = { action, automatic, signal, candidate, feedback, canCommit };
     const promise = new Promise(resolve => { request.resolve = resolve; });
     request.promise = promise;
     if (action === 'stop') this.stopRequest = request;
@@ -171,7 +172,15 @@ class SlideshowController extends EventEmitter {
     if (action === 'feedback' && (this.state !== 'playing' || !this.renderer.feedback)) {
       this.finish(request, true); this.changed(); this.pump(); return;
     }
+    const admissionGeneration = this.generation;
+    const admissionCurrent = () => !this.closed && !this.faulted && !request.done && !request.cancelled &&
+      this.active === request && admissionGeneration === this.generation && !request.signal?.aborted && !request.controller?.signal.aborted;
+    function admitted(){if(request.canCommit===undefined)return true;try{const value=request.canCommit();if(value&&typeof value.then==='function')Promise.resolve(value).catch(()=>{});return value===true;}catch{return false;}}
     if (action === 'reload' && this.state === 'stopped') {
+      const allowed = admitted();
+      // Trusted policy may synchronously Stop, close or abort this request.
+      if (!admissionCurrent()) { this.finish(request,false,'CANCELLED'); this.pump(); return; }
+      if(!allowed){this.finish(request,false,'ADMISSION_DENIED');this.pump();return;}
       this.clearTimer(); this.#deck = request.candidate; this.index = null; this.autoSuspended = false;
       this.finish(request, true); this.changed(); this.pump(); return;
     }
@@ -180,7 +189,7 @@ class SlideshowController extends EventEmitter {
     }
     // Reload labels preserve a live Auto deadline. Its tick may queue Next
     // behind this operation, but never overlaps the physical feedback callback.
-    if (action !== 'feedback') this.clearTimer();
+    if (action !== 'feedback'&&action!=='reload') this.clearTimer();
     // Capture execution-time state after all preceding navigation commits. A
     // candidate is immutable from enqueue onward, but occurrence selection must
     // follow the frame actually on screen when this request reaches the head.
@@ -201,6 +210,14 @@ class SlideshowController extends EventEmitter {
     Promise.resolve().then(() => {
       if (request.done || request.cancelled || generation !== this.generation) return;
       const signal = request.controller.signal;
+      // Changed-content admission is synchronous at the renderer dispatch boundary.
+      // A denied queued Reload has not touched the deck, index or Auto timer.
+      if (action === 'reload') {
+        const allowed = admitted();
+        if (!admissionCurrent()) { this.finish(request,false,'CANCELLED'); this.pump(); return; }
+        if (!allowed) { this.finish(request,false,'ADMISSION_DENIED'); this.pump(); return; }
+        this.clearTimer();
+      }
       this.operations.add(request);
       if (modeChange || action === 'feedback') return this.renderer.feedback(Object.freeze({
         ...(modeChange ? { mode: targetMode } : { reload: request.feedback }), signal }));

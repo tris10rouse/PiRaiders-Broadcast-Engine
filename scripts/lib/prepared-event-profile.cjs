@@ -3,6 +3,7 @@ const path = require('node:path');
 const { normalizeRendererProfile } = require('./caspar-renderer.cjs');
 const { normalizeWindow } = require('./production-window.cjs');
 const { SlideshowController } = require('./slideshow-controller.cjs');
+const { canonicalExchangeJSON } = require('./exchange-fingerprints.cjs');
 const { normalizeRossTalkConfig } = require('./rosstalk-protocol.cjs');
 
 function invalid() { return Object.assign(Error('PROFILE_INVALID'), { code: 'PROFILE_INVALID' }); }
@@ -60,7 +61,7 @@ function normalizePreparedEventProfile(raw) {
     record(raw, ['schemaVersion', 'provider', 'eventId', 'productionWindow', 'spx', 'caspar', 'media',
       'playback', 'presentation', 'rossTalk', 'output'],
     ['schemaVersion', 'provider', 'eventId', 'productionWindow', 'spx', 'caspar', 'media', 'rossTalk']);
-    if (raw.schemaVersion !== 1 || raw.provider !== 'local-manual' || typeof raw.eventId !== 'string' ||
+    if (raw.schemaVersion !== 1 || !['local-manual','exchange-v1'].includes(raw.provider) || typeof raw.eventId !== 'string' ||
         raw.eventId.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(raw.eventId)) throw invalid();
 
     record(raw.productionWindow, ['start', 'end', 'prewarmMinutes'], ['start', 'end']);
@@ -75,11 +76,13 @@ function normalizePreparedEventProfile(raw) {
     const caspar = { executable: absolute(raw.caspar.executable), cwd: absolute(raw.caspar.cwd), runtimeDir: absolute(raw.caspar.runtimeDir) };
     const rendererProfile=normalizeRendererProfile(raw.caspar.rendererProfile);if(rendererProfile!==undefined)caspar.rendererProfile=rendererProfile;
 
-    record(raw.media, ['provider', 'sourceDir', 'cacheDir', 'startup'], ['provider', 'sourceDir', 'cacheDir', 'startup']);
+    let media;
+    if(raw.provider==='local-manual') {
+      record(raw.media, ['provider', 'sourceDir', 'cacheDir', 'startup'], ['provider', 'sourceDir', 'cacheDir', 'startup']);
     if (raw.media.provider !== 'local-lexical-v1') throw invalid();
     const sourceDir = absolute(raw.media.sourceDir), cacheDir = absolute(raw.media.cacheDir);
     disjoint([sourceDir, cacheDir, caspar.runtimeDir]);
-    record(raw.media.startup, ['mode', 'snapshotDir'], ['mode']);
+      record(raw.media.startup, ['mode', 'snapshotDir'], ['mode']);
     let startup;
     if (raw.media.startup.mode === 'source') {
       if (Object.hasOwn(raw.media.startup, 'snapshotDir')) throw invalid();
@@ -91,7 +94,27 @@ function normalizePreparedEventProfile(raw) {
       // async factory, which enforces strict canonical cache membership before load.
       startup = { mode: 'cached', snapshotDir };
     } else throw invalid();
-    const media = { provider: 'local-lexical-v1', sourceDir, cacheDir, startup };
+      media = { provider: 'local-lexical-v1', sourceDir, cacheDir, startup };
+
+    } else {
+      record(raw.media,['provider','providerId','binding','identityTuple','cacheDir','startup'],['provider','providerId','binding','identityTuple','cacheDir','startup']);
+      const value=raw.media,uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+      if(value.provider!=='exchange-ordered-v1'||typeof value.providerId!=='string'||value.providerId.length>64||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.providerId))throw invalid();
+      record(value.binding,['feedId','epoch'],['feedId','epoch']);
+      if(typeof value.binding.feedId!=='string'||!uuid.test(value.binding.feedId)||!Number.isSafeInteger(value.binding.epoch)||value.binding.epoch<1||value.binding.epoch>999999)throw invalid();
+      const identityTuple=JSON.parse(canonicalExchangeJSON(value.identityTuple));
+      if(!Array.isArray(identityTuple)||identityTuple.length!==5||identityTuple.some((x,i)=>typeof x!=='string'||Array.from(x).length>[9,64,64,6,200][i]||/[\x00-\x1f\x7f]/.test(x))||!/^\d{4}-\d{4}$/.test(identityTuple[0])||!identityTuple[1]||!['event','season'].includes(identityTuple[3])||!identityTuple[4]||identityTuple[3]==='season'&&!identityTuple[2])throw invalid();
+      const cacheDir=absolute(value.cacheDir);disjoint([cacheDir,caspar.runtimeDir]);
+      record(value.startup,['mode','snapshotId','playbackFingerprint'],['mode']);
+      let startup;
+      if(value.startup.mode==='source'){
+        if(Reflect.ownKeys(value.startup).length!==1)throw invalid();startup={mode:'source'};
+      }else if(value.startup.mode==='cached'){
+        if(typeof value.startup.snapshotId!=='string'||!uuid.test(value.startup.snapshotId)||typeof value.startup.playbackFingerprint!=='string'||! /^[0-9a-f]{64}$/.test(value.startup.playbackFingerprint))throw invalid();
+        startup={mode:'cached',snapshotId:value.startup.snapshotId,playbackFingerprint:value.startup.playbackFingerprint};
+      }else throw invalid();
+      media={provider:'exchange-ordered-v1',providerId:value.providerId,binding:{feedId:value.binding.feedId,epoch:value.binding.epoch},identityTuple,cacheDir,startup};
+    }
 
     const playbackRaw = raw.playback === undefined ? {} : record(raw.playback, ['mode', 'intervalMs', 'transition']);
     if (playbackRaw.transition !== undefined) record(playbackRaw.transition, ['type', 'durationMs']);
@@ -130,7 +153,7 @@ function normalizePreparedEventProfile(raw) {
       output = { type: 'ndi', name: outputRaw.name, runtimeDirectory: absolute(outputRaw.runtimeDirectory) };
     } else throw invalid();
 
-    return freeze({ schemaVersion: 1, provider: 'local-manual', eventId: raw.eventId, productionWindow,
+    return freeze({ schemaVersion: 1, provider: raw.provider, eventId: raw.eventId, productionWindow,
       spx, caspar, media, playback, presentation: { port }, rossTalk, output });
   } catch { throw invalid(); }
 }
