@@ -6,7 +6,7 @@
   "task": "Fix PR50 Windows fixtures and verify owned cleanup",
   "workBranch": "feature/be-006-exchange-snapshots",
   "acquiredAt": "2026-11-17T05:42:03.745Z",
-  "lastHeartbeat": "2026-11-17T05:52:57.565Z",
-  "expiresAt": "2026-11-17T07:22:57.565Z",
+  "lastHeartbeat": "2026-11-17T06:01:55.616Z",
+  "expiresAt": "2026-11-17T07:31:55.617Z",
   "releasedAt": null
 }
