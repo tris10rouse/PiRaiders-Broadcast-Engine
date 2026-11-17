@@ -219,10 +219,20 @@ async function loadSnapshot(snapshotDir, raw = {}) {
     const folder = await fs.realpath(snapshotDir);
     const manifestPath = path.join(folder, 'manifest.json'), manifestStat = await fs.lstat(manifestPath, { bigint: true });
     regular(manifestStat);
-    if (manifestStat.size > BigInt(config.maxFiles * 1024 + 1024)) fail('INVALID_MANIFEST');
+    // Bounded dispatch envelope; schema1 retains its original limit after version detection.
+    if (manifestStat.size > BigInt(Math.max(config.maxFiles * 1024 + 1024, 2097152))) fail('INVALID_MANIFEST');
     const manifestBuffer = await capturedFile({ absolute: manifestPath, bytes: Number(manifestStat.size),
       signature: signature(manifestStat) }, folder, config);
     let parsed; try { parsed = JSON.parse(manifestBuffer.toString('utf8')); } catch { fail('INVALID_MANIFEST'); }
+    if (parsed?.schemaVersion === 2) {
+      const schema2 = require('./exchange-snapshot.cjs');
+      try { return await schema2.loadExchangeSnapshot(snapshotDir, config); }
+      catch (error) {
+        if (error instanceof schema2.ExchangeSnapshotError) throw new SnapshotError(error.code);
+        throw error;
+      }
+    }
+    if (manifestStat.size > BigInt(config.maxFiles * 1024 + 1024)) fail('INVALID_MANIFEST');
     const manifest = validatedManifest(parsed, folder, config);
     const expectedRoot = ['manifest.json', 'media'];
     if (JSON.stringify(await boundedNames(folder, 2, config.signal, 'UNEXPECTED_CONTENT')) !== JSON.stringify(expectedRoot)) fail('UNEXPECTED_CONTENT');

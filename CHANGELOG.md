@@ -1,5 +1,12 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Ordered exchange snapshot candidate
+
+- Added verified PNG/JPEG staging from explicit source membership, preserving source order, repeated slides and occurrence identity. Matching physical aliases share a read/decode without reducing the source asset-row quota.
+- Added an offline schema-2 cache with strict references, hashes, full image decoding and compatible media-handler/controller output. Legacy schema-1 staging is unchanged.
+- Added 38 tests covering real images, offline HTTP serving, ordering/wrap, corruption, path changes, cancellation and cleanup. Root and independent review passed 96 focused tests. Full Linux suite: 656 passed, 27 Windows-only skips, zero failures; Windows CI remains required.
+- PR49's validated catalog reader is verified and merged. Source-provider activation and evaluation-release gates remain open.
+
 ## 2026-11-17 · Validated catalog reader candidate
 
 - Added catalog-only capture and fresh selected captures carrying a validated receipt from the same feed/catalog bytes. Missing or omitted selected manifests cannot prevent independent catalog acceptance.
