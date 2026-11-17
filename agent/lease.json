@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-2026-11-17T17:45:41.164Z-iyhoj2v8lz8",
-  "fence": 43,
-  "task": "Integrate PC source selection and explicit confirmed-window workflow",
+  "owner": "codex-2026-11-17T21:46:39.451Z-am8010o0vvd",
+  "fence": 44,
+  "task": "Recover interrupted source-confirmation increment",
   "workBranch": "feature/be-006-source-confirmation",
-  "acquiredAt": "2026-11-17T17:45:41.164Z",
-  "lastHeartbeat": "2026-11-17T17:45:41.164Z",
-  "expiresAt": "2026-11-17T19:15:41.164Z",
+  "acquiredAt": "2026-11-17T21:46:39.451Z",
+  "lastHeartbeat": "2026-11-17T21:46:39.451Z",
+  "expiresAt": "2026-11-17T23:16:39.452Z",
   "releasedAt": null
 }
