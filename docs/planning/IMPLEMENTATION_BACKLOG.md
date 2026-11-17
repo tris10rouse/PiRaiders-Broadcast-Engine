@@ -1,4 +1,11 @@
 # Implementation backlog
+
+## Current BE-006 increment: paged source catalog and durable approval primitives
+
+- Success: branded validated catalog receipts drive revision-pinned pages of at most64 events/selections; preserve source hierarchy, exact tuples and200-code-point labels,800 events/100 selections without lossy local slugs or truncation. Reject conflicting repeated event metadata and combined selection overflow.
+- Provider browsing uses metadata only, no selected manifest/asset reads or stage. Refresh failure/close invalidates browse authority; pages never claim content ready or authorize playback.
+- Separate explicit UUID-bound immutable approval journal with revision/head CAS, strict confirmed machine-policy/binding/tuple/window/cache data, revoke/no-op/corruption/failure/reopen/Windows contention tests. No automatic initialization, reset, approval, source writes or sender changes.
+- UI/machine-policy wiring follows after these tested boundaries; actual browser rendering remains unchanged in this prerequisite. Preserve all original control/native-output regressions.
 ## Current BE-006 increment: provider/runtime admission
 
 - Success criteria: explicit branded exchange profiles/drivers with verified ordered caches; no source writes or automatic arming; offline authorization revoked by known cancellation, omission or failed refresh; reentrant callbacks cannot admit closed candidates or render cancelled Reloads.

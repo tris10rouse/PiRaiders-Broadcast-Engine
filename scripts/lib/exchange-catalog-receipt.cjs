@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const {parseExchangeJSON} = require('./exchange-json.cjs');
 const {createExchangeSchemaGate} = require('./exchange-schema-gate.cjs');
 const {selectionId, canonicalExchangeJSON} = require('./exchange-fingerprints.cjs');
+const receipts = new WeakSet();
 const LIMITS = Object.freeze({feedBytes: 65536, catalogBytes: 5242880});
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const INPUT = 'CATALOG_RECEIPT_INPUT_INVALID';
@@ -45,8 +46,14 @@ function freeze(value) {
 }
 function digest(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
 function context(catalog) {
-  const seen = new Map();
+  const seen = new Map(), eventHeaders = new Map(), eventSelections = new Map();
   for (const event of catalog.events) {
+    const {selections, ...header} = event;
+    const headerJSON = canonicalExchangeJSON(header);
+    if (eventHeaders.has(event.eventKey) && eventHeaders.get(event.eventKey) !== headerJSON) fail('CATALOG_RECEIPT_CONTEXT_INVALID');
+    eventHeaders.set(event.eventKey, headerJSON);
+    if (!eventSelections.has(event.eventKey)) eventSelections.set(event.eventKey, new Set());
+    const selectedIds = eventSelections.get(event.eventKey);
     for (const entry of event.selections) {
       const tuple = entry.identityTuple;
       if (entry.selectionId !== selectionId(tuple) ||
@@ -58,6 +65,8 @@ function context(catalog) {
       const entryJSON = canonicalExchangeJSON(entry);
       if (seen.has(entry.selectionId) && seen.get(entry.selectionId) !== entryJSON) fail('CATALOG_RECEIPT_CONTEXT_INVALID');
       seen.set(entry.selectionId, entryJSON);
+      selectedIds.add(entry.selectionId);
+      if (selectedIds.size > 100) fail('CATALOG_RECEIPT_CONTEXT_INVALID');
       if (entry.origin === 'event') {
         // displayLabel is not normalizedLabel. Its spelling is not an identity
         // check; tuple[4] stays opaque until the selected manifest is verified.
@@ -92,16 +101,19 @@ function createExchangeCatalogReceiptGate() {
       if (feed.feedId !== expected.feedId || feed.epoch !== expected.epoch ||
           catalog.feedId !== expected.feedId || catalog.epoch !== expected.epoch) fail('CATALOG_RECEIPT_BINDING_MISMATCH');
       context(catalog);
-      return freeze({ok: true, code: 'CATALOG_RECEIPT_VALID', scope: 'catalog-receipt',
+      const result = freeze({ok: true, code: 'CATALOG_RECEIPT_VALID', scope: 'catalog-receipt',
         ready: false, semanticValidation: 'pending', receipt: {
           scope: 'validated-catalog-metadata', ready: false,
           feedId: expected.feedId, epoch: expected.epoch, catalogSequence: catalog.catalogSequence,
           documentDigests: {feed: digest(feedBytes), catalog: digest(catalogBytes)}, feed, catalog
         }});
+      receipts.add(result.receipt);
+      return result;
     } catch (error) {
       return Object.freeze({ok: false, code: CODES.has(error?.message) ? error.message : INPUT,
         scope: 'catalog-receipt', ready: false, semanticValidation: 'pending'});
     }
   }});
 }
-module.exports = {createExchangeCatalogReceiptGate, EXCHANGE_CATALOG_RECEIPT_LIMITS: LIMITS};
+function isExchangeCatalogReceipt(value) { return receipts.has(value); }
+module.exports = {createExchangeCatalogReceiptGate, isExchangeCatalogReceipt, EXCHANGE_CATALOG_RECEIPT_LIMITS: LIMITS};

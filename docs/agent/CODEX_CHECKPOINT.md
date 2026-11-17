@@ -1,5 +1,14 @@
 # Codex engineering checkpoint
 
+## Current progress · 2026-11-17: PC source selection prerequisites
+
+PR53 is verified and merged asb369184ecc02ec9ee3d96140b6d311fc475cc9c1, identical tested tree6d5f7eb9a0e2c4fdde423e8f2a521f2f745f1675. All12 checks passed atd67395c53bc7c75c9f38f205114138321afd983f: Windows795pass/2 documented skips, Chromium44/44, source/extracted actual11-frame output proofs. Linux770pass/27 explicit Windows-only skips/0fail; syntax167. Windows500-file stage/cache2943/1250ms under unchanged60s. Source/extracted receiver0connections1506/1506ms and1508/1507ms; rootCMD/bundledNode22.23.4;6164 original files unchanged. ZIP4510e67613c40910aa142502c9f58ccbb696352917366effad0e6d345aa5ed63; manifest1aa979f36507205aa4ad6c4ccf8f541c953cf063107a4e8cb60a92339e51baa1. Native output regression remains local-manual; exchange composition uses real source/cache/session with synthetic native/ACK boundaries. Earlier deadline-fixture failure remains historical below.
+
+Current BE-006 adds revision-pinned hierarchical catalog pages and detached immutable source/window approval persistence. Exact source identities/Unicode labels are preserved; metadata browsing never claims prepared/active output. Review reproduced Unicode-key selection, invalid-refresh stale authority and older-refresh resurrection defects before fixes. Root widened catalog/provider/runtime59/59 and approval/composition27/27 passed; independent catalog29/29 and approval25/25 passed separately. Windows file-symlink availability is now reported separately from directory-junction coverage. Full final regression and Windows/all12 checks remain required before merge.
+
+The live PC screen/machine configuration/approval authorization service are not wired in this prerequisite. Next coherent increment connects these boundaries to the protected Game Day PC selector and explicit confirmation workflow, then verifies real Windows exchange activation. Licensed clean-machine setup, diagnostics/recovery, default-browser/graceful-close proof, startup headroom and four-hour soak still gate the first evaluation release. NOT READY; no live hardware, deployment, signing or formal release publication. Historical entries below remain retained.
+
+
 ## Current progress · 2026-11-17: explicit source provider admission
 
 PR52 merged as34c9a79b8d7798e2e43ee7645e2faf2e07e9d24c, identical tested treebf1ff83214c6e2d553a6c89ea90663adf5813085. All12 checks passed at3e70f2d34f020a054a6c7301f621268af7e3cad4: Windows741pass/2 documented skips, Chromium44/44, source and extracted actual11-frame output proofs. Windows500-image stage/cache4156/2207ms under unchanged60s. These are development evidence, not targetWindows10/LAN/stadium compatibility or evaluation readiness.

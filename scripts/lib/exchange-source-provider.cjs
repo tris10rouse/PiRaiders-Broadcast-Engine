@@ -2,6 +2,7 @@
 // Trusted backend bridge only. No automatic journal setup, source writes or arming.
 
 const fs = require('node:fs/promises');
+const {createExchangeCatalogView} = require('./exchange-catalog-view.cjs');
 
 const path = require('node:path');
 
@@ -167,7 +168,7 @@ function createExchangeSourceProvider(raw, trusted = {}) {
     ownerKeys.forEach(key => owners.set(key, owner));
     const journal = trusted.journal ?? createExchangeJournal(), load = trusted.load ?? loadExchangeSnapshot, now = trusted.now ?? (() => performance.now());
     const factory = trusted.createCoordinator ?? createExchangeSourceCoordinator;
-    let coordinator = null, closed = false, slot = null, bindingValid = true, version = 0;
+    let coordinator = null, closed = false, slot = null, bindingValid = true, version = 0, catalogView = null, catalogAttempt = 0;
     const observations = new Map(), registeredSelections = new Set();
     function release() {
         if (closed && !slot) for (const key of ownerKeys) if (owners.get(key) === owner) owners.delete(key);
@@ -474,9 +475,11 @@ function createExchangeSourceProvider(raw, trusted = {}) {
             });
         });
     }
-    function refreshCatalog({
-        signal
-    } = {}) {
+    function refreshCatalog(options = {}) {
+        const attempt = ++catalogAttempt;
+        catalogView = null;
+        fields(options, ['signal'], []);
+        const {signal} = options;
         return operation(null, signal, async (run, active) => {
             const result = await coor().refreshCatalog({
                 signal: run.abort.signal
@@ -493,6 +496,8 @@ function createExchangeSourceProvider(raw, trusted = {}) {
                 if (/JOURNAL|REBIND/.test(result.code)) bindingValid = false;
                 fail(result.code);
             }
+            if (result.catalogReceipt?.feedId !== c.binding.feedId || result.catalogReceipt?.epoch !== c.binding.epoch) fail('PROVIDER_CAPTURE_INVALID');
+            const view = createExchangeCatalogView(result.catalogReceipt);
             const catalog = result.catalogReceipt.catalog;
             const selections = new Map(catalog.events.flatMap(event => event.selections.map(entry => [ entry.selectionId, {
                 entry: entry,
@@ -508,16 +513,30 @@ function createExchangeSourceProvider(raw, trusted = {}) {
                     pin: null
                 }));
             }
+            active();
+            if (catalogAttempt !== attempt) fail('CATALOG_REFRESH_SUPERSEDED');
+            catalogView = view;
             return freeze({
                 ok: true,
-                catalogSequence: result.catalogReceipt.catalogSequence
+                catalogSequence: result.catalogReceipt.catalogSequence,
+                catalog: view.summary()
             });
-        });
+        }).catch(error => { if (catalogAttempt === attempt) catalogView = null; throw error; });
+    }
+    function browse(method, query) {
+        if (closed) return freeze({ok:false,ready:false,code:'PROVIDER_CLOSED'});
+        if (slot) return freeze({ok:false,ready:false,code:'BUSY'});
+        if (!catalogView) return freeze({ok:false,ready:false,code:'CATALOG_UNAVAILABLE'});
+        return catalogView[method](query);
     }
     return Object.freeze({
         createPreparedMedia: createPreparedMedia,
         inspectSelection: inspectSelection,
         refreshCatalog: refreshCatalog,
+        catalogState: () => freeze({available:!closed && !slot && catalogView !== null,
+            catalog:!closed && !slot && catalogView ? catalogView.summary() : null}),
+        catalogEventsPage: query => browse('eventsPage', query),
+        catalogSelectionsPage: query => browse('selectionsPage', query),
         snapshot: () => freeze({
             providerId: c.providerId,
             busy: slot !== null,
@@ -526,6 +545,7 @@ function createExchangeSourceProvider(raw, trusted = {}) {
         }),
         close() {
             closed = true;
+            catalogView = null;
             slot?.abort.abort();
             coordinator?.close();
             release();
