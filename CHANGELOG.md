@@ -1,5 +1,15 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Detached source preparation coordinator
+
+Root, author and independent reviewer each passed32/32 focused tests (zero skips/failures). Final Linux regression717:690 passed/27 explicit Windows-only skips/0fail; syntax156 passed. New module SHA2562c2fe30ab8e8e82bdfed19db895131c64f2d39dbb2c354ebec1a379b9ee9555a; test64868c274d7bea9c0b38c2d717060a343350a16d1f3b6fe13f23af2f6a752c01. Native Windows/final-SHA all12 checks remain required before merge.
+
+- Compose approved feed binding, independent catalog capture, full selected metadata validation and separate exact-byte journal facts before staging actual ordered image content.
+- Verify and reuse an existing cache for unchanged playback fingerprints; retain prior prepared content through missing, invalid, empty, incomplete or removed source data. Source eligibility and timing proposals cannot arm output.
+- Hold the physical preparation slot through reader close, journal settlement and actual image-worker cleanup, even after logical cancellation. No automatic journal initialization, rebind or retry after uncertain publication.
+- Reject source/journal overlap before facts, including actual canonical aliases. A real nested-journal regression failed before the fix. Require present current metadata with a generation at least as new as catalog before selected admission; catalog facts remain independent.
+- PR50 is verified and merged after all 12 final checks passed: Windows 683 passes/two documented skips, Chromium 44/44, and source/extracted actual output proofs. Earlier failed fixture runs remain recorded. Final Windows evidence for this new coordinator remains required.
+
 ## 2026-11-17 · Snapshot ownership and Windows fixture correction
 
 - Corrected fault-injection fixtures to use canonical temporary paths and assert actual fault admission. Retained both original Windows failures; no product deadline or limit was relaxed.
