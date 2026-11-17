@@ -8,7 +8,7 @@ const {fork,spawn,execFileSync}=require('node:child_process');
 const {once}=require('node:events');
 const {setTimeout:wait}=require('node:timers/promises');
 const {JOB_HOST,WINDOW_EXPIRED_EXIT_CODE,createNativeWindowPolicy,spawnSupervisedProcess}=require('../scripts/lib/windows-job-process.cjs');
-const {processTable,descendants,treeState}=require('../scripts/windows-process-evidence.cjs');
+const {processTable,descendants,treeState,observeTree}=require('../scripts/windows-process-evidence.cjs');
 const root=path.resolve(__dirname,'..');
 const windows={skip:process.platform!=='win32'&&'Requires actual Windows native interval/containment; no simulated native pass',timeout:45000};
 function compiler(){const directory=process.env.SystemRoot||process.env.WINDIR;assert.ok(directory&&path.isAbsolute(directory));const file=['Framework64','Framework'].map(folder=>path.join(directory,'Microsoft.NET',folder,'v4.0.30319','csc.exe')).find(fs.existsSync);assert.ok(file,'installed .NET compiler required');return file;}
@@ -36,8 +36,13 @@ test('native sender deadline kills its full tree while owning Node is blocked an
  const closed=once(parent,'close');
  t.after(async()=>{
   if(parent.exitCode===null&&parent.signalCode===null)parent.kill('SIGKILL');await closed;
-  if(persistentTree.length){const deadline=Date.now()+10000;let surviving;do{surviving=treeState(processTable(),persistentTree).surviving;if(!surviving)break;await wait(100);}while(Date.now()<deadline);assert.equal(surviving,0,'persistent job must close after fixture owner death');}
-  if(senderTree.length)assert.equal(treeState(processTable(),senderTree).surviving,0,'sender cleanup remains mandatory');
+  const owned=[...persistentTree,...senderTree];
+  if(owned.length){
+   const deadline=Date.now()+10000;let state;
+   do{state=observeTree(processTable(),owned);if(state.surviving===0&&state.unknown===0)break;await wait(100);}while(Date.now()<deadline);
+   assert.equal(state.surviving,0,'every captured job generation must close after fixture owner death');
+   assert.equal(state.unknown,0,'incomplete cleanup evidence cannot establish termination');
+  }
   fs.rmSync(directory,{recursive:true,force:true,maxRetries:10,retryDelay:100});
  });
  const [ready]=await once(parent,'message',{signal:AbortSignal.timeout(10000)});assert.equal(ready.ready,true);
@@ -46,8 +51,9 @@ test('native sender deadline kills its full tree while owning Node is blocked an
  const blocked=once(parent,'message',{signal:AbortSignal.timeout(5000)});parent.send({block:true});assert.equal((await blocked)[0].blocked,true);
  const expired=once(parent,'message',{signal:AbortSignal.timeout(20000)});expired.catch(()=>{});
  const deadline=ready.end+2500;let senderState;
- do{senderState=treeState(processTable(),senderTree);if(!senderState.surviving)break;await wait(100);}while(Date.now()<deadline);
+ do{senderState=observeTree(processTable(),senderTree);if(senderState.surviving===0&&senderState.unknown===0)break;await wait(100);}while(Date.now()<deadline);
  assert.equal(senderState.surviving,0,'native interval must remove every captured sender generation while owner is blocked');
+ assert.equal(senderState.unknown,0,'missing identity fields are unknown until complete exit evidence');
  assert.ok(Date.now()<ready.end+7000,'observation must precede the owner unblocking');
  assert.equal(treeState(processTable(),persistentTree).surviving,persistentTree.length,'persistent SPX stand-in remains alive');
  assert.equal((await expired)[0].senderExit,WINDOW_EXPIRED_EXIT_CODE);

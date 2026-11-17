@@ -65,13 +65,13 @@ function evaluate(rows,captured,allowUnknown){
   for(const old of unique.values()){
     const row=byPid.get(old.ProcessId);if(!row){result.gone++;continue;}
     let current;
-    try{current=identity(row);}catch(error){
-      const reason=identityReason(error);
-      if(!allowUnknown||!['IMAGE_MISSING','CREATION_MISSING'].includes(reason))throw error;
-      // Get-CimInstance is not atomic with process teardown: a still-enumerated
-      // PID can temporarily have null fields. It is UNKNOWN, never gone/reused.
-      unknown++;reasons.add(reason);continue;
-    }
+    if(allowUnknown){
+      // Validate every present field before classifying missing teardown data.
+      // Null creation ticks must not hide a malformed executable path.
+      const observed=captureIdentity(row);
+      if(!observed.value){unknown++;reasons.add(observed.missing);continue;}
+      current=observed.value;
+    }else current=identity(row);
     if(current.CreationUtcTicks!==old.CreationUtcTicks){
       if(BigInt(current.CreationUtcTicks)<BigInt(old.CreationUtcTicks))fail('CREATION_BACKWARDS');
       result.reused++;continue;
