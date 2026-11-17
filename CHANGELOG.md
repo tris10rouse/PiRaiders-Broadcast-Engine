@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Validated catalog reader candidate
+
+- Added catalog-only capture and fresh selected captures carrying a validated receipt from the same feed/catalog bytes. Missing or omitted selected manifests cannot prevent independent catalog acceptance.
+- All methods share the existing physical-flight, timeout and close protections. Validated catalog floors stay separate from unaccepted legacy transport observations; selected manifests still need their remaining validation and journal gates.
+- Added16 reader regression cases; the original18 transport cases remain unchanged. Full Linux645tests:618passes/27 explicit Windows-only skips/zero failures; syntax152 passed. Final Windows CI remains required. PR48 is verified and merged.
+
 ## 2026-11-16 · Independent catalog receipt candidate
 
 - Added full feed/catalog validation from bounded owned raw bytes with exact delivered SHA256, approved feed/epoch context and descriptor identity/path checks. Missing selected manifests cannot prevent independently valid catalog facts.

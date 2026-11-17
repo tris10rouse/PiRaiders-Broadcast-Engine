@@ -1,16 +1,18 @@
 'use strict';
-// Detached, read-only draft0.3.1 metadata capture. NO schema/semantic acceptance,
-// asset reads, cache publication, Drive writes, output integration or arming.
+// Detached, read-only draft0.3.1 metadata capture. Legacy capture is transport-only;
+// opt-in catalog modes validate feed/catalog only. No selected-content acceptance,
+// assets, cache publication, Drive writes, output integration or arming.
 const fs=require('node:fs/promises');
 const {constants}=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {performance}=require('node:perf_hooks');
 const {parseExchangeJSON}=require('./exchange-json.cjs');
+const {createExchangeCatalogReceiptGate}=require('./exchange-catalog-receipt.cjs');
 const LIMITS=Object.freeze({feed:65536,current:65536,catalog:5242880,manifest:1048576});
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SHA=/^[0-9a-f]{64}$/;
-const CODES=new Set(['METADATA_INVALID','INPUT_UNAVAILABLE','INPUT_CHANGED','UNSAFE_INPUT','LIMIT_EXCEEDED','REBIND_REQUIRED','SELECTION_ABSENT','METADATA_CONFLICT','METADATA_STALE','CAPTURE_TIMEOUT','READER_BUSY','READER_CLOSED']);
+const CODES=new Set(['METADATA_INVALID','INPUT_UNAVAILABLE','INPUT_CHANGED','UNSAFE_INPUT','LIMIT_EXCEEDED','REBIND_REQUIRED','SELECTION_ABSENT','METADATA_CONFLICT','METADATA_STALE','CAPTURE_TIMEOUT','READER_BUSY','READER_CLOSED','CATALOG_RECEIPT_INPUT_INVALID','CATALOG_RECEIPT_SCHEMA_INVALID','CATALOG_RECEIPT_BINDING_MISMATCH','CATALOG_RECEIPT_CONTEXT_INVALID','CATALOG_RECEIPT_BACKEND_UNAVAILABLE']);
 const descriptorKeys=['feedId','epoch','selectionId','identityTuple','generation','generationSequence','manifestState','playbackFingerprint','metadataFingerprint','manifestPath','manifestSha256'];
 function fail(code){throw Error(code);}
 function record(value,allowed,required=[]){object(value);if(![Object.prototype,null].includes(Object.getPrototypeOf(value))||Reflect.ownKeys(value).some(key=>typeof key!=='string'||!allowed.includes(key))||required.some(key=>!Object.hasOwn(value,key))||Object.values(Object.getOwnPropertyDescriptors(value)).some(item=>!Object.hasOwn(item,'value')||!item.enumerable))fail('METADATA_INVALID');return value;}
@@ -34,17 +36,25 @@ function descriptor(raw,feedId,epoch,expected){
   const required='selections/'+result.selectionId+'/generations/'+result.generation+'/manifest.json';if(result.manifestPath!==required)fail('UNSAFE_INPUT');
   return frozen(result);
 }
-function result(code,pin){return Object.freeze({ok:code==='METADATA_CAPTURED',code,ready:false,semanticValidation:'pending',...(pin?{pin}:{})});}
-function createExchangeMetadataReader(options){
+function result(code,value){return Object.freeze({ok:code==='METADATA_CAPTURED'||code==='CATALOG_CAPTURED',code,ready:false,semanticValidation:'pending',...(value?(code==='CATALOG_CAPTURED'?{receipt:value}:{pin:value}):{})});}
+function createReader(options,catalogOnly){
   record(options,['root','binding','timeoutMs'],['root','binding']);
   const {root,binding,timeoutMs=5000}=options;
   if(typeof root!=='string'||root.length>4096||/[\x00-\x1f\x7f]/.test(root)||!path.isAbsolute(root)||!safeInteger(timeoutMs,10,30000))fail('METADATA_INVALID');
   // Transport bound admits the schema's 200 Unicode code-point label (up to400 UTF16 units).
   // Per-field semantic/schema constraints remain the independent gate's responsibility.
-  record(binding,['feedId','epoch','identityTuple'],['feedId','epoch','identityTuple']);if(typeof binding.feedId!=='string'||!UUID.test(binding.feedId)||!safeInteger(binding.epoch,1,999999)||!Array.isArray(binding.identityTuple)||Object.getPrototypeOf(binding.identityTuple)!==Array.prototype||binding.identityTuple.length!==5||Reflect.ownKeys(binding.identityTuple).length!==6||Array.from({length:5},(_,index)=>Object.getOwnPropertyDescriptor(binding.identityTuple,String(index))).some(item=>!item||!Object.hasOwn(item,'value')||!item.enumerable)||binding.identityTuple.some(value=>typeof value!=='string'||value.length>400||/[\x00-\x1f\x7f]/.test(value))||!/^\d{4}-\d{4}$/.test(binding.identityTuple[0])||!binding.identityTuple[1]||!['event','season'].includes(binding.identityTuple[3])||!binding.identityTuple[4]||binding.identityTuple[3]==='season'&&!binding.identityTuple[2])fail('METADATA_INVALID');
-  const expected=frozen({feedId:binding.feedId,epoch:binding.epoch,identityTuple:[...binding.identityTuple],selectionId:selectedId(binding.identityTuple)}),inputRoot=path.resolve(root);
-  let flight=null,lastPin=null,closed=false,lastCode=null;
-  async function capturePhysical(run){
+  const bindingKeys=catalogOnly?['feedId','epoch']:['feedId','epoch','identityTuple'];
+  record(binding,bindingKeys,bindingKeys);
+  if(typeof binding.feedId!=='string'||!UUID.test(binding.feedId)||!safeInteger(binding.epoch,1,999999))fail('METADATA_INVALID');
+  if(!catalogOnly&&(!Array.isArray(binding.identityTuple)||Object.getPrototypeOf(binding.identityTuple)!==Array.prototype||binding.identityTuple.length!==5||Reflect.ownKeys(binding.identityTuple).length!==6||Array.from({length:5},(_,index)=>Object.getOwnPropertyDescriptor(binding.identityTuple,String(index))).some(item=>!item||!Object.hasOwn(item,'value')||!item.enumerable)||binding.identityTuple.some(value=>typeof value!=='string'||value.length>400||/[\x00-\x1f\x7f]/.test(value))||!/^\d{4}-\d{4}$/.test(binding.identityTuple[0])||!binding.identityTuple[1]||!['event','season'].includes(binding.identityTuple[3])||!binding.identityTuple[4]||binding.identityTuple[3]==='season'&&!binding.identityTuple[2]))fail('METADATA_INVALID');
+  const expected=frozen({feedId:binding.feedId,epoch:binding.epoch,...(!catalogOnly?{identityTuple:[...binding.identityTuple],selectionId:selectedId(binding.identityTuple)}:{})}),inputRoot=path.resolve(root);
+  let flight=null,lastPin=null,lastCatalogReceipt=null,catalogGate=null,closed=false,lastCode=null;
+  function catalogFloor(sequence,digest){
+    if(!lastCatalogReceipt)return;
+    if(sequence<lastCatalogReceipt.catalogSequence)fail('METADATA_STALE');
+    if(sequence===lastCatalogReceipt.catalogSequence&&digest!==lastCatalogReceipt.documentDigests.catalog)fail('METADATA_CONFLICT');
+  }
+  async function capturePhysical(run,mode){
     function active(){if(closed)fail('READER_CLOSED');if(!run.valid||performance.now()>=run.deadline){run.valid=false;fail('CAPTURE_TIMEOUT');}}
     active();await noLinks(inputRoot);const rootStat=await fs.lstat(inputRoot,{bigint:true});if(!rootStat.isDirectory())fail('UNSAFE_INPUT');const rootReal=await fs.realpath(inputRoot),rootIdentity=identity(rootStat);
     async function readDocument(relative,kind){
@@ -57,7 +67,7 @@ function createExchangeMetadataReader(options){
         const bytes=Buffer.alloc(LIMITS[kind]+1);let length=0;
         for(;;){active();const part=await handle.read(bytes,length,bytes.length-length,length);length+=part.bytesRead;if(length>LIMITS[kind])fail('LIMIT_EXCEEDED');if(!part.bytesRead)break;}
         active();await noLinks(file);const after=await fs.lstat(file,{bigint:true});if(!after.isFile()||signature(after)!==signature(before)||signature(await handle.stat({bigint:true}))!==signature(before)||BigInt(length)!==before.size||!within(rootReal,await fs.realpath(file))||identity(await fs.lstat(inputRoot,{bigint:true}))!==rootIdentity||canonical(await fs.realpath(inputRoot))!==canonical(rootReal))fail('INPUT_CHANGED');
-        const delivered=bytes.subarray(0,length);return{value:parseExchangeJSON(delivered),sha256:hash(delivered)};
+        const delivered=bytes.subarray(0,length);return{value:parseExchangeJSON(delivered),sha256:hash(delivered),...(mode!=='transport'&&(kind==='feed'||kind==='catalog')?{bytes:delivered}:{})};
       }finally{await handle?.close();}
     }
     const feed=await readDocument('feed.json','feed');object(feed.value);
@@ -65,9 +75,21 @@ function createExchangeMetadataReader(options){
     if(feed.value.feedId!==expected.feedId||feed.value.epoch!==expected.epoch)fail('REBIND_REQUIRED');
     const catalog=await readDocument('catalog.json','catalog');object(catalog.value);
     if(catalog.value.contractVersion!=='piraiders-event-catalog/1'||catalog.value.feedId!==expected.feedId||catalog.value.epoch!==expected.epoch||!safeInteger(catalog.value.catalogSequence,1,9999999999)||!Array.isArray(catalog.value.events)||catalog.value.events.length>800)fail('METADATA_INVALID');
+    let catalogReceipt=null;
+    if(mode!=='transport'){
+      // Both raw documents remain private. Backend initialization and validation
+      // are inside this flight's original deadline, followed by active fences.
+      active();if(!catalogGate)catalogGate=createExchangeCatalogReceiptGate();
+      const validated=catalogGate.validate({feedBytes:feed.bytes,catalogBytes:catalog.bytes,expectedBinding:{feedId:expected.feedId,epoch:expected.epoch}});
+      active();if(!validated.ok)fail(validated.code);catalogReceipt=validated.receipt;
+    }
+    // Only validated receipts establish this floor. A legacy transport pin may
+    // have schema-invalid headers and must never poison catalog admission.
+    catalogFloor(catalog.value.catalogSequence,catalog.sha256);
+    if(mode==='catalog'){active();return catalogReceipt;}
     if(catalog.value.schoolYear!==expected.identityTuple[0])fail('SELECTION_ABSENT');
     let selected=null;
-    for(const event of catalog.value.events){object(event);if(!Array.isArray(event.selections)||event.selections.length>100)fail('METADATA_INVALID');for(const selection of event.selections){object(selection);if(selection.selectionId===expected.selectionId){if(selected)fail('METADATA_INVALID');selected=descriptor(selection,expected.feedId,expected.epoch,expected);if(event.eventKey!==expected.identityTuple[1])fail('METADATA_INVALID');}}}
+    for(const event of catalog.value.events){object(event);if(!Array.isArray(event.selections)||event.selections.length>100)fail('METADATA_INVALID');for(const selection of event.selections){object(selection);if(selection.selectionId===expected.selectionId){if(selected){if(mode==='combined')continue;fail('METADATA_INVALID');}selected=descriptor(selection,expected.feedId,expected.epoch,expected);if(event.eventKey!==expected.identityTuple[1])fail('METADATA_INVALID');}}}
     if(!selected)fail('SELECTION_ABSENT');
     let current=null;
     try{current=await readDocument('selections/'+expected.selectionId+'/current.json','current');}catch(error){if(error.code!=='ENOENT')throw error;}
@@ -75,17 +97,25 @@ function createExchangeMetadataReader(options){
     const manifest=await readDocument(selected.manifestPath,'manifest');if(manifest.sha256!==selected.manifestSha256)fail('METADATA_INVALID');object(manifest.value);
     if(manifest.value.contractVersion!=='piraiders-event-selection/1')fail('METADATA_INVALID');
     for(const key of descriptorKeys.filter(key=>!['manifestPath','manifestSha256'].includes(key))){if(key==='identityTuple'?!sameTuple(manifest.value[key],selected[key]):manifest.value[key]!==selected[key])fail('METADATA_INVALID');}
-    const pin=frozen({ready:false,semanticValidation:'pending',scope:'transport-metadata',descriptor:selected,catalogSequence:catalog.value.catalogSequence,documentDigests:{feed:feed.sha256,catalog:catalog.sha256,current:current?.sha256||null,manifest:manifest.sha256},feed:feed.value,catalog:catalog.value,current:current?.value||null,manifest:manifest.value});
-    active();if(lastPin){if(pin.catalogSequence<lastPin.catalogSequence||pin.descriptor.generationSequence<lastPin.descriptor.generationSequence)fail('METADATA_STALE');if(pin.catalogSequence===lastPin.catalogSequence&&pin.documentDigests.catalog!==lastPin.documentDigests.catalog||pin.descriptor.generationSequence===lastPin.descriptor.generationSequence&&pin.documentDigests.manifest!==lastPin.documentDigests.manifest)fail('METADATA_CONFLICT');}
+    const pin=frozen({ready:false,semanticValidation:'pending',scope:'transport-metadata',...(catalogReceipt?{catalogReceipt}:{}),descriptor:selected,catalogSequence:catalog.value.catalogSequence,documentDigests:{feed:feed.sha256,catalog:catalog.sha256,current:current?.sha256||null,manifest:manifest.sha256},feed:feed.value,catalog:catalog.value,current:current?.value||null,manifest:manifest.value});
+    // Legacy observations preserve their old transport-only comparisons. New
+    // combined capture must not treat an unaccepted old pin as a manifest fact.
+    active();if(mode==='transport'&&lastPin){if(pin.catalogSequence<lastPin.catalogSequence||pin.descriptor.generationSequence<lastPin.descriptor.generationSequence)fail('METADATA_STALE');if(pin.catalogSequence===lastPin.catalogSequence&&pin.documentDigests.catalog!==lastPin.documentDigests.catalog||pin.descriptor.generationSequence===lastPin.descriptor.generationSequence&&pin.documentDigests.manifest!==lastPin.documentDigests.manifest)fail('METADATA_CONFLICT');}
     return pin;
   }
-  function capture(){
+  function capture(mode){
     if(closed)return Promise.resolve(result('READER_CLOSED'));if(flight)return Promise.resolve(result('READER_BUSY'));
     const run={valid:true,deadline:performance.now()+timeoutMs};flight=run;let timer;
-    const physical=capturePhysical(run).then(pin=>{if(closed)fail('READER_CLOSED');if(!run.valid||performance.now()>=run.deadline){run.valid=false;fail('CAPTURE_TIMEOUT');}lastPin=pin;return result('METADATA_CAPTURED',pin);}).catch(error=>result(CODES.has(error.message)?error.message:['ENOENT','ENOTDIR'].includes(error.code)?'INPUT_UNAVAILABLE':error.code==='ELOOP'?'UNSAFE_INPUT':'INPUT_UNAVAILABLE')).finally(()=>{if(flight===run)flight=null;clearTimeout(timer);});
+    const physical=capturePhysical(run,mode).then(value=>{if(closed)fail('READER_CLOSED');if(!run.valid||performance.now()>=run.deadline){run.valid=false;fail('CAPTURE_TIMEOUT');}if(mode==='catalog'){lastCatalogReceipt=value;return result('CATALOG_CAPTURED',value);}lastPin=value;if(value.catalogReceipt)lastCatalogReceipt=value.catalogReceipt;return result('METADATA_CAPTURED',value);}).catch(error=>result(CODES.has(error.message)?error.message:['ENOENT','ENOTDIR'].includes(error.code)?'INPUT_UNAVAILABLE':error.code==='ELOOP'?'UNSAFE_INPUT':'INPUT_UNAVAILABLE')).finally(()=>{if(flight===run)flight=null;clearTimeout(timer);});
     const deadline=new Promise(resolve=>{run.cancel=()=>{clearTimeout(timer);resolve(result('READER_CLOSED'));};timer=setTimeout(()=>{run.valid=false;resolve(result('CAPTURE_TIMEOUT'));},timeoutMs);});
     return Promise.race([physical,deadline]).then(value=>{lastCode=value.code;return value;});
   }
-  return Object.freeze({capture,lastPin:()=>lastPin,snapshot:()=>Object.freeze({busy:flight!==null,closed,lastCode,hasPin:lastPin!==null}),close(){closed=true;if(flight){flight.valid=false;flight.cancel();}}});
+  return Object.freeze({capture:()=>capture(catalogOnly?'catalog':'transport'),captureCatalog:()=>capture('catalog'),
+    ...(!catalogOnly?{captureWithCatalogReceipt:()=>capture('combined')}:{}),
+    lastPin:()=>lastPin,lastCatalogReceipt:()=>lastCatalogReceipt,
+    snapshot:()=>Object.freeze({busy:flight!==null,closed,lastCode,hasPin:lastPin!==null,hasCatalogReceipt:lastCatalogReceipt!==null}),
+    close(){closed=true;if(flight){flight.valid=false;flight.cancel();}}});
 }
-module.exports={createExchangeMetadataReader};
+function createExchangeMetadataReader(options){return createReader(options,false);}
+function createExchangeCatalogReader(options){return createReader(options,true);}
+module.exports={createExchangeMetadataReader,createExchangeCatalogReader};
