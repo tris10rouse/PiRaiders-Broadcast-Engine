@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-2026-11-17T10:45:51.274Z-7tloxqd8c9",
   "fence": 40,
-  "task": "Resume explicit exchange provider and runtime admission",
-  "workBranch": "feature/be-006-exchange-provider",
+  "task": "Remove decoder startup overhead for bounded 500-image preparation",
+  "workBranch": "feature/be-006-decoder-session",
   "acquiredAt": "2026-11-17T10:45:51.274Z",
-  "lastHeartbeat": "2026-11-17T10:58:22.465Z",
-  "expiresAt": "2026-11-17T12:28:22.465Z",
+  "lastHeartbeat": "2026-11-17T11:01:28.041Z",
+  "expiresAt": "2026-11-17T12:31:28.041Z",
   "releasedAt": null
 }
