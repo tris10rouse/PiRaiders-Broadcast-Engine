@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "codex-2026-11-17T15:46:37.147Z-lfu9kcisg4",
   "fence": 41,
-  "task": "Verify PR52 and resume exchange provider runtime",
-  "workBranch": "feature/be-006-decoder-session",
+  "task": "Integrate reviewed exchange provider with manager admission",
+  "workBranch": "feature/be-006-exchange-provider",
   "acquiredAt": "2026-11-17T15:46:37.147Z",
-  "lastHeartbeat": "2026-11-17T15:46:37.147Z",
-  "expiresAt": "2026-11-17T17:16:37.147Z",
+  "lastHeartbeat": "2026-11-17T15:49:42.474Z",
+  "expiresAt": "2026-11-17T17:19:42.474Z",
   "releasedAt": null
 }
