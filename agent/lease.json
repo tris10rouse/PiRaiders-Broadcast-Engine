@@ -6,7 +6,7 @@
   "task": "Recover interrupted source-confirmation increment",
   "workBranch": "feature/be-006-source-confirmation",
   "acquiredAt": "2026-11-17T21:46:39.451Z",
-  "lastHeartbeat": "2026-11-17T21:57:57.807Z",
-  "expiresAt": "2026-11-17T23:27:57.807Z",
+  "lastHeartbeat": "2026-11-17T22:12:43.522Z",
+  "expiresAt": "2026-11-17T23:42:43.522Z",
   "releasedAt": null
 }
