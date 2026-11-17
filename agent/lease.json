@@ -6,7 +6,7 @@
   "task": "Implement PC source catalog and persistent approval prerequisite",
   "workBranch": "feature/be-006-source-selection",
   "acquiredAt": "2026-11-17T16:30:04.508Z",
-  "lastHeartbeat": "2026-11-17T16:43:21.815Z",
-  "expiresAt": "2026-11-17T18:13:21.815Z",
+  "lastHeartbeat": "2026-11-17T16:49:05.323Z",
+  "expiresAt": "2026-11-17T18:19:05.323Z",
   "releasedAt": null
 }
