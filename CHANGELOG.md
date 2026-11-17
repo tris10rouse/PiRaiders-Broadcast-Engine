@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Snapshot ownership and Windows fixture correction
+
+- Corrected fault-injection fixtures to use canonical temporary paths and assert actual fault admission. Retained both original Windows failures; no product deadline or limit was relaxed.
+- Pin and verify pending/media directory identities before writes, publication and cleanup. A replaced directory is preserved, and an original moved tree may remain orphaned for explicit recovery.
+- Two new real-filesystem regressions failed before the ownership fix and passed afterward. Root and independent review passed 98 focused cases; full Linux685:658 passed/27 Windows-only skips/zero failures. Fresh final-SHA Windows CI remains required.
+
 ## 2026-11-17 · Ordered exchange snapshot candidate
 
 - Added verified PNG/JPEG staging from explicit source membership, preserving source order, repeated slides and occurrence identity. Matching physical aliases share a read/decode without reducing the source asset-row quota.

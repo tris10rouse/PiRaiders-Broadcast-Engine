@@ -97,11 +97,21 @@ function source(blobs = [ image(), image('jpeg') ], order = [ 1, 0, 1 ]) {
   return seal(m);
 }
 
+let reportedTemporaryAlias = false;
+
 async function fixture(t, blobs, order) {
-  const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'PiRaiders exchange cache ')), sourceRoot = path.join(parent, 'To Engine'), cacheDir = path.join(parent, 'cache');
+  const rawParent = await fs.mkdtemp(path.join(os.tmpdir(), 'PiRaiders exchange cache '));
+  // Windows TEMP may use an 8.3 alias while production captures resolve the
+  // source root to its long form. Hooks must observe that same actual path.
+  const parent = await fs.realpath(rawParent), sourceRoot = path.join(parent, 'To Engine'), cacheDir = path.join(parent, 'cache');
+  if (!reportedTemporaryAlias) {
+    t.diagnostic('Temporary parent alias normalized: ' + (rawParent !== parent));
+    reportedTemporaryAlias = true;
+  }
   await fs.mkdir(path.join(sourceRoot, 'assets'), {
     recursive: true
   });
+  assert.equal(sourceRoot === await fs.realpath(sourceRoot), true, 'fault hooks use the canonical source root');
   const media = blobs || [ image(), image('jpeg') ], manifest = source(media, order);
   for (let i = 0; i < manifest.assets.length; i++) await fs.writeFile(path.join(sourceRoot, manifest.assets[i].deliveryPath), media[i]);
   t.after(() => fs.rm(parent, {
@@ -348,12 +358,14 @@ test('abort before admission and during real asset read settles cleanup and keep
     signal: controller.signal
   })), 'IMAGE_ABORTED');
   const second = new AbortController(), open = fs.open;
+  let injectedRead = false;
   fs.open = async (file, ...args) => {
     const h = await open.call(fs, file, ...args);
     if (file === path.join(f.sourceRoot, f.manifest.assets[0].deliveryPath)) {
       const read = h.read.bind(h);
       h.read = async (...values) => {
         const result = await read(...values);
+        injectedRead = true;
         second.abort();
         return result;
       };
@@ -366,6 +378,8 @@ test('abort before admission and during real asset read settles cleanup and keep
     })), 'IMAGE_ABORTED');
   } finally {
     fs.open = open;
+    assert.equal(injectedRead, true, 'abort hook reached an actual source read');
+    assert.equal(second.signal.aborted, true, 'read hook delivered cancellation');
   }
   assert.deepEqual(await fs.readdir(f.cacheDir), [ good.manifest.id ]);
 });
@@ -373,7 +387,7 @@ test('abort before admission and during real asset read settles cleanup and keep
 test('growth and replacement during actual asset read reject bounded captures', async t => {
   for (const mode of [ 'grow', 'replace' ]) {
     const f = await fixture(t), open = fs.open, file = path.join(f.sourceRoot, f.manifest.assets[0].deliveryPath);
-    let changed = false;
+    let changed = false, mutated = false;
     fs.open = async (target, ...args) => {
       const h = await open.call(fs, target, ...args);
       if (target === file) {
@@ -386,6 +400,7 @@ test('growth and replacement during actual asset read reject bounded captures', 
               await fs.rename(file, file + '.old');
               await fs.writeFile(file, f.blobs[0]);
             }
+            mutated = true;
           }
           return out;
         };
@@ -396,6 +411,8 @@ test('growth and replacement during actual asset read reject bounded captures', 
       await rejects(stageExchangeSnapshot(request(f)), 'SOURCE_CHANGED');
     } finally {
       fs.open = open;
+      assert.equal(changed, true, mode + ' hook reached an actual source read');
+      assert.equal(mutated, true, mode + ' filesystem mutation completed');
     }
     assert.deepEqual(await fs.readdir(f.cacheDir), []);
   }
@@ -456,6 +473,7 @@ test('cache2 rejects earlier-file replacement during later file validation', asy
     await rejects(loadSnapshot(s.snapshotDir), 'CACHE_CHANGED');
   } finally {
     fs.open = open;
+    assert.equal(changed, true, 'earlier cached file replacement hook was admitted');
   }
 });
 
@@ -485,7 +503,7 @@ test('cache loader preserves caller maxEntries and public schema2 error codes', 
 
 test('source root identity change during actual handle close is rejected after capture', async t => {
   const f = await fixture(t), open = fs.open, file = path.join(f.sourceRoot, f.manifest.assets[0].deliveryPath);
-  let changed = false;
+  let changed = false, mutated = false;
   fs.open = async (target, ...args) => {
     const h = await open.call(fs, target, ...args);
     if (target === file) {
@@ -496,6 +514,7 @@ test('source root identity change during actual handle close is rejected after c
           changed = true;
           await fs.rename(f.sourceRoot, f.sourceRoot + '.old');
           await fs.mkdir(f.sourceRoot);
+          mutated = true;
         }
       };
     }
@@ -505,6 +524,8 @@ test('source root identity change during actual handle close is rejected after c
     await rejects(stageExchangeSnapshot(request(f)), 'SOURCE_CHANGED');
   } finally {
     fs.open = open;
+    assert.equal(changed, true, 'source-root replacement hook was admitted');
+    assert.equal(mutated, true, 'source-root replacement filesystem mutation completed');
   }
   assert.deepEqual(await fs.readdir(f.cacheDir), []);
 });
@@ -530,7 +551,7 @@ test('late abort after publication never acknowledges a prepared candidate or de
 
 test('cache root replacement during source read fails before private writes', async t => {
   const f = await fixture(t), open = fs.open, file = path.join(f.sourceRoot, f.manifest.assets[0].deliveryPath);
-  let changed = false;
+  let changed = false, mutated = false;
   fs.open = async (target, ...args) => {
     const h = await open.call(fs, target, ...args);
     if (target === file) {
@@ -541,6 +562,7 @@ test('cache root replacement during source read fails before private writes', as
           changed = true;
           await fs.rename(f.cacheDir, f.cacheDir + '.old');
           await fs.mkdir(f.cacheDir);
+          mutated = true;
         }
         return result;
       };
@@ -551,6 +573,8 @@ test('cache root replacement during source read fails before private writes', as
     await rejects(stageExchangeSnapshot(request(f)), 'SOURCE_CHANGED');
   } finally {
     fs.open = open;
+    assert.equal(changed, true, 'cache-root replacement hook was admitted');
+    assert.equal(mutated, true, 'cache-root replacement filesystem mutation completed');
   }
   assert.deepEqual(await fs.readdir(f.cacheDir), []);
 });
@@ -782,4 +806,73 @@ test('public schema dispatch retains the originally captured abort signal across
     fs.open = open;
   }
   assert.equal(changed, true);
+});
+
+test('cleanup preserves a foreign pending directory after the cache root is replaced', async t => {
+  const f = await fixture(t), open = fs.open;
+  const asset = path.join(f.sourceRoot, f.manifest.assets[0].deliveryPath);
+  let replaced = false, foreign;
+  fs.open = async (target, ...args) => {
+    const handle = await open.call(fs, target, ...args);
+    if (target === asset) {
+      const read = handle.read.bind(handle);
+      handle.read = async (...values) => {
+        const out = await read(...values);
+        if (!replaced) {
+          replaced = true;
+          const pending = (await fs.readdir(f.cacheDir)).filter(name => name.startsWith('.pending-'));
+          assert.equal(pending.length, 1);
+          await fs.rename(f.cacheDir, f.cacheDir + '.old');
+          await fs.mkdir(f.cacheDir);
+          foreign = path.join(f.cacheDir, pending[0]);
+          await fs.mkdir(foreign);
+          await fs.writeFile(path.join(foreign, 'keep.txt'), 'other writer');
+        }
+        return out;
+      };
+    }
+    return handle;
+  };
+  try {
+    await rejects(stageExchangeSnapshot(request(f)), 'SOURCE_CHANGED');
+    assert.equal(replaced, true, 'the real source read reached the replacement barrier');
+    assert.equal(await fs.readFile(path.join(foreign, 'keep.txt'), 'utf8'), 'other writer');
+  } finally {
+    fs.open = open;
+  }
+});
+
+test('a replaced pending directory is neither written, published nor deleted', async t => {
+  const f = await fixture(t), open = fs.open;
+  const asset = path.join(f.sourceRoot, f.manifest.assets[0].deliveryPath);
+  let replaced = false, foreign;
+  fs.open = async (target, ...args) => {
+    const handle = await open.call(fs, target, ...args);
+    if (target === asset) {
+      const read = handle.read.bind(handle);
+      handle.read = async (...values) => {
+        const out = await read(...values);
+        if (!replaced) {
+          replaced = true;
+          const names = (await fs.readdir(f.cacheDir)).filter(name => name.startsWith('.pending-'));
+          assert.equal(names.length, 1);
+          foreign = path.join(f.cacheDir, names[0]);
+          await fs.rename(foreign, foreign + '.moved');
+          await fs.mkdir(path.join(foreign, 'media'), {recursive: true});
+          await fs.writeFile(path.join(foreign, 'keep.txt'), 'other writer');
+        }
+        return out;
+      };
+    }
+    return handle;
+  };
+  try {
+    await rejects(stageExchangeSnapshot(request(f)), 'SOURCE_CHANGED');
+    assert.equal(replaced, true);
+    assert.equal(await fs.readFile(path.join(foreign, 'keep.txt'), 'utf8'), 'other writer');
+    assert.deepEqual(await fs.readdir(path.join(foreign, 'media')), []);
+    assert.equal((await fs.readdir(f.cacheDir)).some(name => /^[0-9a-f-]{36}$/.test(name)), false);
+  } finally {
+    fs.open = open;
+  }
 });

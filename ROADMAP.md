@@ -1,5 +1,9 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## PR50 validation correction · 2026-11-17
+
+The ordered-snapshot PR remains unmerged. Both initial Windows runs failed five fault-injection cases; the fixture now uses canonical temporary paths and asserts that each intended fault is reached. Separate real-filesystem regressions reproduced and fixed pending-directory ownership bugs. Corrected Linux regression passed 658 tests with 27 Windows-only skips; fresh Windows CI is still required. Source/Game Day coordination and the remaining evaluation gates are unchanged.
+
 ## Latest software progress · 2026-11-17: ordered exchange snapshots
 
 PR49's catalog-reader integration is verified and merged. The current BE-006 increment prepares source-ordered image occurrences into an offline schema-2 cache, verifies every physical image, and keeps schema-1 staging compatible. It does not activate media or change output. Linux regression and independent review passed; final Windows CI remains required.

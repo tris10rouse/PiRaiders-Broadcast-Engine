@@ -349,11 +349,28 @@ async function stageExchangeSnapshot(raw = {}) {
     const r = await roots(raw.sourceRoot, raw.cacheDir);
     abort(c);
     const id = crypto.randomUUID(), temporary = path.join(r.cache, '.pending-' + id), published = path.join(r.cache, id);
-    let owns = false;
+    let owns = false, temporaryId = null, mediaId = null;
+    const mediaDir = path.join(temporary, 'media');
+    async function directoryIdentity(directory) {
+      await noLinks(directory);
+      const stat = await fs.lstat(directory, {bigint: true});
+      if (!stat.isDirectory() || stat.isSymbolicLink()) fail('SOURCE_CHANGED');
+      return identity(stat);
+    }
+    async function verifyOwnedTree() {
+      await stableRoot(r.cacheDir, r.cache, r.cacheId);
+      if (temporaryId === null || await directoryIdentity(temporary) !== temporaryId) fail('SOURCE_CHANGED');
+      if (mediaId !== null && await directoryIdentity(mediaDir) !== mediaId) fail('SOURCE_CHANGED');
+    }
     try {
+      await stableRoot(r.cacheDir, r.cache, r.cacheId);
       await fs.mkdir(temporary);
       owns = true;
-      await fs.mkdir(path.join(temporary, 'media'));
+      await stableRoot(r.cacheDir, r.cache, r.cacheId);
+      temporaryId = await directoryIdentity(temporary);
+      await fs.mkdir(mediaDir);
+      await verifyOwnedTree();
+      mediaId = await directoryIdentity(mediaDir);
       const files = [], byPath = new Map();
       let physicalTotal = 0;
       for (const [ delivery, a ] of deliveries) {
@@ -382,9 +399,7 @@ async function stageExchangeSnapshot(raw = {}) {
           height: decoded.height,
           format: decoded.format
         };
-        await stableRoot(r.cacheDir, r.cache, r.cacheId);
-        await noLinks(temporary);
-        await noLinks(path.join(temporary, 'media'));
+        await verifyOwnedTree();
         await fs.writeFile(path.join(temporary, ...f.src.split('/')), b, {
           flag: 'wx'
         });
@@ -417,14 +432,12 @@ async function stageExchangeSnapshot(raw = {}) {
       m.contentHash = contentHash(m);
       const json = JSON.stringify(m, null, 2) + '\n';
       if (Buffer.byteLength(json) > LIMITS.manifestBytes) fail('INVALID_MANIFEST');
-      await stableRoot(r.cacheDir, r.cache, r.cacheId);
-      await noLinks(temporary);
-      await noLinks(path.join(temporary, 'media'));
+      await verifyOwnedTree();
       await fs.writeFile(path.join(temporary, 'manifest.json'), json, {
         flag: 'wx'
       });
       abort(c);
-      await stableRoot(r.cacheDir, r.cache, r.cacheId);
+      await verifyOwnedTree();
       try {
         await fs.lstat(published);
         fail('PUBLISH_COLLISION');
@@ -436,10 +449,20 @@ async function stageExchangeSnapshot(raw = {}) {
       abort(c);
       return result(published, m);
     } finally {
-      if (owns) await fs.rm(temporary, {
-        recursive: true,
-        force: true
-      });
+      if (owns && temporaryId !== null) {
+        let removable = false;
+        try {
+          await verifyOwnedTree();
+          removable = true;
+        } catch (error) {
+          // A pathname is not ownership: preserve a moved/replaced directory.
+          // Permission and other I/O failures still fail the operation.
+          if (!(error instanceof ExchangeSnapshotError &&
+              ['SOURCE_CHANGED', 'UNSAFE_SOURCE'].includes(error.code)) &&
+              !['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
+        }
+        if (removable) await fs.rm(temporary, {recursive: true, force: true});
+      }
     }
   });
 }

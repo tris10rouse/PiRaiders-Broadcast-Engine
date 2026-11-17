@@ -1,5 +1,11 @@
 # Implementation backlog
 
+## Active PR50 correction · 2026-11-17
+
+- Unmerged PR50 initial head `0d062240ab4e1e5b4b4373aa158fbed0235651eb` failed both Windows baseline jobs133731704330/133731042137: 683 total,676 passes,5 failures,2 documented skips. All five failed cases used raw temporary-path comparisons in fs.open hooks, leaving injections unobserved. The fixture now realpaths its temporary parent, asserts canonical source equality and explicit hook admission, and logs one Boolean alias-normalization diagnostic. Exact Windows alias subtype remains unproven until new CI; no product-path workaround or assertion/budget relaxation.
+- Separate ownership regressions reproduced foreign pending-tree deletion after root replacement and foreign pending-tree write/publication after directory replacement. Pin/verify cache+pending+media identities before writes/publication/deletion. Changed trees are preserved; moved original trees may remain orphaned. This is observed protection, not privileged-actor atomic security.
+- Root and independent reviewer each passed98 focused tests (40new+58 byte-identical legacy). Corrected full Linux685:658 passed/27 explicit Windows-only skips/zero failures; syntax154 passed. Source99f3432ccece89eb9b09fd23eb1f016e66dbd864c377779324dac89d743ba209; loader unchanged8708df75eadf987565a730e90e51e5898cf3aa8310b9bb22eece8bd6c56a47f1; testdcb43aeaaf07c97a27395e1323fd5a79a32ed9a90c55773b60366c5f178c2c6f. Final-SHA Windows and all CI required before merge. The prior section below describes the initial candidate; its 683-case result is historical.
+
 ## Current BE-006 increment: ordered snapshots and cache schema 2
 
 - PR49 merged `a0da302574d4eac02736f074bc554d805897f12e`, final tested `bf90a66cce4d5d6bcd255f55eb6ed26372451225`, identical tree `b00f1fd928345f5acb3a21c5a15f72ad87fae3cc`. All 12 checks passed: Windows 643/645 (two documented skips), all 16 new reader cases, Chromium 44/44 and both source/extracted eleven actual NDI frame cases. Foundation43985918652; full-app43985918540.
