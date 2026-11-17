@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-2026-11-16T21:16:55.866Z-cb1zpgk0v4n",
-  "fence": 37,
-  "task": "BE-006 raw catalog receipt integration",
-  "workBranch": "feature/be-006-catalog-receipt",
-  "acquiredAt": "2026-11-16T21:16:55.866Z",
-  "lastHeartbeat": "2026-11-16T21:32:25.956Z",
-  "expiresAt": "2026-11-16T23:02:25.956Z",
+  "owner": "codex-2026-11-17T00:03:04.711Z-4eqr3g7nevr",
+  "fence": 38,
+  "task": "Verify PR48 and integrate saved catalog reader",
+  "workBranch": "feature/be-006-catalog-reader",
+  "acquiredAt": "2026-11-17T00:03:04.711Z",
+  "lastHeartbeat": "2026-11-17T00:03:04.711Z",
+  "expiresAt": "2026-11-17T01:33:04.711Z",
   "releasedAt": null
 }
