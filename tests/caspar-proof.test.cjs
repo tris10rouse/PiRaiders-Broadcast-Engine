@@ -8,7 +8,7 @@ const http=require('node:http');
 const net=require('node:net');
 const crypto=require('node:crypto');
 const {PNG}=require('pngjs');
-const {download}=require('../scripts/prepare-caspar-proof.cjs');
+const {download,preparationDiagnostic}=require('../scripts/prepare-caspar-proof.cjs');
 const {configuration,checkPixels,command}=require('../scripts/smoke-caspar-windows.cjs');
 test('proof download verifies actual streamed bytes and removes corrupt/oversize/failed attempts',async t=>{
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders proof download '));
@@ -39,4 +39,13 @@ test('proof rejects wrong or stale mixed-frame pixels',()=>{
   const bytes=PNG.sync.write({width:1920,height:1080,data});checkPixels(bytes,[240,20,20]);assert.throws(()=>checkPixels(bytes,[0,0,0]),/MIXED_PIXELS/);
   assert.throws(()=>checkPixels(PNG.sync.write({width:1920,height:1080,data:Buffer.alloc(data.length)}),[0,0,0]),/ALPHA_UNVERIFIED/);
   const config=configuration(5250);assert.match(config,/<log-path disabled="true">/);assert.match(config,/<auto-load>false<\/auto-load>/);assert.doesNotMatch(config,/<address>/);assert.throws(()=>configuration(0));
+});
+
+test('tool preparation failure diagnostics retain only fixed phase and allowlisted categories',()=>{
+  const error=Object.assign(Error('private-path https://secret/?token=hidden'),{code:'ECONNRESET',cause:{code:'UND_ERR_SOCKET',message:'private-stderr'},stderr:'private-stderr'});
+  const result=preparationDiagnostic(error,'DOWNLOAD','caspar');
+  assert.deepEqual(result,{event:'caspar-proof-preparation-failed',phase:'DOWNLOAD',tool:'caspar',code:'TOOL_PREPARATION_FAILED',systemErrorCode:'ECONNRESET',causeCode:'UND_ERR_SOCKET',timedOut:false});
+  assert.deepEqual(preparationDiagnostic(Object.assign(Error('DOWNLOAD_HASH'),{code:'PRIVATE',cause:{code:'PRIVATE'},name:'TimeoutError'}),'PRIVATE','PRIVATE'),{event:'caspar-proof-preparation-failed',phase:'UNKNOWN',tool:null,code:'DOWNLOAD_HASH',systemErrorCode:null,causeCode:null,timedOut:true});
+  assert.equal(JSON.stringify(result).includes('private'),false);
+  assert.equal(preparationDiagnostic(null,null,null).code,'TOOL_PREPARATION_FAILED');
 });
