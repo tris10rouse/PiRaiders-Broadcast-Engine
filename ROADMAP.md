@@ -1,5 +1,9 @@
 # PiRaiders Broadcast Engine: Roadmap
 
+## Latest software progress · 2026-11-17: validated catalog capture
+
+PR48's raw catalog validator is verified and merged after all12 checks passed, including actual Windows composition and source/extracted output. Current BE-006 work connects it to the bounded reader: independent catalog capture, a feed/epoch-only catalog factory and fresh selected captures carrying their same-byte catalog receipt. Legacy transport behavior remains compatible, and no result authorizes playback. Verified ordered-asset/schema2 staging, complete source integration and59-step acceptance remain next. Clean-machine setup, default browser/graceful close, diagnostics, cold-start headroom and four-hour soak still gate an honest evaluation release.
+
 ## Latest software progress · 2026-11-16: independent catalog validation
 
 PR47's local journal is verified and merged after all12 checks passed, including26 actual Windows journal process/filesystem cases. Current BE-006 work validates owned raw feed/catalog bytes independently of selected manifest arrival and computes their exact digests. A real missing-manifest/journal/reopen test retains the accepted catalog floor and rejects a same-sequence fork. The raw validator remains detached; shared reader integration is next, followed by verified ordered assets, complete source integration and59-step acceptance. Clean-machine setup, default browser/graceful close, diagnostics, cold-start headroom and four-hour soak remain evaluation gates. First evaluation release is not ready.
