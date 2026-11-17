@@ -1,13 +1,14 @@
 'use strict';
 const { randomBytes } = require('node:crypto');
 const path = require('node:path');
+const { types: { isPromise } } = require('node:util');
 const { normalizePreparedEventProfile } = require('./prepared-event-profile.cjs');
 const { normalizeWindow, senderAllowed } = require('./production-window.cjs');
 const { createPreparedEventRuntime } = require('./prepared-event-runtime.cjs');
 const ACTIONS = new Set(['launch','next','previous','toggle-auto','auto','manual','reload','stop']);
 const EVENT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const CANDIDATE = /^[a-f0-9]{48}$/;
-const RUNTIME_ERRORS = new Set(['SERVICE_FAULT','RESOLVER_FAILED','RESOLVER_TIMEOUT','CONTROL_INHIBITED','CLOSED','CANCELLED','NOT_READY','BUSY','HANDLER_FAILED','HANDLER_TIMEOUT','CONSOLE_FAULT','EVENT_BOOTSTRAP_FAILED','EVENT_START_FAILED','EVENT_CLOSE_FAILED','SESSION_CLOSE_FAILED','STATE_UNAVAILABLE','CONSOLE_CLOSE_FAILED','CLOSE_FAILED','RENDER_FAILED','RENDER_TIMEOUT','PREPARE_FAILED','PREPARE_TIMEOUT','INVALID_SNAPSHOT','STALE_SESSION','NOT_PLAYING','FAULTED','PRESENTATION_FAILED','TRANSPORT_FAULT','LISTENER_FAILED','SEQUENCE_LIMIT']);
+const RUNTIME_ERRORS = new Set(['SERVICE_FAULT','RESOLVER_FAILED','RESOLVER_TIMEOUT','CONTROL_INHIBITED','CLOSED','CANCELLED','NOT_READY','BUSY','HANDLER_FAILED','HANDLER_TIMEOUT','CONSOLE_FAULT','EVENT_BOOTSTRAP_FAILED','EVENT_START_FAILED','EVENT_CLOSE_FAILED','SESSION_CLOSE_FAILED','STATE_UNAVAILABLE','CONSOLE_CLOSE_FAILED','CLOSE_FAILED','RENDER_FAILED','RENDER_TIMEOUT','PREPARE_FAILED','PREPARE_TIMEOUT','INVALID_SNAPSHOT','STALE_SESSION','NOT_PLAYING','FAULTED','PRESENTATION_FAILED','TRANSPORT_FAULT','LISTENER_FAILED','SEQUENCE_LIMIT','ADMISSION_DENIED']);
 function fault(code) { return Object.assign(Error(code), { code }); }
 function plain(value) { return value !== null && typeof value === 'object' && [Object.prototype,null].includes(Object.getPrototypeOf(value)); }
 function record(value, keys) {
@@ -54,15 +55,33 @@ function expected(raw, candidate = false) {
  * One application-owned SPX outlives these sender-only event runtimes.
  */
 function createGameDayManager(options = {}) {
-  if(!plain(options) || Reflect.ownKeys(options).some(key=>typeof key!=='string' || !['catalog','runtimeFactory','clock','sourceRoot','privateRoots'].includes(key) ||
+  if(!plain(options) || Reflect.ownKeys(options).some(key=>typeof key!=='string' || !['catalog','runtimeFactory','clock','sourceRoot','privateRoots','admitCandidate'].includes(key) ||
       !Object.hasOwn(Object.getOwnPropertyDescriptor(options,key),'value') || !Object.getOwnPropertyDescriptor(options,key).enumerable)) throw fault('MANAGER_OPTIONS_INVALID');
-  const {catalog,runtimeFactory=createPreparedEventRuntime,clock=Date.now,sourceRoot,privateRoots:rawPrivateRoots=[]}=options;
+  const {catalog,runtimeFactory=createPreparedEventRuntime,clock=Date.now,sourceRoot,privateRoots:rawPrivateRoots=[],admitCandidate}=options;
+  if(admitCandidate!==undefined&&typeof admitCandidate!=='function')throw fault('MANAGER_OPTIONS_INVALID');
   if(sourceRoot!==undefined && !absolute(sourceRoot)) throw fault('MANAGER_OPTIONS_INVALID');
   const privateRoots=privateBoundaries(rawPrivateRoots,sourceRoot);
   if (!catalog || typeof catalog.list !== 'function' || typeof catalog.read !== 'function' || typeof runtimeFactory !== 'function' || typeof clock !== 'function') throw fault('MANAGER_OPTIONS_INVALID');
   let selection=0, active=null, candidate=null, operation=null, flight=null, inventory=null, closed=false, closing=false, closePromise=null, lastError=null;
   const records = new Set();
   const activeId = () => active?.descriptor.eventId || null;
+  function candidatePermitted(record) {
+    try {
+      if(record.profile.provider==='exchange-v1') {
+        const {admitExchangeCandidate}=require('./exchange-source-provider.cjs');
+        if(admitExchangeCandidate(record.admissionToken,record.profile)!==true)return false;
+      }
+      if(admitCandidate===undefined)return true;
+      const decision=admitCandidate(Object.freeze({profile:record.profile,descriptor:record.descriptor,
+        revision:record.revision,admissionToken:record.admissionToken}));
+      // Consume native/cross-realm rejected Promises without assimilating an
+      // arbitrary truthy thenable. Only literal synchronous true authorizes.
+      if(isPromise(decision))void Promise.prototype.then.call(decision,undefined,()=>{});
+      if(decision!==true)return false;
+      // Optional policy may synchronously invalidate the mandatory source owner.
+      return record.profile.provider!=='exchange-v1'||require('./exchange-source-provider.cjs').admitExchangeCandidate(record.admissionToken,record.profile)===true;
+    } catch {return false;}
+  }
   function matches(raw) { return raw.expectedSelection === selection && raw.expectedEventId === activeId(); }
   function status(record) {
     try { const value=record.runtime.snapshot(); if (!plain(value) || typeof value.preparing !== 'boolean') throw fault('STATE_UNAVAILABLE'); return value; }
@@ -89,7 +108,13 @@ function createGameDayManager(options = {}) {
     if (operation || flight) return 'BUSY';
     if (withCandidate && (!candidate || candidate.id!==raw.candidateId)) return 'STALE_CANDIDATE';
     if (physical && physicalBarrier()) return 'BUSY';
-    return window ? policy() : null;
+    const currentPolicy=window ? policy() : null;
+    // Snapshot/clock dependencies are trusted code but may synchronously reenter.
+    if(closed)return 'CLOSED';
+    if(!matches(raw))return 'STALE_SELECTION';
+    if(operation||flight)return 'BUSY';
+    if(withCandidate&&(!candidate||candidate.id!==raw.candidateId))return 'STALE_CANDIDATE';
+    return currentPolicy;
   }
   function settle(token,value) {
     if (token.settled) return;
@@ -186,11 +211,12 @@ function createGameDayManager(options = {}) {
       } catch {if(fresh(token))lastError='CATALOG_INVALID';return result(false,closed?'CLOSED':'CATALOG_INVALID');}
       const beforeFactory=policy();if(beforeFactory)return result(false,beforeFactory);
       if(physicalBarrier())return result(false,'BUSY');
+      if(!fresh(token))return result(false,'CLOSED');
       let runtime,candidateId,window;
       try{candidateId=randomBytes(24).toString('hex');window=normalizeWindow(profile.productionWindow);}catch{lastError='PREPARE_FAILED';return result(false,'PREPARE_FAILED');}
       try { runtime=await runtimeFactory(profile,{manageSpx:false,clock,privateRoots,canPrepare:()=>flight===null&&!closed,...(sourceRoot===undefined?{}:{sourceRoot})}); }
       catch {if(fresh(token))lastError='PREPARE_FAILED';return result(false,closed?'CLOSED':'PREPARE_FAILED');}
-      const next={runtime,profile,descriptor:desc,revision:entry.revision,id:candidateId,window,closeState:'open',closePromise:null,started:false};records.add(next);
+      const next={runtime,profile,descriptor:desc,revision:entry.revision,id:candidateId,window,closeState:'open',closePromise:null,started:false,admissionToken:null};records.add(next);
       if(!fresh(token)){
         try{await closeRecord(next);}catch{}
         return result(false,'CLOSED');
@@ -200,8 +226,19 @@ function createGameDayManager(options = {}) {
         try{await closeRecord(next);}catch{return result(false,'CLOSE_FAILED');}
         lastError='RUNTIME_INVALID';return result(false,'RUNTIME_INVALID');
       }
+      let permitted=false;
+      try{
+        if(profile.provider==='exchange-v1')next.admissionToken=runtime.candidateAdmissionToken();
+        permitted=candidatePermitted(next);
+      }catch{}
+      if(!fresh(token)||!permitted){
+        try{await closeRecord(next);}catch{return result(false,'CLOSE_FAILED');}
+        if(!fresh(token))return result(false,'CLOSED');
+        lastError='ADMISSION_DENIED';return result(false,'ADMISSION_DENIED');
+      }
       const afterFactory=policy();
-      if(afterFactory||physicalBarrier()){
+      const blockedAfterFactory=physicalBarrier();
+      if(!fresh(token)||afterFactory||blockedAfterFactory){
         try{await closeRecord(next);}catch{return result(false,'CLOSE_FAILED');}
         return result(false,closed?'CLOSED':afterFactory||'BUSY');
       }
@@ -211,6 +248,11 @@ function createGameDayManager(options = {}) {
   }
   function activate(raw) {
     const code=admission(raw,{withCandidate:true,window:true,physical:true});if(code)return Promise.resolve(result(false,code));
+    if(!candidatePermitted(candidate))return Promise.resolve(result(false,closed?'CLOSED':'ADMISSION_DENIED'));
+    // A trusted admission callback may synchronously reenter manager methods.
+    const afterAdmission=admission(raw,{withCandidate:true,window:true,physical:true});
+    if(afterAdmission)return Promise.resolve(result(false,afterAdmission));
+    if(closed)return Promise.resolve(result(false,'CLOSED'));
     if(selection>=Number.MAX_SAFE_INTEGER)return Promise.resolve(result(false,'SELECTION_LIMIT'));
     // Epoch reservation happens before any asynchronous shutdown/start work.
     selection++;
@@ -220,7 +262,11 @@ function createGameDayManager(options = {}) {
       if(!fresh(token))return result(false,'CLOSED');
       const next=candidate;
       if(next.closeState!=='open')return result(false,'CANDIDATE_CLOSED');
-      const beforeStop=policy();if(beforeStop)return result(false,beforeStop);
+      if(!candidatePermitted(next))return result(false,closed?'CLOSED':'ADMISSION_DENIED');
+      if(!fresh(token))return result(false,'CLOSED');
+      const beforeStop=policy();
+      if(!fresh(token))return result(false,'CLOSED');
+      if(beforeStop)return result(false,beforeStop);
       if(active){
         const old=active;
         try{await closeRecord(old);}catch{return result(false,'CLOSE_FAILED');}
@@ -230,12 +276,24 @@ function createGameDayManager(options = {}) {
         if(active===old)active=null;
       }
       if(physicalBarrier())return result(false,'BUSY');
+      if(!candidatePermitted(next))return result(false,closed?'CLOSED':'ADMISSION_DENIED');
+      if(!fresh(token))return result(false,'CLOSED');
+      const beforeStart=policy();
+      if(!fresh(token))return result(false,'CLOSED');
+      if(beforeStart)return result(false,beforeStart);
       try{await next.runtime.start();}
       catch{
         try{await closeRecord(next);}catch{return result(false,'CLOSE_FAILED');}
         if(candidate===next)candidate=null;
         if(fresh(token))lastError='START_FAILED';
         return result(false,closed?'CLOSED':'START_FAILED');
+      }
+      if(!fresh(token)){try{await closeRecord(next);}catch{}return result(false,'CLOSED');}
+      if(!candidatePermitted(next)){
+        try{await closeRecord(next);}catch{return result(false,'CLOSE_FAILED');}
+        if(candidate===next)candidate=null;
+        if(!fresh(token))return result(false,'CLOSED');
+        lastError='ADMISSION_DENIED';return result(false,'ADMISSION_DENIED');
       }
       if(!fresh(token)){try{await closeRecord(next);}catch{}return result(false,'CLOSED');}
       next.started=true;active=next;if(candidate===next)candidate=null;lastError=null;

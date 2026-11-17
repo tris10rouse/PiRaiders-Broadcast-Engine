@@ -1,5 +1,14 @@
 # Codex engineering checkpoint
 
+## Current progress · 2026-11-17: explicit source provider admission
+
+PR52 merged as34c9a79b8d7798e2e43ee7645e2faf2e07e9d24c, identical tested treebf1ff83214c6e2d553a6c89ea90663adf5813085. All12 checks passed at3e70f2d34f020a054a6c7301f621268af7e3cad4: Windows741pass/2 documented skips, Chromium44/44, source and extracted actual11-frame output proofs. Windows500-image stage/cache4156/2207ms under unchanged60s. These are development evidence, not targetWindows10/LAN/stadium compatibility or evaluation readiness.
+
+Current BE-006 backend integration adds explicit branded exchange profiles/drivers, mandatory manager candidate admission, offline cache authorization and changed-Reload dispatch guards. Review reproduced and fixed offline-only cancellation/omission/failure admission, reentrant authorizer/manager close and cancelled controller Reload mutation/render defects. Combined focused51/51 and expanded manager15/15 passed. The real manager/provider/runtime/session composition also passed (native processes and renderer ACKs synthetic). Initial full Linux run exposed the existing synchronous-deadline test racing its real filesystem setup; its test now controls the original timer/clock and asserts that validation actually ran. Targeted corrected case passed; initial failure remains retained. Revised full regression and final-SHA Windows checks remain required before merge.
+
+Default PC source selection/approval persistence remains unfinished. Next: hierarchical/paged source selection and confirmed windows, licensed clean-machine setup, diagnostics/recovery, browser/graceful-close proof, cold-start headroom and four-hour soak. First Windows evaluation release NOT READY. Earlier entries below are historical.
+
+
 ## Current authoritative checkpoint · 2026-11-17: decoder performance prerequisite
 
 Decoder candidate is integrated and reviewed: root99/99 focused passes, complete Linux743tests/716pass/27 explicit Windows-only skips/0fail; syntax161. Author67/67 and independent66 plus additive public500 case passed separately, no skips. Public synthetic500 source/cache root4571/3265ms; independent5533/2990ms; each existing60s coordinator cap unchanged. Same private500 baseline60007ms timeout versus final5859ms stage/3478ms cache. Source/session hashes are in the reviewed eight-file manifest at work/image-session40/candidate-hashes.json if present; code includes a new shared core/session worker, operation-scoped validator, schema2 adapter and real lifecycle/500-file tests. Legacy image-validator source unchanged. Fresh final-SHA Windows/all12 checks required before merge.

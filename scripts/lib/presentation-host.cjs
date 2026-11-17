@@ -132,7 +132,10 @@ async function createPresentationHost(raw = {}) {
     }
   }
   function jobCurrent(job) { return !closed && !job.finished && job.generation === reloadGeneration && job.owner === controller && job.epoch === epoch; }
-  function reloadSnapshot(candidateDir) {
+  function reloadSnapshot(candidateDir,options={}) {
+    if(!known(options,['canCommit'])||(options.canCommit!==undefined&&typeof options.canCommit!=='function'))return Promise.resolve(reloadResult(false,'INVALID_SNAPSHOT'));
+    const canCommit=options.canCommit;
+    function admitted(){if(canCommit===undefined)return true;try{const value=canCommit();if(value&&typeof value.then==='function')Promise.resolve(value).catch(()=>{});return value===true;}catch{return false;}}
     if (closed) return Promise.resolve(reloadResult(false,'CLOSED'));
     if (typeof candidateDir !== 'string' || !path.isAbsolute(candidateDir)) return Promise.resolve(reloadResult(false,'INVALID_SNAPSHOT'));
     if (reloadJob) return Promise.resolve(reloadResult(false,'BUSY'));
@@ -155,12 +158,13 @@ async function createPresentationHost(raw = {}) {
           handler.close(); feedback(identical?'complete':'failed');
           finishReload(job,identical,identical?undefined:'SNAPSHOT_CONFLICT'); return;
         }
+        if(!admitted()){handler.close();feedback('failed');finishReload(job,false,'ADMISSION_DENIED');return;}
         if (registry.size >= 2 || registry.has(handler.deck.id)) { handler.close(); feedback('failed'); finishReload(job,false,'BUSY'); return; }
         const entry = {handler,refs:0,retiring:false}; job.candidate = entry;
         registry.set(handler.deck.id,entry); reloadState = 'activating';
         job.activationSettled = false;
         let outcome;
-        try { outcome = await job.owner.replaceDeck(handler.deck,{signal:job.abort.signal}); }
+        try { outcome = await job.owner.replaceDeck(handler.deck,{signal:job.abort.signal,...(canCommit===undefined?{}:{canCommit:admitted})}); }
         finally { job.activationSettled = true; }
         if (outcome.ok && jobCurrent(job)) {
           const previous = activeMedia; activeMedia = entry; previous.retiring = true; collect(previous);

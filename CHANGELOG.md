@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-17 · Explicit source provider and candidate admission
+
+- Added backend exchange profile/driver integration with independent verified ordered caches, trusted offline authorization, mandatory manager admission and changed-Reload guards at actual dispatch.
+- Reproduced and corrected stale offline admission and callback reentrancy defects; source invalidation denies new candidates without blacking already active playback or changing confirmed windows.
+- PR52 decoder prerequisite merged after all12 checks, real Windows500-image stage/cache and source/extracted output proofs. Source provider final Windows validation remains required. PC selection/approval persistence and evaluation gates remain open.
+
 ## 2026-11-17 · Source coordination verified; decoder performance gate
 
 - Decoder candidate full Linux regression:716passed/27 explicit Windows-only skips/0fail (743total), syntax161, focused99/99. Final Windows/source/extracted evidence remains required before merge.

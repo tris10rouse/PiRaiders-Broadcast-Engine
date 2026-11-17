@@ -537,27 +537,30 @@ test("journal started before abort may commit valid fact, but cannot acknowledge
 test("late synchronous gate crosses immutable deadline before manifest append", {
     timeout: 1e4
 }, async t => {
-    const {
-        createExchangeTimingGate
-    } = require("../scripts/lib/exchange-timing.cjs"), gate = createExchangeTimingGate();
-    let clock = 0;
-    const f = await fixture(t, {
-        now: () => clock,
-        timingGate: {
-            validate: m => {
-                const r = gate.validate(m);
-                clock = 1e3;
-                return r;
-            }
-        }
-    }, {
-        timeoutMs: 1e3
-    }), m = source();
+    const {createExchangeTimingGate}=require('../scripts/lib/exchange-timing.cjs'),gate=createExchangeTimingGate();
+    const {performance}=require('node:perf_hooks');
+    let clock=0,gateCalls=0,deadlineTimers=0;
+    const schedule=global.setTimeout,cancel=global.clearTimeout,held=new Set();
+    // This case proves the synchronous monotonic fence, not filesystem speed.
+    // Hold only the unchanged 1000ms deadline timers, retaining the real outer
+    // watchdog and drain timers. Existing elapsed-time timeout cases remain.
+    t.mock.method(performance,'now',()=>clock);
+    t.mock.method(global,'setTimeout',(fn,ms,...args)=>{
+        if(ms!==1000)return schedule(fn,ms,...args);
+        deadlineTimers++;const timer=schedule(()=>{},3600000);timer.unref();held.add(timer);return timer;
+    });
+    t.mock.method(global,'clearTimeout',timer=>{held.delete(timer);return cancel(timer);});
+    t.after(()=>{for(const timer of held)cancel(timer);});
+    const f=await fixture(t,{now:()=>clock,timingGate:{validate:m=>{
+        gateCalls++;assert.equal(clock,0);const result=gate.validate(m);clock=1000;return result;
+    }}},{timeoutMs:1000}),m=source();
     await f.publish(m);
-    assert.equal((await guarded(f.coordinator.prepareSelection(m.identityTuple))).code, "COORDINATOR_TIMEOUT");
-    await until(() => !f.coordinator.snapshot().busy);
-    assert.equal((await f.head()).state.feeds[0].selections.length, 0);
-    assert.equal(f.coordinator.snapshot().lastPrepared, null);
+    assert.equal((await guarded(f.coordinator.prepareSelection(m.identityTuple))).code,'COORDINATOR_TIMEOUT');
+    await until(()=>!f.coordinator.snapshot().busy);
+    assert.equal(gateCalls,1,'must reach the intended synchronous validation boundary');
+    assert.ok(deadlineTimers>=2,'original coordinator and reader deadlines were armed');
+    assert.equal((await f.head()).state.feeds[0].selections.length,0);
+    assert.equal(f.coordinator.snapshot().lastPrepared,null);
 });
 
 test("owns tuple and options before first await; getters rejected without running", async t => {

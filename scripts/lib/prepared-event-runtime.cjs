@@ -2,6 +2,7 @@
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const {normalizePreparedEventProfile}=require('./prepared-event-profile.cjs');
+const {isExchangePreparedMedia,admitExchangeCandidate,EXCHANGE_SOURCE_BUDGETS}=require('./exchange-source-provider.cjs');
 const {preparedCasparConfig}=require('./prepared-caspar-config.cjs');
 const {stageSnapshot,loadSnapshot}=require('./media-snapshot.cjs');
 const {createRossTalkSession}=require('./rosstalk-session.cjs');
@@ -15,7 +16,7 @@ function failure(code){return Object.assign(Error(code),{code});}
 function same(a,b){return process.platform==='win32'?a.toLowerCase()===b.toLowerCase():a===b;}
 function within(parent,child){const a=process.platform==='win32'?parent.toLowerCase():parent,b=process.platform==='win32'?child.toLowerCase():child;return a===b||(!path.relative(a,b).startsWith('..'+path.sep)&&path.relative(a,b)!=='..'&&!path.isAbsolute(path.relative(a,b)));}
 async function canonical(file){let cursor=file;const tail=[];for(;;){try{return path.join(await fs.realpath(cursor),...tail.reverse());}catch(error){if(error.code!=='ENOENT')throw error;const parent=path.dirname(cursor);if(parent===cursor)throw error;tail.push(path.basename(cursor));cursor=parent;}}}
-async function paths(profile,{source=profile.media.startup.mode==='source',manageSpx=true,sourceRoot,privateRoots=[]}={}){
+async function paths(profile,{source=profile.provider==='local-manual'&&profile.media.startup.mode==='source',manageSpx=true,sourceRoot,privateRoots=[]}={}){
   // Cached startup must not touch an absent/unmounted Drive source at all.
   const roots=await Promise.all([...(source?[profile.media.sourceDir]:[]),profile.media.cacheDir,profile.caspar.runtimeDir].map(canonical));
   for(let i=0;i<roots.length;i++)for(let j=i+1;j<roots.length;j++)if(within(roots[i],roots[j])||within(roots[j],roots[i]))throw failure('PROFILE_PATHS');
@@ -29,7 +30,7 @@ async function paths(profile,{source=profile.media.startup.mode==='source',manag
   if(manageSpx&&same(await fs.realpath(profile.spx.executable),await fs.realpath(profile.caspar.executable)))throw failure('PROFILE_PATHS');
   await preflightRenderer(profile.caspar);
   if(profile.output.type==='ndi'){try{if(!(await fs.stat(path.join(profile.output.runtimeDirectory,'Processing.NDI.Lib.x64.dll'))).isFile())throw failure('NDI_RUNTIME_MISSING');}catch{throw failure('NDI_RUNTIME_MISSING');}}
-  if(profile.media.startup.mode==='cached'){
+  if(profile.provider==='local-manual'&&profile.media.startup.mode==='cached'){
     const selected=await fs.realpath(profile.media.startup.snapshotDir),cache=await fs.realpath(profile.media.cacheDir);
     if(same(selected,cache)||!within(cache,selected))throw failure('PROFILE_PATHS');
   }
@@ -38,22 +39,24 @@ async function paths(profile,{source=profile.media.startup.mode==='source',manag
  * manageSpx:false leaves SPX ownership and filesystem validation to the caller.
  * Real activation is Windows-only unless an explicit synthetic spawner is supplied.
  */
-async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child=>new CasparConsole(child),clock=Date.now,schedule=setTimeout,cancel=clearTimeout,supervisorOptions={},stage=stageSnapshot,load=loadSnapshot,sessionFactory=createRossTalkSession,manageSpx=true,sourceRoot,privateRoots=[],canPrepare=()=>true}={}){
+async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child=>new CasparConsole(child),clock=Date.now,schedule=setTimeout,cancel=clearTimeout,supervisorOptions={},stage=stageSnapshot,load=loadSnapshot,sessionFactory=createRossTalkSession,manageSpx=true,sourceRoot,privateRoots=[],canPrepare=()=>true,preparedMedia}={}){
   if(typeof manageSpx!=='boolean'||typeof canPrepare!=='function'||(sourceRoot!==undefined&&!safeRoot(sourceRoot))||!safePrivateRoots(privateRoots)||(privateRoots.length&&sourceRoot===undefined))throw failure('EVENT_OPTIONS_INVALID');
   privateRoots=Object.freeze(privateRoots.map(value=>path.resolve(value)));
-  let profile,initial,directory,nativeWindowPolicy;
+  let profile,initial,directory,nativeWindowPolicy,exchange=false;
   try{
     profile=normalizePreparedEventProfile(raw);
+    exchange=profile.provider==='exchange-v1';
+    if(exchange?!isExchangePreparedMedia(preparedMedia,profile):preparedMedia!==undefined)throw failure('EVENT_OPTIONS_INVALID');
     if(process.platform!=='win32'&&typeof spawnProcess!=='function')throw failure('WINDOWS_REQUIRED');
     try{await paths(profile,{manageSpx,sourceRoot,privateRoots});}catch(error){throw failure(['NDI_RUNTIME_MISSING','MESA_RUNTIME_MISSING'].includes(error.code)?error.code:'PROFILE_PATHS');}
     // Capture native UTC/boot deadline once; sender restarts never resample it.
     if(!spawnProcess)nativeWindowPolicy=await createNativeWindowPolicy(profile.productionWindow);
-    initial=profile.media.startup.mode==='cached'?await load(profile.media.startup.snapshotDir):await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir});
+    initial=exchange?await preparedMedia.initial({privateRoots}):profile.media.startup.mode==='cached'?await load(profile.media.startup.snapshotDir):await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir});
     await fs.mkdir(profile.caspar.runtimeDir,{recursive:true});
     directory=await fs.mkdtemp(path.join(profile.caspar.runtimeDir,'event-'));
     for(const child of ['media','log','data','template'])await fs.mkdir(path.join(directory,child));
     await fs.writeFile(path.join(directory,'caspar.config'),preparedCasparConfig(profile,directory,{relativePaths:true}),{flag:'wx'});
-  }catch(error){if(directory)await fs.rm(directory,{recursive:true,force:true}).catch(()=>{});throw failure(['PROFILE_INVALID','PROFILE_PATHS','NDI_RUNTIME_MISSING','MESA_RUNTIME_MISSING','WINDOWS_REQUIRED'].includes(error.code)?error.code:'EVENT_PREPARE_FAILED');}
+  }catch(error){if(directory)await fs.rm(directory,{recursive:true,force:true}).catch(()=>{});throw failure(['PROFILE_INVALID','PROFILE_PATHS','NDI_RUNTIME_MISSING','MESA_RUNTIME_MISSING','WINDOWS_REQUIRED','EVENT_OPTIONS_INVALID'].includes(error.code)?error.code:'EVENT_PREPARE_FAILED');}
   const spawn=spawnProcess||((exe,args,options,privateInput)=>spawnSupervisedProcess(exe,args,options,{forwardStdin:privateInput,...(privateInput?{productionWindow:nativeWindowPolicy}:{})}));
   let launcher,windowExpired=false,closed=false,started=false,startPromise,closePromise,state='prepared',lastError=null,stamp=0,current=null,standby=null;
   let accepted=initial,lastMode=profile.playback.mode,flight=null,candidate=null;
@@ -92,16 +95,16 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     const job={abort:new AbortController()};flight=job;
     const abort=()=>job.abort.abort();signal.addEventListener('abort',abort,{once:true});
     try{
-      await paths(profile,{source:true,manageSpx,sourceRoot,privateRoots});
+      await paths(profile,{source:!exchange,manageSpx,sourceRoot,privateRoots});
       if(!active(gen)||signal.aborted||job.abort.signal.aborted)throw failure('EVENT_CANCELLED');
-      const next=await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir,signal:job.abort.signal});
+      const next=exchange?await preparedMedia.resolveReload({signal:job.abort.signal,acceptedSnapshot:accepted}):await stage({sourceDir:profile.media.sourceDir,cacheDir:profile.media.cacheDir,signal:job.abort.signal});
       if(!active(gen)||signal.aborted||job.abort.signal.aborted)throw failure('EVENT_CANCELLED');
       candidate=next;return next.snapshotDir;
     }finally{signal.removeEventListener('abort',abort);if(flight===job)flight=null;}
   }
   function session(gen){
     const pending=(async()=>{
-      const value=await sessionFactory({presentation:{snapshotDir:accepted.snapshotDir,port:profile.presentation.port,controllerOptions:{...profile.playback,mode:lastMode}},rossTalk:profile.rossTalk,canControl:()=>gate(gen),resolvePreparedSnapshot:args=>prepare(gen,args)});
+      const value=await sessionFactory({...(exchange?{resolverTimeoutMs:EXCHANGE_SOURCE_BUDGETS.resolverTimeoutMs}:{}),presentation:{snapshotDir:accepted.snapshotDir,port:profile.presentation.port,...(exchange?{prepareTimeoutMs:EXCHANGE_SOURCE_BUDGETS.prepareTimeoutMs}:{}),controllerOptions:{...profile.playback,mode:lastMode}},rossTalk:profile.rossTalk,canControl:()=>gate(gen),...(exchange?{canCommitPreparedSnapshot:snapshotDir=>!!candidate&&candidate.snapshotDir===snapshotDir&&preparedMedia.canCommitPreparedSnapshot(candidate,accepted)===true}:{}),resolvePreparedSnapshot:args=>prepare(gen,args)});
       try{
         if(closed||(!gen.initial&&!active(gen)))throw failure('EVENT_CANCELLED');
         await value.start();
@@ -153,7 +156,7 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     if(closePromise)return closePromise;
     let resolveClose,rejectClose;
     const reserved=new Promise((resolve,reject)=>{resolveClose=resolve;rejectClose=reject;});closePromise=reserved;
-    closed=true;state='closing';retire();
+    closed=true;state='closing';retire();if(exchange)preparedMedia.close();
     // Never wait for resolver/render/black completion before requesting stop.
     const stopping=launcher.close();
     void Promise.allSettled([stopping,...retiring,...[...creating].map(p=>p.then(value=>value.close(),error=>{if(error.code!=='EVENT_CANCELLED')throw error;}))]).then(async results=>{
@@ -165,6 +168,7 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
   function start(){
     if(closed)return Promise.reject(failure('EVENT_CLOSED'));
     if(startPromise)return startPromise;
+    if(exchange&&!admitExchangeCandidate(preparedMedia.admissionToken(),profile))return Promise.reject(failure('EVENT_ADMISSION_DENIED'));
     startPromise=(async()=>{
       const initialGen={stamp:0,initial:true,session:null,ready:false};
       try{initialGen.session=await session(initialGen);if(closed){await initialGen.session.close();throw failure('EVENT_CLOSED');}standby=initialGen;started=true;await launcher.start();if(!current)state=windowExpired?'expired':'waiting';}
@@ -179,6 +183,6 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     if(!owned)return Promise.resolve(Object.freeze({ok:false,code:'CONTROL_INHIBITED'}));
     return owned.dispatch(action);
   }
-  return Object.freeze({start,snapshot,dispatch,close});
+  return Object.freeze({start,snapshot,dispatch,close,...(exchange?{candidateAdmissionToken:()=>preparedMedia.admissionToken()}:{} )});
 }
 module.exports={createPreparedEventRuntime};
