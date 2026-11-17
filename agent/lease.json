@@ -6,7 +6,7 @@
   "task": "Resume explicit exchange provider and runtime admission",
   "workBranch": "feature/be-006-exchange-provider",
   "acquiredAt": "2026-11-17T10:45:51.274Z",
-  "lastHeartbeat": "2026-11-17T10:45:51.274Z",
-  "expiresAt": "2026-11-17T12:15:51.274Z",
+  "lastHeartbeat": "2026-11-17T10:58:22.465Z",
+  "expiresAt": "2026-11-17T12:28:22.465Z",
   "releasedAt": null
 }
