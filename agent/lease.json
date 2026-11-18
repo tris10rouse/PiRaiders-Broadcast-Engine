@@ -6,7 +6,7 @@
   "task": "BE-006 exact source revalidation and source service",
   "workBranch": "feature/be-006-source-revalidation",
   "acquiredAt": "2026-11-18T03:47:53.384Z",
-  "lastHeartbeat": "2026-11-18T03:47:53.384Z",
-  "expiresAt": "2026-11-18T05:17:53.384Z",
+  "lastHeartbeat": "2026-11-18T03:56:15.782Z",
+  "expiresAt": "2026-11-18T05:26:15.782Z",
   "releasedAt": null
 }
