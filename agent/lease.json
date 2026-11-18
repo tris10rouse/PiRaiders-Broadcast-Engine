@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-2026-11-18T00:41:03.856Z-79nwq5dbek7",
-  "fence": 45,
-  "task": "Resume PR55 then protected source integration",
-  "workBranch": "feature/be-006-source-confirmation",
-  "acquiredAt": "2026-11-18T00:41:03.856Z",
-  "lastHeartbeat": "2026-11-18T00:42:16.864Z",
-  "expiresAt": "2026-11-18T02:12:16.864Z",
+  "owner": "codex-2026-11-18T03:47:53.384Z-nnftfio8axm",
+  "fence": 46,
+  "task": "BE-006 exact source revalidation and source service",
+  "workBranch": "feature/be-006-source-revalidation",
+  "acquiredAt": "2026-11-18T03:47:53.384Z",
+  "lastHeartbeat": "2026-11-18T03:47:53.384Z",
+  "expiresAt": "2026-11-18T05:17:53.384Z",
   "releasedAt": null
 }
