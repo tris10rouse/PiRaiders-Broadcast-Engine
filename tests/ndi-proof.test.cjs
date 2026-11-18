@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const net=require('node:net');
 const {peMachine}=require('../scripts/prepare-ndi-proof.cjs');
 const {requestProbe}=require('../scripts/ndi-proof-client.cjs');
-const {ndiConfiguration}=require('../scripts/smoke-ndi-windows.cjs');
+const {ndiConfiguration,captureEndingTree}=require('../scripts/smoke-ndi-windows.cjs');
 test('NDI runtime PE check bounds the offset and requires a genuine PE signature',()=>{
   const pe=Buffer.alloc(128);pe.write('MZ');pe.writeUInt32LE(80,60);pe.writeUInt32LE(0x4550,80);pe.writeUInt16LE(0x8664,84);
   assert.equal(peMachine(pe),0x8664);const x86=Buffer.from(pe);x86.writeUInt16LE(0x14c,84);assert.equal(peMachine(x86),0x14c);
@@ -41,4 +41,24 @@ test('NDI proof config admits only a bounded inert name and retains private logg
   const xml=ndiConfiguration(5250,'PiRaiders-CI-123');assert.match(xml,/<ndi><name>PiRaiders-CI-123<\/name><allow-fields>false<\/allow-fields><\/ndi>/);assert.match(xml,/<log-path disabled="true">/);assert.match(xml,/<auto-load>false<\/auto-load>/);
   for(const label of ['',null,'<name>','x y','x'.repeat(65),'x\n'])assert.throws(()=>ndiConfiguration(5250,label),/NDI_LABEL_INVALID/);
   assert.throws(()=>ndiConfiguration(0,'test'));
+});
+
+test('NDI ending capture reserves boundary time and rejects expired or replaced hosts',async()=>{
+  const host={pid:123,exitCode:null,signalCode:null},tree=Object.freeze([{identity:'complete synthetic capture'}]);
+  let active=host,wall=0,options,calls=0;
+  const capture=async(pid,value)=>{calls++;assert.equal(pid,123);options=value;return{tree};};
+  const deps={capture,wallNow:()=>wall,now:()=>100};
+  assert.equal(await captureEndingTree(host,30000,()=>active,deps),tree);
+  assert.equal(options.deadline,15100);assert.equal(options.expectedParentPid,process.pid);assert.ok(options.expectedImage);
+  wall=22000;await captureEndingTree(host,30000,()=>active,deps);assert.equal(options.deadline,3100);
+  wall=25000;await assert.rejects(captureEndingTree(host,30000,()=>active,deps),/WINDOW_CAPTURE_LATE/);assert.equal(calls,2);
+  wall=0;active={...host};await assert.rejects(captureEndingTree(host,30000,()=>active,deps),/WINDOW_CAPTURE_LATE/);
+  active=host;host.exitCode=1;await assert.rejects(captureEndingTree(host,30000,()=>active,deps),/WINDOW_CAPTURE_LATE/);host.exitCode=null;
+  for(const change of [()=>{wall=25000;},()=>{active={...host};},()=>{host.signalCode='SIGTERM';}]){
+    wall=0;active=host;host.signalCode=null;
+    await assert.rejects(captureEndingTree(host,30000,()=>active,{...deps,capture:async()=>{change();return{tree};}}),/WINDOW_CAPTURE_STALE/);
+  }
+  host.signalCode=null;wall=0;active=host;
+  const failure=Error('PROCESS_IDENTITY_UNVERIFIED');
+  await assert.rejects(captureEndingTree(host,30000,()=>active,{...deps,capture:async()=>{throw failure;}}),error=>error===failure);
 });

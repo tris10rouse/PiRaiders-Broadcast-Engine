@@ -8,9 +8,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {spawn,execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
+const {performance}=require('node:perf_hooks');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
-const {processTable:table,descendants,observeTree,identityReason}=require('./windows-process-evidence.cjs');
+const {processTable:table,descendants,observeTree,identityReason,captureProcessTree}=require('./windows-process-evidence.cjs');
 const {configuration,command}=require('./smoke-caspar-windows.cjs');
 const {requestProbe}=require('./ndi-proof-client.cjs');
 const {fixedFailure,systemFailure}=require('./ndi-proof-diagnostics.cjs');
@@ -26,6 +27,16 @@ function ndiConfiguration(port,label){
   return xml.replace('<consumers/>','<consumers><ndi><name>'+label+'</name><allow-fields>false</allow-fields></ndi></consumers>');
 }
 async function until(predicate,code,ms=20000){const end=Date.now()+ms;while(Date.now()<end){if(await predicate())return;await wait(100);}throw Error(code);}
+// Capture complete identities while the sender is live, with time reserved for
+// the near-boundary black frame. Never extend the event or infer missing rows.
+async function captureEndingTree(host,end,getActive,{capture=captureProcessTree,wallNow=Date.now,now=()=>performance.now()}={}){
+  const live=()=>getActive()===host&&host.exitCode===null&&host.signalCode===null;
+  const remaining=end-wallNow()-5000;
+  if(!Number.isFinite(remaining)||remaining<=0||!live())throw Error('WINDOW_CAPTURE_LATE');
+  const result=await capture(host.pid,{deadline:now()+Math.min(15000,remaining),expectedParentPid:process.pid,expectedImage:JOB_HOST});
+  if(wallNow()>=end-5000||!live())throw Error('WINDOW_CAPTURE_STALE');
+  return result.tree;
+}
 async function freePort(){const server=net.createServer();await new Promise((r,j)=>server.listen(0,'127.0.0.1',r).once('error',j));const port=server.address().port;await new Promise(r=>server.close(r));return port;}
 function image(rgb){const data=Buffer.alloc(160*90*4);for(let i=0;i<data.length;i+=4)data.set([...rgb,255],i);return{width:160,height:90,data};}
 async function filesUnder(dir){const all=[];for(const entry of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,entry.name);if(entry.isDirectory())all.push(...await filesUnder(file));else if(entry.isFile())all.push(file);}return all;}
@@ -162,12 +173,18 @@ async function main(){
     await frame('restart-black',[0,0,0]);
     await command(talk,'GPI 1',{prefix:'OK ',timeoutMs:30000});await frame('restart-launch-green',[20,220,20]);
     await command(talk,'GPI 8',{prefix:'OK ',timeoutMs:30000});
+    phase='WINDOW_CAPTURE';
+    await until(()=>Date.now()>=Date.parse(window.end)-30000,'WINDOW_CAPTURE_WAIT',180000);
+    const endingHost=activeCaspar;
+    const endingTree=await captureEndingTree(endingHost,Date.parse(window.end),()=>activeCaspar);
     phase='WINDOW_END';
     // Sender must be alive/black close to the real boundary, not merely on the
     // first post-Stop frame. Do not extend the window if earlier work ran late.
     await until(()=>Date.now()>=Date.parse(window.end)-5000,'WINDOW_BOUNDARY_WAIT',180000);
     await frame('pre-end-black',[0,0,0],{minFrames:10,minDurationMs:1000});
-    const endingTree=descendants(table(),activeCaspar.pid);
+    assert.equal(activeCaspar,endingHost,'WINDOW_HOST_CHANGED');
+    assert.equal(endingHost.exitCode,null,'WINDOW_HOST_EXITED');
+    assert.equal(endingHost.signalCode,null,'WINDOW_HOST_SIGNALED');
     await until(()=>Date.now()>=Date.parse(window.end)&&runtime.sender===null,'WINDOW_END_PROCESS',20000);
     const processStoppedAt=new Date().toISOString();
     await until(()=>treeGone(endingTree),'WINDOW_TREE_SURVIVED',10000);
@@ -193,4 +210,4 @@ async function main(){
   await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }
 if(require.main===module)main().catch(error=>{console.error(/^NDI_PROOF_FAILED_[A-Z_]+$/.test(error.message)?error.message:'NDI_PROOF_FAILED');process.exitCode=1;});
-module.exports={ndiConfiguration};
+module.exports={ndiConfiguration,captureEndingTree};

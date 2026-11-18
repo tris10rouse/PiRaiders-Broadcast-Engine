@@ -1,5 +1,20 @@
 # PiRaiders engineering changelog
 
+Corrected headfdcfc913c18c3d1e7bdabe34e54013db35748190 full Linux passed859/886 with27 explicit Windows-only skips; syntax176. Its Windows private-console job134417870452 failed before the application proof, during pinned tool preparation, reporting only TOOL_PREPARATION_FAILED. No underlying cause is claimed. Added fixed phase/tool and allowlisted system/cause diagnostics with no raw paths/URLs/stderr, retry, pin/hash/size/cap changes. Focused preparation/NDI/capture tests29pass/1Windows-only skip; independent review and fresh final-SHA CI required. Both failed runs remain retained.
+
+Initial PR55 head92f9114f195757a38c2b3b0c3557eb5e9730647e failed actual SDK receiver job134411382177 at WINDOW_END with IMAGE_MISSING after all ten expected frame states, including pre-end black. The last crash-tree observation was gone9/unknown0; no window-tree cleanup result existed. Strict pre-teardown identity collection started too close to scheduled shutdown. The corrected proof captures complete identities at end-minus30s using the existing bounded live-capture helper (at most15s, capped before end-minus5s), rejects a late capture or replaced/exited host, and retains the original near-end black frame, zero-survivor/zero-unknown cleanup and1.5s SDK quiet checks. No event extension or relaxed teardown deadline. Focused proof/capture tests25pass/1 explicit Windows-only skip. Final corrected-SHA Windows validation remains required; initial failure is retained.
+
+Before this proof correction, full Linux regression passed858/885 with27 explicit Windows-only skips and syntax176. Later service wiring must also account for verified unchanged source inspections invalidating initial observation-bound tokens; read-only real-file reproduction confirmed this conservative behavior. Any future observation reuse requires fresh healthy exact-context validation and must never resurrect authority after failure/change. Source service remains disabled; no readiness claim.
+
+
+
+## 2026-11-17 · Source policy and candidate approval refresh
+
+- Recovered interrupted source-confirmation work under fresh lease44. Added strict opt-in source identities/private roots and retained canonical-root policy without mount/store initialization; source config cannot silently construct the lexical local catalog.
+- Added copied/frozen same-selected-capture identity, timing proposal, review flags and source ticks, preserving full labels and distinguishing source metadata from confirmed/prepared/active output.
+- Added awaited candidate approval refresh with physical ownership across logical close, caller-side source/policy checks after every lifecycle await and trusted callback, preserved Stop/active-window authority, and source200-codepoint labels. Reproduced scheduling, policy-clock and late-cleanup defects were fixed before publication.
+- PR54 merged after all12 checks, including corrected native deadline proof, Windows835/837(two documented skips), Chromium44/44 and source/extracted output proofs. Final Windows validation and PC source/service screen wiring remain unfinished.
+
 ## 2026-11-17 · Source catalog pages and durable approvals
 
 - Added metadata-only, revision-pinned event/selection pages preserving800-event/100-selection hierarchy and200-code-point labels. Reject conflicting repeated event headers and merged selection overflow; stale/invalid/aborted/superseded refreshes cannot restore browse authority.

@@ -91,7 +91,7 @@ async function loadGameDayMachineConfig(file, { appRoot, nodeExecutable } = {}) 
   try {
     appRoot = absolute(appRoot); nodeExecutable = absolute(nodeExecutable); file = absolute(file);
     const { value: raw } = await readJSON(file);
-    object(raw, ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'presentation', 'rossTalk'],
+    object(raw, ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'presentation', 'rossTalk', 'source'],
       ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'rossTalk']);
     if (raw.schemaVersion !== 1) throw Error('invalid');
     object(raw.caspar, ['executable', 'cwd', 'rendererProfile'], ['executable', 'cwd']);
@@ -102,6 +102,30 @@ async function loadGameDayMachineConfig(file, { appRoot, nodeExecutable } = {}) 
       caspar: { executable: machinePath(appRoot, raw.caspar.executable), cwd: machinePath(appRoot, raw.caspar.cwd), ...(rendererProfile===undefined?{}:{rendererProfile}) },
       output: raw.output, presentation: raw.presentation === undefined ? {} : raw.presentation, rossTalk: raw.rossTalk };
     const roots = [machine.mediaRoot, machine.cacheRoot, machine.runtimeRoot, machine.catalogDirectory];
+    if (Object.hasOwn(raw, 'source')) {
+      const source = raw.source;
+      object(source, ['providerId', 'journalDirectory', 'journalStoreId', 'approvalDirectory', 'approvalStoreId', 'expectedCanonicalRoot', 'binding'],
+        ['providerId', 'journalDirectory', 'journalStoreId', 'approvalDirectory', 'approvalStoreId', 'expectedCanonicalRoot', 'binding']);
+      object(source.binding, ['feedId', 'epoch'], ['feedId', 'epoch']);
+      if (typeof source.providerId !== 'string' || source.providerId.length > 64 || !ID.test(source.providerId) ||
+          typeof source.journalStoreId !== 'string' || !UUID.test(source.journalStoreId) ||
+          typeof source.approvalStoreId !== 'string' || !UUID.test(source.approvalStoreId) || source.journalStoreId === source.approvalStoreId ||
+          typeof source.binding.feedId !== 'string' || !UUID.test(source.binding.feedId) ||
+          !Number.isSafeInteger(source.binding.epoch) || source.binding.epoch < 1 || source.binding.epoch > 999999) throw Error('invalid');
+      const expectedCanonicalRoot = absolute(source.expectedCanonicalRoot);
+      if (expectedCanonicalRoot !== source.expectedCanonicalRoot) throw Error('invalid');
+      machine.source = {providerId: source.providerId,
+        journalDirectory: machinePath(appRoot, source.journalDirectory), journalStoreId: source.journalStoreId,
+        approvalDirectory: machinePath(appRoot, source.approvalDirectory), approvalStoreId: source.approvalStoreId,
+        expectedCanonicalRoot, binding: {...source.binding}};
+      roots.push(machine.source.journalDirectory, machine.source.approvalDirectory);
+      // The retained canonical source spelling is machine policy, not a reason
+      // to contact an absent Drive mount during configuration loading.
+      for (const privateRoot of roots.slice(1)) if (within(expectedCanonicalRoot, privateRoot) || within(privateRoot, expectedCanonicalRoot)) throw Error('invalid');
+      for (const config of [file, path.join(appRoot, machine.spxConfigFile)]) {
+        for (const root of [...roots, expectedCanonicalRoot]) if (within(root, config)) throw Error('invalid');
+      }
+    }
     for (let i = 0; i < roots.length; i++) for (let j = i + 1; j < roots.length; j++) if (within(roots[i], roots[j]) || within(roots[j], roots[i])) throw Error('invalid');
     machine.spx = { executable: nodeExecutable, args: [path.join(appRoot, 'server.js'), machine.spxConfigFile], cwd: appRoot };
     // Reuse established playback/window/transport/output validators without
@@ -115,7 +139,7 @@ async function loadGameDayMachineConfig(file, { appRoot, nodeExecutable } = {}) 
 function createLocalEventCatalog(machine) {
   // The loader is the trusted constructor. Copy only normalized machine policy,
   // never derive executable/output policy from a catalog entry.
-  if (!machine || !machines.has(machine)) fail('MACHINE_CONFIG_INVALID');
+  if (!machine || !machines.has(machine) || Object.hasOwn(machine,'source')) fail('MACHINE_CONFIG_INVALID');
   async function inventory() {
     await noLinks(machine.catalogDirectory); if (!(await fs.lstat(machine.catalogDirectory)).isDirectory()) throw Error('invalid');
     const directory = await fs.opendir(machine.catalogDirectory), names = [];
@@ -155,4 +179,5 @@ function createLocalEventCatalog(machine) {
   }
   return Object.freeze({ list, read });
 }
-module.exports = { loadGameDayMachineConfig, createLocalEventCatalog };
+function isGameDayMachineConfig(machine) { return machines.has(machine); }
+module.exports = { loadGameDayMachineConfig, createLocalEventCatalog, isGameDayMachineConfig };

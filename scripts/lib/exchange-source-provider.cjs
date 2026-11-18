@@ -2,6 +2,7 @@
 // Trusted backend bridge only. No automatic journal setup, source writes or arming.
 
 const fs = require('node:fs/promises');
+const {createHash} = require('node:crypto');
 const {createExchangeCatalogView} = require('./exchange-catalog-view.cjs');
 
 const path = require('node:path');
@@ -467,11 +468,33 @@ function createExchangeSourceProvider(raw, trusted = {}) {
         return operation(null, signal, async (run, active) => {
             await checkJournal(active);
             const value = await observe(owned, 'inspectSelection', run, active);
+            const manifest = value.pin.manifest;
+            const inspection = {
+                ready: false,
+                revision: createHash('sha256').update(canonicalExchangeJSON([
+                    c.binding.feedId, c.binding.epoch, manifest.selectionId,
+                    value.pin.documentDigests.manifest, manifest.generation,
+                    manifest.generationSequence, manifest.playbackFingerprint, manifest.metadataFingerprint
+                ])).digest('hex'),
+                selection: {
+                    selectionId: manifest.selectionId, identityTuple: manifest.identityTuple,
+                    displayLabel: manifest.button.displayLabel, origin: manifest.button.origin,
+                    targetBoardKey: manifest.board.boardKey, generation: manifest.generation,
+                    generationSequence: manifest.generationSequence,
+                    playbackFingerprint: manifest.playbackFingerprint, metadataFingerprint: manifest.metadataFingerprint,
+                    manifestState: manifest.manifestState, occurrenceCount: manifest.occurrences.length
+                },
+                event: {eventKey: manifest.event.eventKey, displayName: manifest.event.displayName, eventDate: manifest.event.eventDate},
+                timingProposal: value.result.timingProposal,
+                sourceTicks: manifest.sourceTicks,
+                timeZone: manifest.event.timing.timeZone
+            };
             return freeze({
                 ok: true,
                 acceptedMetadata: true,
                 admissionEligible: value.observation.eligible,
-                observationRevision: value.observation.version
+                observationRevision: value.observation.version,
+                inspection: JSON.parse(canonicalExchangeJSON(inspection))
             });
         });
     }
