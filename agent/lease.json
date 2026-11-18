@@ -6,7 +6,7 @@
   "task": "Resume PR55 then protected source integration",
   "workBranch": "feature/be-006-source-confirmation",
   "acquiredAt": "2026-11-18T00:41:03.856Z",
-  "lastHeartbeat": "2026-11-18T00:41:03.856Z",
-  "expiresAt": "2026-11-18T02:11:03.856Z",
+  "lastHeartbeat": "2026-11-18T00:42:16.864Z",
+  "expiresAt": "2026-11-18T02:12:16.864Z",
   "releasedAt": null
 }
