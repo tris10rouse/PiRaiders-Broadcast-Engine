@@ -7,12 +7,19 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 const {download}=require('./prepare-caspar-proof.cjs');
-const PIN=Object.freeze({name:'ndi-runtime',url:'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20Runtime.exe',sha256:'7ee73eedb56402bca5100868353dbab4e944b6c37d2d9881580698a3b61346cd',maxBytes:150*1024*1024});
+const PIN=Object.freeze({name:'ndi-runtime',url:'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20Runtime.exe',sha256:'5972cca54649039318ff5f167fd9940270cafc09678b01e0c35695382270a144',maxBytes:150*1024*1024});
 function peMachine(bytes){
   if(!Buffer.isBuffer(bytes)||bytes.length<64||bytes.toString('ascii',0,2)!=='MZ')throw Error('RUNTIME_PE_INVALID');
   const offset=bytes.readUInt32LE(60);
   if(offset<64||offset>bytes.length-6||bytes.readUInt32LE(offset)!==0x00004550)throw Error('RUNTIME_PE_INVALID');
   return bytes.readUInt16LE(offset+4);
+}
+// Fixed schema; strings are bounded and trimmed. Never a path, URL or raw error.
+function pinMismatchDiagnostic(pin,observedSha256,bytes,observed){
+  const text=value=>typeof value==='string'?value.trim().slice(0,200):null;
+  return{event:'ndi-installer-pin-mismatch',name:pin.name,expectedSha256:pin.sha256,
+    observedSha256:/^[0-9a-f]{64}$/.test(observedSha256)?observedSha256:null,bytes:Number.isSafeInteger(bytes)&&bytes>=0?bytes:null,
+    signature:observed&&typeof observed==='object'?{signatureStatus:text(observed.signatureStatus),signer:text(observed.signer),fileVersion:text(observed.fileVersion),productVersion:text(observed.productVersion),productName:text(observed.productName)}:null};
 }
 async function filesUnder(dir){const all=[];for(const e of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,e.name);if(e.isDirectory())all.push(...await filesUnder(file));else if(e.isFile())all.push(file);}return all;}
 function windowsMetadata(file){
@@ -27,7 +34,15 @@ async function main(){
   // prepare-caspar-proof creates/cleans this private directory first.
   await fs.access(path.join(root,'tools.json'));
   const installer=path.join(root,'NDI-Runtime-pinned.exe');
-  const installerProvenance=await download(PIN,installer),signature=windowsMetadata(installer);
+  // A vendor can replace the file behind this unversioned URL. The pin still
+  // refuses it; record what was actually served (digest, length, signature and
+  // version fields only) so a re-pin can be reviewed against independent evidence.
+  let mismatch=null;
+  const installerProvenance=await download(PIN,installer,{onMismatch:({file,observedSha256,bytes})=>{
+    let observed=null;try{observed=windowsMetadata(file);}catch{}
+    mismatch=pinMismatchDiagnostic(PIN,observedSha256,bytes,observed);
+  }}).catch(error=>{if(mismatch)console.error(JSON.stringify(mismatch));throw error;});
+  const signature=windowsMetadata(installer);
   if(signature.signatureStatus!=='Valid'||typeof signature.signer!=='string'||!signature.signer)throw Error('RUNTIME_SIGNATURE_INVALID');
   // The exact trusted SHA is the primary publisher pin. Record the observed
   // valid certificate instead of guessing it from a package display name.
@@ -45,4 +60,4 @@ async function main(){
   console.log(JSON.stringify({event:'ndi-runtime-prepared',provenance}));
 }
 if(require.main===module)main().catch(error=>{const code=/^[A-Z_]{1,64}$/.test(error.message)?error.message:'RUNTIME_PREPARATION_FAILED';console.error(code);process.exitCode=1;});
-module.exports={PIN,peMachine};
+module.exports={PIN,peMachine,pinMismatchDiagnostic};
