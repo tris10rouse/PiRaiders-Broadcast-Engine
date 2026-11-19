@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-19 · Fourth Claude run (fence 50): large JPEGs on the local-folder path. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master after PR #60** (`98717c2`): all 9 checks green (6 groups). Nothing was rerun.
+- **Fixed on `feature/be-006-local-jpeg-limits`:** the one-shot decoder worker heap cap 64 → 384 MB, and the local-folder path passes the fixed 512 MB JPEG budget at staging and reload. Limits and PNG unchanged.
+- **Local Linux on the branch:** syntax 177 files; 911 tests, 884 pass, 27 Windows-only skips, 0 fail. New tests fail on the previous code (3 of 4; the fourth is the over-limit guard).
+
 ## 2026-11-19 · Third Claude run (fence 49): total bytes counted once per picture. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master after PR #59** (`98777ea`): all 6 check groups green. Nothing was rerun.

@@ -97,3 +97,17 @@ test('restart-coded JPEG rejects rather than accepting an incomplete scan as val
   const app = Buffer.from([255, 225, 0, 8, 255, 221, 0, 4, 255, 208]);
   assert.deepEqual(await validateImage(Buffer.concat([jpg.subarray(0, 2), app, jpg.subarray(2)]), { extension: '.jpg' }), { format: 'jpeg', width: 2, height: 2 });
 });
+
+const { IMAGE_WORKER_HEAP } = require('../scripts/lib/image-validator.cjs');
+const { IMAGE_SESSION_WORKER_HEAP } = require('../scripts/lib/image-validator-session.cjs');
+const { syntheticJpeg } = require('./synthetic-jpeg.cjs');
+test('the one-shot decoder worker heap is a frozen cap equal to the session worker cap', () => {
+  assert.deepEqual(IMAGE_WORKER_HEAP, { maxOldGenerationSizeMb: 384, maxYoungGenerationSizeMb: 16 });
+  assert.ok(Object.isFrozen(IMAGE_WORKER_HEAP));
+  assert.deepEqual(IMAGE_WORKER_HEAP, IMAGE_SESSION_WORKER_HEAP);
+});
+test('one-shot: a four-component 4096 x 4096 JPEG decodes with a 512 MB budget; the 128 MB default still refuses it', { timeout: 60000 }, async () => {
+  const b = syntheticJpeg({ width: 4096, height: 4096, layout: 'four-component', progressive: true });
+  assert.deepEqual(await validateImage(b, { extension: '.jpg', maxMemoryUsageInMB: 512 }), { format: 'jpeg', width: 4096, height: 4096 });
+  await assert.rejects(validateImage(b, { extension: '.jpg' }), { code: 'IMAGE_DECODE_FAILED' });
+});

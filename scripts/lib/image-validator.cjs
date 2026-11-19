@@ -3,6 +3,14 @@ const path = require('node:path');
 const { Worker } = require('node:worker_threads');
 const MAX_INPUT_BYTES = 20 * 1024 * 1024;
 const CODES = new Set(['INVALID_IMAGE', 'UNSUPPORTED_IMAGE', 'IMAGE_DIMENSION_LIMIT', 'IMAGE_DECODE_FAILED']);
+// Upper bound on each one-shot decoder worker's JavaScript heap, the same cap
+// as the operation-scoped session worker (image-validator-session.cjs). jpeg-js
+// keeps one small typed array per 8x8 block, so a 16,777,216-pixel JPEG needs up
+// to about 210 MB of heap beyond its counted block, line and pixel bytes. The old
+// 64 MB cap refused every JPEG above about 9 megapixels even with a large counted
+// budget. This is a cap, not a reservation; callers still choose the counted
+// budget with maxMemoryUsageInMB (default 128, at most 512).
+const WORKER_HEAP = Object.freeze({ maxOldGenerationSizeMb: 384, maxYoungGenerationSizeMb: 16 });
 function failure(code) { return Object.assign(Error('Image validation rejected'), { code }); }
 /** Full decoding, isolated from service timers. Sources remain opaque bytes.
  * APNG, interlaced PNG and restart-coded JPEG are explicitly unsupported in
@@ -42,7 +50,7 @@ async function validateImage(buffer, options = {}) {
     try {
       worker = new Worker(path.join(__dirname, 'image-decoder-worker.cjs'), {
         workerData: { bytes, format, maxPixels, maxDimension, maxMemoryUsageInMB }, transferList: [bytes.buffer],
-        resourceLimits: { maxOldGenerationSizeMb: 64, maxYoungGenerationSizeMb: 16 }
+        resourceLimits: { ...WORKER_HEAP }
       });
     } catch { finish(failure('IMAGE_DECODE_FAILED')); return; }
     timer = setTimeout(() => finish(failure('IMAGE_TIMEOUT')), timeoutMs);
@@ -56,4 +64,4 @@ async function validateImage(buffer, options = {}) {
     worker.once('exit', () => { if (!settled) finish(failure('IMAGE_DECODE_FAILED')); });
   });
 }
-module.exports = { validateImage, MAX_INPUT_BYTES };
+module.exports = { validateImage, MAX_INPUT_BYTES, IMAGE_WORKER_HEAP: WORKER_HEAP };
