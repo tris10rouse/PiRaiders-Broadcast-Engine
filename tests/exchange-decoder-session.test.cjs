@@ -49,7 +49,7 @@ test('500 actual source PNGs and offline verified cache complete under existing 
  coordinator=createExchangeSourceCoordinator({sourceRoot,cacheDir,journalDir,storeId,binding,timeoutMs:60000});
  const post=Worker.prototype.postMessage,open=fs.open,sourceAssets=path.join(sourceRoot,'assets');let phase='source',sourceAssetReads=0;
  const requests={source:0,reuse:0},workers={source:new Set(),reuse:new Set()};
- t.mock.method(Worker.prototype,'postMessage',function(message,...args){if(message&&Object.hasOwn(message,'id')&&Object.hasOwn(message,'bytes')){requests[phase]++;workers[phase].add(this);assert.equal(this.resourceLimits.maxOldGenerationSizeMb,64);assert.equal(this.resourceLimits.maxYoungGenerationSizeMb,16);}return post.call(this,message,...args);});
+ t.mock.method(Worker.prototype,'postMessage',function(message,...args){if(message&&Object.hasOwn(message,'id')&&Object.hasOwn(message,'bytes')){requests[phase]++;workers[phase].add(this);assert.equal(this.resourceLimits.maxOldGenerationSizeMb,384);assert.equal(this.resourceLimits.maxYoungGenerationSizeMb,16);assert.equal(message.maxMemoryUsageInMB,512,'source staging and cache reload both pass the fixed JPEG budget');}return post.call(this,message,...args);});
  t.mock.method(fs,'open',(file,...args)=>{if(phase==='reuse'&&within(sourceAssets,file))sourceAssetReads++;return open.call(fs,file,...args);});
  const firstStart=performance.now(),first=await coordinator.prepareSelection(manifest.identityTuple);await drained(coordinator);
  t.diagnostic('500-file source preparation real elapsed ms: '+Math.round(performance.now()-firstStart));

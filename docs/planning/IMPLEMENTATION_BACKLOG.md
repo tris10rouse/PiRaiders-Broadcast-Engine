@@ -2,8 +2,9 @@
 
 ## 2026-11-19 · Order after the Claude takeover (current page: `docs/agent/CLAUDE_HANDOFF.md`)
 
-1. Engine defect: JPEGs above about 9 megapixels are refused on the exchange path (decoder memory budget 128 MB, worker heap 64 MB); the contract allows 16,777,216 pixels. Success: every contract-legal JPEG sampling at 4096 x 4096 decodes inside the existing time limit with bounded memory, with tests; PNG behaviour unchanged.
+1. **Done 2026-11-19 (fence 48).** Engine defect: JPEGs above about 9 megapixels were refused on the exchange path (decoder memory budget 128 MB, worker heap 64 MB); the contract allows 16,777,216 pixels. Success criteria as written before the work: every contract-legal JPEG sampling at 4096 x 4096 decodes inside the existing time limit with bounded memory, with tests; PNG behaviour unchanged. Result: budget 512 MB and heap cap 384 MB on the exchange path only; numbers in `CHANGELOG.md`.
 2. Engine defect: total bytes are added per asset row; the contract counts each distinct picture once. Success: counted once per SHA-256 in staging, the coordinator plan and cache reload, with a test of repeated identical bytes just under and just over 536,870,912.
+   - 2b (new, found while doing 1; do it after 2). The older local-folder path (`media-snapshot.cjs` through the one-shot `validateImage`) has the same 128 MB / 64 MB values and the same 16,777,216-pixel limit, so it refuses the same JPEGs. Success: the same layouts at 4096 x 4096 pass there with the same caps, with tests; nothing else on that path changes.
 3. BE-006 exact source revalidation and the source service (fence 46's unpushed work is lost; restart here).
 4. PC source selector and approval confirmation screen, including the first route and screen for exchange catalog pages.
 5. Real Windows exchange activation; setup, diagnostics and recovery; close and startup proofs; four-hour soak.

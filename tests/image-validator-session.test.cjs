@@ -89,3 +89,46 @@ test('dedicated-copy elapsed time shrinks the one immutable image timer',async t
  t.mock.method(global,'setTimeout',(fn,ms,...args)=>{if(ms<=5000)installed=ms;return schedule(fn,ms,...args);});
  const s=createImageValidationSession();t.after(()=>s.close());await s.validate(bytes,{extension:'.png',timeoutMs:5000});assert.equal(installed,1000);await s.close();
 });
+
+// Largest contract-legal JPEG: 4096 x 4096 = 16,777,216 pixels (exchange contract, bounds table).
+const {syntheticJpeg,SYNTHETIC_JPEG_LAYOUTS}=require('./synthetic-jpeg.cjs');
+const {IMAGE_SESSION_WORKER_HEAP}=require('../scripts/lib/image-validator-session.cjs');
+const {EXCHANGE_SNAPSHOT_LIMITS}=require('../scripts/lib/exchange-snapshot.cjs');
+test('synthetic JPEG builder output is accepted in every layout, baseline and progressive, at odd sizes',async t=>{
+ const s=session(t);
+ for(const layout of SYNTHETIC_JPEG_LAYOUTS)for(const progressive of [false,true])for(const [width,height] of [[16,16],[17,9],[100,37]])
+  assert.deepEqual(await s.validate(syntheticJpeg({width,height,layout,progressive}),{extension:'.jpg'}),{format:'jpeg',width,height},layout+' '+progressive+' '+width+'x'+height);
+});
+test('decoder worker heap is a fixed frozen cap and the exchange JPEG budget is the validator maximum',()=>{
+ assert.deepEqual(IMAGE_SESSION_WORKER_HEAP,{maxOldGenerationSizeMb:384,maxYoungGenerationSizeMb:16});assert.equal(Object.isFrozen(IMAGE_SESSION_WORKER_HEAP),true);
+ assert.equal(EXCHANGE_SNAPSHOT_LIMITS.jpegDecodeMemoryMb,512);assert.equal(EXCHANGE_SNAPSHOT_LIMITS.maxPixels,4096*4096);
+});
+for(const layout of SYNTHETIC_JPEG_LAYOUTS)for(const progressive of [false,true])
+ test('4096 x 4096 '+layout+(progressive?' progressive':' baseline')+' JPEG decodes with the exchange budget inside the unchanged 10 s limit',{timeout:60000},async t=>{
+  const s=session(t),b=syntheticJpeg({width:4096,height:4096,layout,progressive});
+  assert.deepEqual(await s.validate(b,{extension:'.jpg',maxMemoryUsageInMB:EXCHANGE_SNAPSHOT_LIMITS.jpegDecodeMemoryMb,timeoutMs:10000}),{format:'jpeg',width:4096,height:4096});
+  // The same worker stays usable for the next picture of the operation.
+  assert.deepEqual(await s.validate(image(),{extension:'.png'}),{format:'png',width:2,height:1});assert.equal(s.snapshot().faultCode,null);
+ });
+test('the 128 MB default budget still refuses a 4096 x 4096 JPEG and the counted budget stays capped at 512',{timeout:60000},async t=>{
+ const b=syntheticJpeg({width:4096,height:4096,layout:'4:2:0'});
+ await assert.rejects(createImageValidationSession().validate(b,{extension:'.jpg'}),code('IMAGE_DECODE_FAILED'));
+ await assert.rejects(createImageValidationSession().validate(b,{extension:'.jpg',maxMemoryUsageInMB:513}),code('INVALID_OPTIONS'));
+ // One megabyte under what four full-resolution components count: refused, not silently accepted.
+ const four=syntheticJpeg({width:4096,height:4096,layout:'four-component'});
+ await assert.rejects(createImageValidationSession().validate(four,{extension:'.jpg',maxMemoryUsageInMB:448}),code('IMAGE_DECODE_FAILED'));
+});
+test('a JPEG above the pixel or side limit is refused before decoding',async t=>{
+ await assert.rejects(createImageValidationSession().validate(syntheticJpeg({width:4104,height:4096,layout:'grey'}),{extension:'.jpg',maxMemoryUsageInMB:512}),code('IMAGE_DIMENSION_LIMIT'));
+ await assert.rejects(createImageValidationSession().validate(syntheticJpeg({width:8200,height:8,layout:'grey'}),{extension:'.jpg',maxMemoryUsageInMB:512}),code('IMAGE_DIMENSION_LIMIT'));
+});
+test('a dense 4096 x 4096 colour JPEG just under 20 MiB decodes inside the unchanged 10 s limit',{timeout:120000},async t=>{
+ // Deterministic noise, so every block carries real entropy-coded data; quality 73 gives 20,390,928 bytes.
+ const width=4096,height=4096,data=Buffer.alloc(width*height*4),words=new Uint32Array(data.buffer,data.byteOffset,width*height);
+ let x=0x9e3779b9;for(let i=0;i<words.length;i++){x^=x<<13;x^=x>>>17;x^=x<<5;words[i]=x;}
+ const b=jpeg.encode({width,height,data},73).data;
+ assert.ok(b.length>19*1024*1024&&b.length<=20*1024*1024,'synthetic dense JPEG is '+b.length+' bytes');
+ const s=session(t),started=Date.now();
+ assert.deepEqual(await s.validate(b,{extension:'.jpg',maxMemoryUsageInMB:EXCHANGE_SNAPSHOT_LIMITS.jpegDecodeMemoryMb,timeoutMs:10000}),{format:'jpeg',width,height});
+ t.diagnostic('dense 4096 x 4096 4:4:4 JPEG, '+b.length+' bytes, decoded in '+(Date.now()-started)+' ms');
+});
