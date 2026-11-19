@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261119T165108Z",
+  "status": "idle",
+  "owner": null,
   "fence": 49,
-  "task": "BE-006 total bytes counted once per picture",
-  "workBranch": "feature/be-006-total-bytes-once",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-19T16:51:08.345Z",
-  "lastHeartbeat": "2026-11-19T17:07:23.249Z",
-  "expiresAt": "2026-11-19T18:37:23.249Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-19T17:22:12.801Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-19T17:22:12.801Z"
 }
