@@ -9,7 +9,10 @@ const PINS = Object.freeze([
   {name:'caspar',url:'https://github.com/CasparCG/server/releases/download/v2.5.1-stable/casparcg-server-v2.5.1-windows.zip',sha256:'c0756f53f49908fba94f17a43b83d45fd275201e24ab1676530d7bb26832efc6',maxBytes:350000000,extension:'zip'},
   {name:'mesa',url:'https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/mesa3d-26.2.6-release-mingw.7z',sha256:'da0f71d9181b672c1918f3c342f11118c687f6059a46b16502845160733cc388',maxBytes:500000000,extension:'7z'}
 ]);
-async function download(pin, destination, {fetchImpl=fetch, timeoutMs=180000}={}) {
+// onMismatch is diagnostics only: it sees the rejected bytes (still in the
+// temporary file) with their observed digest and length BEFORE they are removed.
+// It can never turn a mismatch into success; its own failure is discarded.
+async function download(pin, destination, {fetchImpl=fetch, timeoutMs=180000, onMismatch=null}={}) {
   const temporary=destination+'.partial';
   let handle;
   try {
@@ -22,7 +25,14 @@ async function download(pin, destination, {fetchImpl=fetch, timeoutMs=180000}={}
       bytes+=chunk.length;if(bytes>pin.maxBytes)throw Error('DOWNLOAD_LIMIT');
       hash.update(chunk);await handle.writeFile(chunk);
     }
-    if(hash.digest('hex')!==pin.sha256)throw Error('DOWNLOAD_HASH');
+    const observedSha256=hash.digest('hex');
+    if(observedSha256!==pin.sha256){
+      if(typeof onMismatch==='function'){
+        await handle.close();handle=null;
+        try{await onMismatch(Object.freeze({file:temporary,observedSha256,bytes}));}catch{}
+      }
+      throw Error('DOWNLOAD_HASH');
+    }
     await handle.close();handle=null;await fs.rename(temporary,destination);
     return {name:pin.name,sha256:pin.sha256,bytes};
   } finally {await handle?.close();await fs.rm(temporary,{force:true});}
