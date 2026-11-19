@@ -108,6 +108,8 @@ test('capture enumeration never repeats malformed, unverified or non-timeout fai
     assert.throws(()=>processTableForCapture({read:()=>{calls++;throw failure;},record:value=>seen.push(value)}),error=>error===failure);
     assert.equal(calls,1);assert.equal(seen.length,1);assert.equal(seen[0].timedOut,false);assert.equal(seen[0].failed,true);
   }
+  // A thrown non-error value is still a failure, never an empty success.
+  let thrown=0;assert.throws(()=>processTableForCapture({read:()=>{thrown++;throw null;}}),error=>error===null);assert.equal(thrown,1);
   for(const options of [{attempts:0},{attempts:4},{attempts:1.5},{read:null},{record:'x'}])assert.throws(()=>processTableForCapture(options),error=>identityReason(error)==='CAPTURE_INVALID');
 });
 test('real Windows enumeration identifies a live child and proves its exit by generation',{skip:process.platform!=='win32'&&'Windows process enumeration only'},async t=>{

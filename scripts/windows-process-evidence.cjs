@@ -44,11 +44,11 @@ function processTable(){
 function processTableForCapture({read=processTable,attempts=3,record=null,now=()=>performance.now()}={}){
   if(typeof read!=='function'||!Number.isSafeInteger(attempts)||attempts<1||attempts>3||(record!==null&&typeof record!=='function'))fail('CAPTURE_INVALID');
   for(let attempt=1;;attempt++){
-    const started=now();let rows,failure=null;
-    try{rows=read();}catch(error){failure=error;}
-    const timedOut=!!failure&&failure.code==='ETIMEDOUT';
-    if(record)record(Object.freeze({attempt,timedOut,failed:!!failure,elapsedMs:Math.max(0,Math.min(60000,Math.floor(now()-started)))}));
-    if(!failure)return rows;
+    const started=now();let rows,failed=false,failure;
+    try{rows=read();}catch(error){failed=true;failure=error;}
+    const timedOut=failed&&!!failure&&failure.code==='ETIMEDOUT';
+    if(record)record(Object.freeze({attempt,timedOut,failed,elapsedMs:Math.max(0,Math.min(60000,Math.floor(now()-started)))}));
+    if(!failed)return rows;
     if(!timedOut||attempt>=attempts)throw failure;
   }
 }
