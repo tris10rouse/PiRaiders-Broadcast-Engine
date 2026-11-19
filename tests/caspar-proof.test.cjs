@@ -23,6 +23,26 @@ test('proof download verifies actual streamed bytes and removes corrupt/oversize
     await assert.rejects(download({...pin,...override},target),new RegExp(code));assert.deepEqual(await fs.readdir(root),[]);
   }
 });
+test('a pin mismatch reports the observed digest and length before removal and can never become success',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders proof mismatch '));
+  const bytes=Buffer.alloc(70000,23),observed=crypto.createHash('sha256').update(bytes).digest('hex');
+  const server=http.createServer((req,res)=>res.end(bytes));await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  t.after(async()=>{await new Promise(r=>server.close(r));await fs.rm(root,{recursive:true,force:true});});
+  const pin={name:'fixture',url:'http://127.0.0.1:'+server.address().port,sha256:'0'.repeat(64),maxBytes:bytes.length},target=path.join(root,'fixture');
+  const seen=[];
+  await assert.rejects(download(pin,target,{onMismatch:async value=>{seen.push({...value,frozen:Object.isFrozen(value),present:(await fs.readFile(value.file)).equals(bytes)});}}),/^Error: DOWNLOAD_HASH$/);
+  assert.equal(seen.length,1);assert.equal(seen[0].observedSha256,observed);assert.equal(seen[0].bytes,bytes.length);assert.equal(seen[0].present,true);assert.equal(seen[0].frozen,true);
+  assert.deepEqual(await fs.readdir(root),[]);
+  // A failing or "approving" hook changes nothing: same error, nothing retained.
+  for(const onMismatch of [()=>{throw Error('PRIVATE');},async()=>true])await assert.rejects(download(pin,target,{onMismatch}),/^Error: DOWNLOAD_HASH$/);
+  assert.deepEqual(await fs.readdir(root),[]);
+  // A matching pin never calls the hook.
+  let called=false;await download({...pin,sha256:observed},target,{onMismatch:()=>{called=true;}});assert.equal(called,false);
+  const {pinMismatchDiagnostic,PIN}=require('../scripts/prepare-ndi-proof.cjs');
+  assert.deepEqual(pinMismatchDiagnostic(PIN,observed,bytes.length,{signatureStatus:'Valid',signer:' CN=Example ',fileVersion:'1.2.3.4   ',productVersion:null,productName:'x'.repeat(300),extra:'C:\\private'}),
+    {event:'ndi-installer-pin-mismatch',name:'ndi-runtime',expectedSha256:PIN.sha256,observedSha256:observed,bytes:bytes.length,signature:{signatureStatus:'Valid',signer:'CN=Example',fileVersion:'1.2.3.4',productVersion:null,productName:'x'.repeat(200)}});
+  assert.deepEqual(pinMismatchDiagnostic(PIN,'not-a-digest',-1,null),{event:'ndi-installer-pin-mismatch',name:'ndi-runtime',expectedSha256:PIN.sha256,observedSha256:null,bytes:null,signature:null});
+});
 test('proof protocol uses real bounded TCP and never exposes native echoed private text',async t=>{
   const server=net.createServer(socket=>socket.on('data',bytes=>{
     if(bytes.toString().startsWith('BAD'))socket.end('400 PRIVATE-URL-SECRET\r\n');
