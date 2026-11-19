@@ -6,7 +6,7 @@
   "task": "BE-006 large-JPEG refusal on local-folder path",
   "workBranch": "feature/be-006-local-jpeg-limits",
   "acquiredAt": "2026-11-19T20:51:41.520Z",
-  "lastHeartbeat": "2026-11-19T21:06:48.081Z",
-  "expiresAt": "2026-11-19T22:36:48.081Z",
+  "lastHeartbeat": "2026-11-19T21:11:01.055Z",
+  "expiresAt": "2026-11-19T22:41:01.055Z",
   "releasedAt": null
 }
