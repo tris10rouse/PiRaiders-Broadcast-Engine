@@ -8,16 +8,15 @@ Last updated 2026-11-19 (fourth run, lock fence 50). Keep this to one screen. Hi
 - Still recorded as failed, not rerun: the Caspar software proof on `50bb524` (its own process listing timed out; why it was that slow is unknown), and the four NDI checks on PR #56's first commit (the vendor replaced its installer).
 - **Large JPEGs** (PR #59, merged as `98777ea`): the exchange path decodes every legal JPEG at 4096 x 4096 inside the unchanged 10 s limit. All 6 check groups on master after the merge were green.
 - **Total bytes counted once per picture** (PR #60, merged as `98717c2`): all 9 checks on master after the merge were green.
-- **Large JPEGs from a local folder (this run).** Branch `feature/be-006-local-jpeg-limits`: the older local-folder path gets the same 384 MB heap cap and 512 MB budget. If its pull request is still open, finishing it comes first (read its checks; merge only if every check on the final commit is green; a red check is fixed or recorded, never rerun unchanged). Then read the checks on master after the merge and add one line to `CODEX_CHECKPOINT.md`.
+- **Large JPEGs from a local folder** (PR #61, merged as `125b76e`): the older local-folder path has the same 384 MB heap cap and 512 MB budget. All 12 checks on the PR and all 9 on master after the merge were green.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
 - The source PC service, selector and approval screen are still not enabled. First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. Finish the local-folder JPEG pull request (above).
-2. BE-006 exact source revalidation and the source service (from the backlog).
-3. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
-4. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
+1. BE-006 exact source revalidation and the source service (from the backlog). Larger than the last increments: write the success criteria first and split it if it will not fit one run.
+2. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
+3. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
 
 ## Open risks
 
