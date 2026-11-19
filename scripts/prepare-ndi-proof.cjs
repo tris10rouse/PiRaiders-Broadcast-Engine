@@ -7,7 +7,7 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 const {download}=require('./prepare-caspar-proof.cjs');
-const PIN=Object.freeze({name:'ndi-runtime',url:'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20Runtime.exe',sha256:'7ee73eedb56402bca5100868353dbab4e944b6c37d2d9881580698a3b61346cd',maxBytes:150*1024*1024});
+const PIN=Object.freeze({name:'ndi-runtime',url:'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20Runtime.exe',sha256:'5972cca54649039318ff5f167fd9940270cafc09678b01e0c35695382270a144',maxBytes:150*1024*1024});
 function peMachine(bytes){
   if(!Buffer.isBuffer(bytes)||bytes.length<64||bytes.toString('ascii',0,2)!=='MZ')throw Error('RUNTIME_PE_INVALID');
   const offset=bytes.readUInt32LE(60);
