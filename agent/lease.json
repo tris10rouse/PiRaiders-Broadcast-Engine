@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "status": "active",
-  "owner": "codex-2026-11-18T03:47:53.384Z-nnftfio8axm",
-  "fence": 46,
-  "task": "BE-006 exact source revalidation and source service",
-  "workBranch": "feature/be-006-source-revalidation",
-  "acquiredAt": "2026-11-18T03:47:53.384Z",
-  "lastHeartbeat": "2026-11-18T03:56:15.782Z",
-  "expiresAt": "2026-11-18T05:26:15.782Z",
+  "owner": "claude-2026-11-19T07:10:35.577Z-p98xkt05",
+  "fence": 47,
+  "task": "Takeover run: master check failure, handoff, scheduler integration audit",
+  "workBranch": "docs/claude-takeover",
+  "acquiredAt": "2026-11-19T07:10:35.580Z",
+  "lastHeartbeat": "2026-11-19T07:10:35.580Z",
+  "expiresAt": "2026-11-19T08:40:35.580Z",
   "releasedAt": null
 }
