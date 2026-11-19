@@ -10,7 +10,7 @@ const {spawn,execFileSync}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
-const {processTable,descendants,observeTree,identityReason}=require('./windows-process-evidence.cjs');
+const {processTable,processTableForCapture,descendants,observeTree,identityReason}=require('./windows-process-evidence.cjs');
 const {LauncherRuntime}=require('./lib/launcher-runtime.cjs');
 const {JOB_HOST}=require('./lib/windows-job-process.cjs');
 const {stageSnapshot}=require('./lib/media-snapshot.cjs');
@@ -41,6 +41,10 @@ async function filesUnder(dir){const all=[];for(const e of await fs.readdir(dir,
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
   let processEvidence=null;const processChecks={},processUnknownObservations={};
+  // Counts and bounded timings only. A capture query that timed out and was
+  // repeated stays visible in both the passed report and the fixed diagnostic.
+  const processEnumeration={captureQueries:0,captureTimeouts:0,maxCaptureMs:0};
+  function captureTable(){return processTableForCapture({record:({timedOut,elapsedMs})=>{processEnumeration.captureQueries++;if(timedOut)processEnumeration.captureTimeouts++;processEnumeration.maxCaptureMs=Math.max(processEnumeration.maxCaptureMs,elapsedMs);}});}
   function treeGone(captured){processEvidence=observeTree(processTable(),captured);processChecks[phase]=processEvidence;if(processEvidence.unknown)processUnknownObservations[phase]=(processUnknownObservations[phase]||0)+1;return processEvidence.surviving===0&&processEvidence.unknown===0;}
   const toolRoot=path.resolve(process.argv[2]||path.join('build','caspar-proof-tools'));
   const evidence=path.resolve('build','caspar-proof-evidence');await fs.rm(evidence,{recursive:true,force:true});await fs.mkdir(evidence,{recursive:true});
@@ -73,7 +77,7 @@ async function main(){
     now=start-15*60000;await runtime.reconcile();
     await until(async()=>{try{await command(port,'VERSION',{prefix:'201 ',timeoutMs:1000});return true;}catch{return false;}},'CASPAR_STARTUP',60000);
     phase='ENUMERATE_START';
-    children.push(...descendants(processTable(),activeHost.pid));
+    children.push(...descendants(captureTable(),activeHost.pid));
     phase='COLOR_MIXER';await command(port,'PLAY 1-10 RED');
     async function capture(name,rgb){
       let last;
@@ -111,7 +115,7 @@ async function main(){
       const stat=await fs.stat(file);if(stat.size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');
       const body=await fs.readFile(file);if(body.includes(Buffer.from(token))||body.includes(Buffer.from(token,'utf16le'))||body.includes(Buffer.from(privateURL)))throw Error('PRIVATE_URL_PERSISTED');
     }}await scanPrivateLogs();
-    phase='CRASH_RECOVERY';const oldHost=activeHost,oldEpoch=session.snapshot().presentation.renderer.epoch,rows=processTable();
+    phase='CRASH_RECOVERY';const oldHost=activeHost,oldEpoch=session.snapshot().presentation.renderer.epoch,rows=captureTable();
     const expectedImage=path.join(bin,'casparcg.exe').toLowerCase();
     const roots=descendants(rows,oldHost.pid).filter(row=>row.ParentProcessId===oldHost.pid&&typeof row.ExecutablePath==='string'&&path.normalize(row.ExecutablePath).toLowerCase()===expectedImage);
     assert.equal(roots.length,1,'OWNED_ROOT_IDENTITY');const root=roots[0];
@@ -128,15 +132,15 @@ async function main(){
     assert.notEqual(session.snapshot().presentation.renderer.epoch,oldEpoch);assert.equal(session.snapshot().presentation.controller.state,'stopped');
     await capture('restart-black',[0,0,0]);await command(talk,'GPI 1',{prefix:'OK ',timeoutMs:30000});await capture('restart-launch-green',[20,220,20]);
     assert.equal(referrerCapabilityObserved,false,'PRIVATE_URL_REFERRER');await scanPrivateLogs();
-    children.push(...descendants(processTable(),activeHost.pid));phase='WINDOW_END';
+    children.push(...descendants(captureTable(),activeHost.pid));phase='WINDOW_END';
     now=end;await runtime.reconcile();assert.equal(runtime.sender,null);
     await until(()=>treeGone(children),'CASPAR_TREE_SURVIVED',10000);
     await assert.rejects(command(port,'VERSION',{prefix:'201 ',timeoutMs:1000}));
     assert.ok(hosts.size>=1,'Persistent service survives window end');
-    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:8,actualPNGAndJPEG:true,bootstrapOriginProof:bootstrapFields.originMatches?'matching-origin':'same-origin-metadata',privateCapabilityInReferrer:false,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realRossTalk:true,windowEndProcessTreeGone:true,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
+    report={event:'real-caspar-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance,videoMode:'1080p3000',mesaStartupObserved,softwareRendererRequested:'llvmpipe',mesaProfileRequested:'4.5COMPAT',actualGLRendererUnrecorded:true,actualCaspar:true,actualManagedCEF:true,actualMixedPixelCaptures:8,actualPNGAndJPEG:true,bootstrapOriginProof:bootstrapFields.originMatches?'matching-origin':'same-origin-metadata',privateCapabilityInReferrer:false,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realRossTalk:true,windowEndProcessTreeGone:true,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,processEnumeration,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){
     const renderer=session?.snapshot().presentation.renderer;
-    console.error(JSON.stringify({event:'caspar-proof-fixed-diagnostic',phase,nativeExits,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),systemErrorCode:['ETIMEDOUT','ENOENT','EACCES','EPERM','EINVAL'].includes(error.code)?error.code:null,errorKind:error.name==='AssertionError'?'assertion':'component',code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',httpCounts,bootstrapFields,upgrades,nativeFlags:[...nativeFlags],renderer:renderer?{ready:renderer.ready,connected:renderer.connected,presentation:renderer.presentation,lastError:renderer.lastError}:null}));
+    console.error(JSON.stringify({event:'caspar-proof-fixed-diagnostic',phase,nativeExits,processEvidence,processChecks,processUnknownObservations,processEnumeration,processIdentityReason:identityReason(error),systemErrorCode:['ETIMEDOUT','ENOENT','EACCES','EPERM','EINVAL'].includes(error.code)?error.code:null,errorKind:error.name==='AssertionError'?'assertion':'component',code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT_FAILED',httpCounts,bootstrapFields,upgrades,nativeFlags:[...nativeFlags],renderer:renderer?{ready:renderer.ready,connected:renderer.connected,presentation:renderer.presentation,lastError:renderer.lastError}:null}));
     // This bounded capture stops BEFORE host construction/private URL creation.
     // It contains only disposable pre-auth startup; URLs are omitted as well.
     if(phase==='START'||phase==='COLOR_MIXER')console.error(JSON.stringify({event:'caspar-preauth-startup-diagnostic',nativeExits,startup:startup.join('').replace(/https?:\/\/[^\s<>"']+/g,'[URL omitted]')}));

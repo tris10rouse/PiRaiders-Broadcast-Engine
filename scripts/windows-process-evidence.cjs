@@ -36,6 +36,22 @@ function processTable(){
   const rows=JSON.parse(raw),byPid=index(rows);identity(byPid.get(process.pid)); // Positive control: enumeration can actually identify this process.
   return rows;
 }
+// Pre-action captures only (no cleanup deadline is running). Exactly one failure
+// is repeatable: the bounded query itself timing out (ETIMEDOUT). Malformed,
+// missing or contradictory evidence still fails at once, and every attempt is
+// counted so that a slow enumeration is visible in the retained evidence rather
+// than silently absorbed. Deadline-bound observations keep calling processTable().
+function processTableForCapture({read=processTable,attempts=3,record=null,now=()=>performance.now()}={}){
+  if(typeof read!=='function'||!Number.isSafeInteger(attempts)||attempts<1||attempts>3||(record!==null&&typeof record!=='function'))fail('CAPTURE_INVALID');
+  for(let attempt=1;;attempt++){
+    const started=now();let rows,failure=null;
+    try{rows=read();}catch(error){failure=error;}
+    const timedOut=!!failure&&failure.code==='ETIMEDOUT';
+    if(record)record(Object.freeze({attempt,timedOut,failed:!!failure,elapsedMs:Math.max(0,Math.min(60000,Math.floor(now()-started)))}));
+    if(!failure)return rows;
+    if(!timedOut||attempt>=attempts)throw failure;
+  }
+}
 function descendants(rows,parent){
   const byPid=index(rows),root=identity(byPid.get(parent)),found=new Map([[parent,root]]);
   for(let again=true;again;){again=false;for(const row of rows){
@@ -212,4 +228,4 @@ async function captureProcessTree(parent,options={}){
     throw error;
   }
 }
-module.exports={PROCESS_QUERY,processTable,descendants,treeState,observeTree,identityReason,identityCaptureDiagnostics,captureProcessTree};
+module.exports={PROCESS_QUERY,processTable,processTableForCapture,descendants,treeState,observeTree,identityReason,identityCaptureDiagnostics,captureProcessTree};

@@ -3,7 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {setTimeout:wait}=require('node:timers/promises');
-const {processTable,descendants,treeState,observeTree,identityReason}=require('../scripts/windows-process-evidence.cjs');
+const {processTable,processTableForCapture,descendants,treeState,observeTree,identityReason}=require('../scripts/windows-process-evidence.cjs');
 const stamp=638987654321000000n & ~127n;
 function row(pid,parent,offset=pid,image='C:\\proof\\child.exe'){return{ProcessId:pid,ParentProcessId:parent,CreationUtcTicks:String(stamp+BigInt(offset)),ExecutablePath:image};}
 const root=row(10,1,0,'C:\\proof\\host.exe');
@@ -88,6 +88,27 @@ test('failure diagnostics distinguish missing, malformed and contradictory evide
 test('same Windows image case/slash aliases preserve generation identity',()=>{
   const captured=descendants([root,row(20,10,1,'C:/Proof/CHILD.exe')],10);
   assert.equal(treeState([row(20,10,1,'c:\\proof\\child.exe')],captured).surviving,1);
+});
+test('a timed-out capture enumeration is repeated within a fixed bound and every attempt is counted',()=>{
+  const timeout=()=>Object.assign(Error('spawnSync powershell.exe ETIMEDOUT'),{code:'ETIMEDOUT'}),rows=[{ProcessId:1,ParentProcessId:0}];
+  let calls=0,clock=0;const seen=[];
+  const result=processTableForCapture({read:()=>{calls++;clock+=15000;if(calls===1)throw timeout();clock-=14000;return rows;},record:value=>seen.push(value),now:()=>clock});
+  assert.equal(result,rows);assert.equal(calls,2);
+  assert.deepEqual(seen,[{attempt:1,timedOut:true,failed:true,elapsedMs:15000},{attempt:2,timedOut:false,failed:false,elapsedMs:1000}]);
+  assert.ok(seen.every(Object.isFrozen));
+  // The bound is fixed: a third consecutive timeout is the original failure, not a fourth query.
+  calls=0;const exhausted=[];
+  assert.throws(()=>processTableForCapture({read:()=>{calls++;throw timeout();},record:value=>exhausted.push(value)}),error=>error.code==='ETIMEDOUT');
+  assert.equal(calls,3);assert.deepEqual(exhausted.map(value=>[value.attempt,value.timedOut]),[[1,true],[2,true],[3,true]]);
+  calls=0;assert.throws(()=>processTableForCapture({attempts:1,read:()=>{calls++;throw timeout();}}),error=>error.code==='ETIMEDOUT');assert.equal(calls,1);
+});
+test('capture enumeration never repeats malformed, unverified or non-timeout failures',()=>{
+  for(const failure of [Error('PROCESS_IDENTITY_UNVERIFIED'),new SyntaxError('Unexpected end of JSON input'),Object.assign(Error('denied'),{code:'EACCES'}),Object.assign(Error('buffer'),{code:'ENOBUFS'})]){
+    let calls=0;const seen=[];
+    assert.throws(()=>processTableForCapture({read:()=>{calls++;throw failure;},record:value=>seen.push(value)}),error=>error===failure);
+    assert.equal(calls,1);assert.equal(seen.length,1);assert.equal(seen[0].timedOut,false);assert.equal(seen[0].failed,true);
+  }
+  for(const options of [{attempts:0},{attempts:4},{attempts:1.5},{read:null},{record:'x'}])assert.throws(()=>processTableForCapture(options),error=>identityReason(error)==='CAPTURE_INVALID');
 });
 test('real Windows enumeration identifies a live child and proves its exit by generation',{skip:process.platform!=='win32'&&'Windows process enumeration only'},async t=>{
   const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{windowsHide:true,stdio:'ignore'});
