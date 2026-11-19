@@ -6,7 +6,7 @@
   "task": "Takeover run: master check failure, handoff, scheduler integration audit",
   "workBranch": "docs/claude-takeover",
   "acquiredAt": "2026-11-19T07:10:35.580Z",
-  "lastHeartbeat": "2026-11-19T08:16:51.854Z",
-  "expiresAt": "2026-11-19T09:46:51.854Z",
+  "lastHeartbeat": "2026-11-19T08:19:06.198Z",
+  "expiresAt": "2026-11-19T09:49:06.198Z",
   "releasedAt": null
 }
