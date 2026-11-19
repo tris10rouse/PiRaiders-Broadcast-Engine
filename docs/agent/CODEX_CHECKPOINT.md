@@ -4,7 +4,8 @@
 
 - **Master** `5e4c45e` (PR #62, handoff note after PR #61). No open pull requests at the start.
 - **Started BE-006 in slices.** Slice 3a on `feature/be-006-exact-source-revalidation`: a production module that fingerprints the machine's source policy and decides saved approvals exactly, rereading the store at every awaited manager boundary; fails closed on no read, failed or overtaken reads, revocation, foreign feed and store rollback. Not wired into the application. Design: `docs/design/EXCHANGE_APPROVAL_POLICY.md`.
-- **Tests:** 9 new; every guard removed in turn makes at least one fail.
+- **Tests:** 9 new; every guard removed in turn makes at least one fail. Local Linux: 920 tests, 893 pass, 27 Windows-only skips (7 real-SPX startups need the local `set_fs` stub for the blocked package).
+- **PR #63 merged** as `fe0812c` after all 12 checks passed on `c45be55`; all 9 checks on master after the merge green.
 
 ## 2026-11-19 · Fourth Claude run (fence 50): large JPEGs on the local-folder path. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
