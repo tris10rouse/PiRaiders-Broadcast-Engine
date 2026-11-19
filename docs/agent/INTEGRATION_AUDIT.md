@@ -50,7 +50,7 @@ Limits on the exchange path: 10,000 ms per picture (`LIMITS.timeoutMs`, `scripts
 | One picture's pixels | 16,777,216 | `LIMITS.maxPixels`, `exchange-snapshot.cjs` | number matches; **Engine stricter for JPEG** (memory, section 1) |
 | Ordered occurrences per selection | 500 | `LIMITS.maxOccurrences`; `CAPS.occurrences`, `exchange-problem-state.cjs` | match |
 | Different pictures per selection | 500 | `LIMITS.maxFiles`; `CAPS.assets`; 500 pictures per decoder session | match |
-| Total bytes of different pictures, each counted once | 536,870,912 | `LIMITS.maxTotalBytes`; `CAPS.total_bytes` | number matches; **Engine stricter when identical bytes repeat**: it adds every asset row before it looks for repeats. Shown: 26 source files with identical 20 MiB bytes are complete to the publisher and `TOTAL_LIMIT` to the Engine; 25 pass |
+| Total bytes of different pictures, each counted once | 536,870,912 | `LIMITS.maxTotalBytes`; `CAPS.total_bytes` | match since 2026-11-19 (fence 49): each SHA-256 counted once at the plan check, staging and cache reload. Before that the Engine added every asset row (26 source files with identical 20 MiB bytes were complete to the publisher and `TOTAL_LIMIT` to the Engine) |
 | Labels / names | 200 / 255 characters | schema limits through the schema gate; identity tuple limits; display name 200 code points | match (the publisher counts UTF-16 units, the Engine code points; the publisher is equal or stricter) |
 | Manifest size | 1,048,576 bytes | `LIMITS.manifest`, `exchange-metadata-reader.cjs` | match |
 | Catalog: bytes / events / selections per event | 5,242,880 / 800 / 100 | `LIMITS.catalog`; `events.length>800`; schema and view limits | match (measured at 800/801 and 100/101) |

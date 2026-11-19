@@ -1,18 +1,19 @@
 # Claude handoff
 
-Last updated 2026-11-19 (second run, lock fence 48). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-19 (third run, lock fence 49). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## State of master
 
 - The takeover is finished (PRs #56, #57, #58, all merged on Nov 19). The checks that ran on master after each of the three merges were all green, 6 of 6 groups each (`9bc27ca`, `6014793`, `975fecd`).
 - Still recorded as failed, not rerun: the Caspar software proof on `50bb524` (its own process listing timed out; why it was that slow is unknown), and the four NDI checks on PR #56's first commit (the vendor replaced its installer).
-- **Large JPEGs (this run).** On the exchange path every JPEG above about 9 megapixels was refused for memory. Branch `feature/be-006-large-jpeg-decode` gives the JPEG decoder a fixed 512 MB counted budget and the decoder worker a 384 MB heap cap; all layouts at 4096 x 4096 now pass inside the unchanged 10 s limit. If its pull request is still open, finishing it comes first (read its checks; merge only if every check on the final commit is green; a red check is fixed or recorded, never rerun unchanged). Then read the checks on master after the merge and add one line to `CODEX_CHECKPOINT.md`.
+- **Large JPEGs** (PR #59, merged as `98777ea`): the exchange path decodes every legal JPEG at 4096 x 4096 inside the unchanged 10 s limit. All 6 check groups on master after the merge were green.
+- **Total bytes counted once per picture (this run).** Branch `feature/be-006-total-bytes-once` counts each SHA-256 once at the plan check, staging and cache reload, as the publisher does. If its pull request is still open, finishing it comes first (read its checks; merge only if every check on the final commit is green; a red check is fixed or recorded, never rerun unchanged). Then read the checks on master after the merge and add one line to `CODEX_CHECKPOINT.md`.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
 - The source PC service, selector and approval screen are still not enabled. First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. **Total bytes counted once per picture.** The Engine adds every asset row; the contract counts each distinct picture once. Count by SHA-256 in staging, the coordinator plan and cache reload, with a test of repeated identical bytes just under and just over 536,870,912. Detail: `INTEGRATION_AUDIT.md` section 3.
+1. Finish the total-bytes pull request (above).
 2. **The same large-JPEG refusal on the older local-folder path** (`media-snapshot.cjs` through the one-shot validator: 128 MB budget, 64 MB heap). Same caps, same tests (`tests/synthetic-jpeg.cjs` builds the pictures). Small.
 3. BE-006 exact source revalidation and the source service (from the backlog).
 4. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
@@ -24,7 +25,8 @@ Last updated 2026-11-19 (second run, lock fence 48). Keep this to one screen. Hi
 - **Memory.** One 4096 x 4096 JPEG needs about 0.7 GB (4:2:0) to 1.3 GB (four components) of process memory at its peak, one picture at a time. How much memory the stadium PC has is unknown.
 - The NDI checks run on runtime 6.4.0.2. Add the winget manifest commit to `docs/design/WINDOWS_NDI_PROOF.md` when one exists; a different hash there is a failure, not a detail.
 - The NDI, console, prepared-event and full-app proofs still make a single process listing at their captures and can fail the way the Caspar proof did.
-- This sandbox cannot run `npm ci` exactly: one locked package (the spreadsheet reader) comes from a host the sandbox blocks. Local Linux runs use a local stand-in for it, with the lock file restored afterwards. GitHub's checks are the authority.
+- This sandbox cannot run `npm ci` exactly: one locked package (the spreadsheet reader) comes from a host the sandbox blocks. Local Linux runs use the registry's 0.18.5 as a stand-in, with `package.json` and the lock file restored afterwards; the stand-in lacks `set_fs`, so add a no-op `set_fs` export to the local copy or the 7 real-SPX startup tests fail. GitHub's checks are the authority.
+- Two old Codex branches are not in master and have no pull request: `feature/be-008-extracted-app-output` (Nov 15) and `feature/windows-development-bundle` (Nov 13). Not reviewed; do not merge them blind.
 - Twelve proposals for the fixture pack and contract wait on the scheduler side (`FIXTURE_RESULTS_FOR_SCHEDULER.md`). Proposal 11 (JPEG limit cases in the pack) still stands after the fix. The Engine changes no schema and no contract text on its own.
 - Nothing has been tested on Windows 10, the stadium PC, a synced folder, NDI over a network or the board.
 

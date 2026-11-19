@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-19 · Total bytes count each distinct picture once
+
+- Engine defect against the exchange contract's bounds table (536,870,912 bytes of a selection's distinct pictures, each counted once): the Engine added the bytes of every asset row, so several source files holding identical bytes counted several times. The scheduler's publisher counts each SHA-256 once and emits one asset row per source file, so a selection it published as `complete` could be refused with `TOTAL_LIMIT` (26 files of one identical 20 MiB picture).
+- The Engine now counts each SHA-256 once in the three places that check the total: the coordinator's plan check (before any file is read), staging (declared and read bytes) and cache reload. The per-row limits (500 asset rows, 20 MiB per picture, pixels, sides) are unchanged.
+- Tests: at the real limit through the coordinator, 26 distinct pictures each in two rows totalling exactly 536,870,912 bytes pass the plan check and one byte more is refused before anything is recorded; 26 rows of one 20 MiB picture pass; staging and cache reload of repeated and distinct pictures at the total and one byte under. The new and changed tests fail on the previous code (4 of 4). Two older tests that pinned the per-row count were changed to the contract's count.
+
 ## 2026-11-19 · The largest JPEGs the exchange contract allows now decode
 
 - Engine defect against the exchange contract's bounds table (16,777,216 pixels per picture): on the exchange path every JPEG above about 9 megapixels was refused with `IMAGE_DECODE_FAILED`, for memory, not time. A 12-megapixel phone photo failed.

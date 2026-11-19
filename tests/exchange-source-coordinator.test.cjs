@@ -935,7 +935,38 @@ test("inspectSelection accepts complete metadata with missing assets without sta
     assert.equal(f.coordinator.snapshot().lastPrepared, null);
 });
 
-test("declared aggregate unique asset-row budget rejects before fact without physical assets", async t => {
+// Contract 0.3.1, section 5.6: total bytes count each distinct picture (SHA-256) once.
+// The publisher emits one asset row per source file, so identical bytes in several
+// files arrive as several rows with one SHA-256. Actual source bytes deliberately do
+// not exist: the plan check runs before any asset I/O.
+function budgetManifest(sizes, copies) {
+    const m = source();
+    const template = copy(m.assets[0]);
+    m.assets = [];
+    sizes.forEach((size, n) => {
+        const sha = crypto.createHash("sha256").update("synthetic-budget-" + n).digest("hex");
+        for (let k = 0; k < copies; k++) m.assets.push({
+            ...copy(template),
+            assetKey: "a" + (m.assets.length + 1),
+            mimeType: "image/png",
+            deliveryPath: "assets/" + sha + ".png",
+            byteLength: size,
+            sha256: sha
+        });
+    });
+    m.occurrences = m.assets.map((a, i) => ({
+        position: i + 1,
+        occurrenceKey: "budget-row-" + i,
+        fileKey: "BUDGET-" + i,
+        assetKey: a.assetKey,
+        problem: null,
+        sourceName: "Synthetic",
+        lineage: null
+    }));
+    return seal(m);
+}
+
+async function budgetResult(t, m) {
     const {
         createExchangeSchemaGate
     } = require("../scripts/lib/exchange-schema-gate.cjs");
@@ -946,45 +977,39 @@ test("declared aggregate unique asset-row budget rejects before fact without phy
     const f = await fixture(t, {
         stage: () => {
             stages++;
-            throw Error("MUST_NOT_STAGE");
+            throw Error("BUDGET_TEST_STOPS_AT_STAGE");
         }
     });
-    const m = source();
-    const alias = copy(m.assets[0]);
-    alias.byteLength = 20971520;
-    // 26 individually allowed20MiB asset rows total520MiB. Every alias has
-    // consistent physical metadata and a referenced occurrence; only row-sum
-    // budget is exceeded. Actual source bytes deliberately do not exist.
-    m.assets = Array.from({
-        length: 26
-    }, (_, i) => ({
-        ...copy(alias),
-        assetKey: "a" + (i + 1)
-    }));
-    m.occurrences = m.assets.map((a, i) => ({
-        position: i + 1,
-        occurrenceKey: "budget-row-" + i,
-        fileKey: "BUDGET-" + i,
-        assetKey: a.assetKey,
-        problem: null,
-        sourceName: "Synthetic",
-        lineage: null
-    }));
-    seal(m);
     assert.equal(createExchangeSchemaGate().validate("selection", m).ok, true);
     assert.equal(createExchangeTimingGate().validate(m).ok, true);
     await f.publish(m, {
         assets: false
     });
     const result = await f.coordinator.prepareSelection(m.identityTuple);
-    assert.equal(result.code, "ASSET_PLAN_LIMIT");
-    assert.equal(result.acceptedMetadata, false);
-    assert.equal(result.contentPrepared, false);
-    assert.equal(stages, 0);
-    const head = await f.head();
+    return {result, stages, f};
+}
+
+test("repeated identical bytes count once toward the total-bytes plan limit", async t => {
+    const max = 536870912, big = 20971520;
+    // 26 rows of one 20 MiB picture: 520 MiB of rows, 20 MiB of distinct pictures.
+    const same = await budgetResult(t, budgetManifest([ big ], 26));
+    assert.notEqual(same.result.code, "ASSET_PLAN_LIMIT");
+    assert.equal(same.stages, 1);
+    // 26 distinct pictures, each in two rows, totalling exactly the limit: allowed.
+    const exact = Array(25).fill(big).concat(max - 25 * big);
+    const under = await budgetResult(t, budgetManifest(exact, 2));
+    assert.notEqual(under.result.code, "ASSET_PLAN_LIMIT");
+    assert.equal(under.stages, 1);
+    // One byte more on one distinct picture: refused before any fact or stage.
+    const over = await budgetResult(t, budgetManifest(exact.slice(0, 25).concat(max - 25 * big + 1), 2));
+    assert.equal(over.result.code, "ASSET_PLAN_LIMIT");
+    assert.equal(over.result.acceptedMetadata, false);
+    assert.equal(over.result.contentPrepared, false);
+    assert.equal(over.stages, 0);
+    const head = await over.f.head();
     assert.equal(head.state.feeds[0].catalog.sequence, 1);
     assert.equal(head.state.feeds[0].selections.length, 0);
-    assert.equal(f.coordinator.snapshot().lastPrepared, null);
+    assert.equal(over.f.coordinator.snapshot().lastPrepared, null);
 });
 
 test("source journal overlap rejects before facts and preserves source and initialized journal", async t => {
