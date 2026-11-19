@@ -9,7 +9,7 @@
 - `createApprovalRevalidator({machine, store?})` returns:
   - `refreshAdmission(context)`: the manager's awaited hook. It rereads the approval store from disk (`open` with the machine's retained directory and store ID) and then decides.
   - `admitCandidate(context)`: the manager's synchronous hook. No I/O; uses only the last completed read.
-  - `authorizeOffline(context)`: the provider's cached-startup hook. Also requires the context's journal store ID to be this machine's retained one.
+  - `authorizeOffline(context)`: the provider's cached-startup hook. Also requires the context's journal store ID to be this machine's retained one. It reads nothing itself: the caller completes `refresh()` before a cached startup, or the startup is refused.
   - `refresh()`, `status()` (path-free: `read`, `revision`, `code`, `rolledBack`, `closed`, always `ready:false`), `close()`, `policyFingerprint`.
 
 ## Rules

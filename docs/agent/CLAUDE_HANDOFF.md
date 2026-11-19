@@ -21,7 +21,7 @@ Last updated 2026-11-19 (fifth run, lock fence 51). Keep this to one screen. His
 
 ## Open pull request
 
-- PR for slice 3a (`feature/be-006-exact-source-revalidation`): opened at fence 51; merge only when every check on its final commit is green.
+- PR #63 for slice 3a (`feature/be-006-exact-source-revalidation`): opened at fence 51; merge only when every check on its final commit is green.
 
 ## Open risks
 
