@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-2026-11-19T12:51:59.249Z-1kzcf3jf",
+  "status": "idle",
+  "owner": null,
   "fence": 48,
-  "task": "Engine defect: contract-legal JPEGs up to 4096 x 4096 refused for memory on the exchange path",
-  "workBranch": "feature/be-006-large-jpeg-decode",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-19T12:51:59.249Z",
-  "lastHeartbeat": "2026-11-19T13:22:49.895Z",
-  "expiresAt": "2026-11-19T14:52:49.895Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-19T13:23:22.819Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-19T13:23:22.819Z"
 }
