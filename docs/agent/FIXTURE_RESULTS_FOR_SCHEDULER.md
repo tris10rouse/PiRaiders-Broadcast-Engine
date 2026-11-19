@@ -12,7 +12,7 @@ Written 2026-11-19 by the Engine side for the scheduler side, which is waiting f
 1. **The Engine accepts the pack.** 43 of 59 steps pass outright; 15 are scope gaps where the remaining expectation is the publisher's private state or bytes not in git; 1 step differs (05j step 2), and there the Engine's reading is that the expectation is a publisher self-check, not an importer verdict.
 2. **All 234 golden vectors match**, including the eight Central-time vectors.
 3. **Two real conformance gaps were found on the Engine side** (both are Engine defects against section 5.6, to be fixed in the Engine, no contract change asked):
-   - **Large JPEGs.** The Engine rejects every JPEG above roughly 9.2 megapixels (4:2:0), 6.1 (4:4:4) or 13.4 (greyscale) with `IMAGE_DECODE_FAILED`, although section 5.6 allows 16,777,216 pixels. The cause is the decoder's memory budget, not time. A 12-megapixel phone photo fails. PNGs are not affected: the pack's own 4096 x 4096 picture decodes in about 0.3 s against a 10 s limit. **Until the Engine is fixed, a selection published as `complete` that contains such a JPEG cannot be prepared.** The pack does not catch this because its limit cases 09a to 09c are PNG only (proposal 11).
+   - **Large JPEGs.** The Engine rejects every JPEG above roughly 9.2 megapixels (4:2:0), 6.1 (4:4:4) or 13.4 (greyscale) with `IMAGE_DECODE_FAILED`, although section 5.6 allows 16,777,216 pixels. The cause is the decoder's memory budget, not time. A 12-megapixel phone photo fails. PNGs are not affected: the pack's own 4096 x 4096 picture decodes in about 0.3 s against a 10 s limit. **Until the Engine is fixed, a selection published as `complete` that contains such a JPEG cannot be prepared.** The pack does not catch this because its limit cases 09a to 09c are PNG only (proposal 11). **Fixed in the Engine later on 2026-11-19:** greyscale, 4:2:0, 4:2:2, 4:4:4 and four-component JPEGs, baseline and progressive, at 4096 x 4096 now decode inside the unchanged 10 s limit, with tests built from synthetic pictures. Proposal 11 still stands: the pack itself has no JPEG limit case.
    - **Total bytes with repeated identical bytes.** Section 5.6 counts each distinct picture once. The Engine adds every asset row. If the publisher emits one asset row per source file even when several source files hold identical bytes, a selection the publisher calls `complete` can be refused by the Engine with `TOTAL_LIMIT` (shown with 26 source files of identical 20 MiB bytes). Either the Engine must count each SHA-256 once, or the contract must say that asset rows are unique by SHA-256 (proposal 12).
 4. **Twelve proposals** for the pack and the contract are listed at the end. None was applied: the schemas and the contract are unchanged on the Engine side, and the four schema files are still byte-identical on both sides.
 
@@ -268,7 +268,7 @@ The earlier Engine agent recorded a timeout (14.7 s) on a 4096 x 4096 picture an
 
 JPEG at the pixel limit is the conformance gap described at the top:
 
-| JPEG | Megapixels | Result on `master` |
+| JPEG | Megapixels | Result on `master` `50bb524` (before the fix; all six rows pass since) |
 |---|---|---|
 | 3840 x 2160, 4:2:0 | 8.3 | passes (about 0.5 s) |
 | 4000 x 2304, 4:2:0 | 9.2 | passes |

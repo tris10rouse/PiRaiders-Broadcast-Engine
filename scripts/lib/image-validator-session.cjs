@@ -6,6 +6,12 @@ const {performance}=require('node:perf_hooks');
 const {MAX_INPUT_BYTES}=require('./image-validator.cjs');
 const CODES=new Set(['INVALID_IMAGE','UNSUPPORTED_IMAGE','IMAGE_DIMENSION_LIMIT','IMAGE_DECODE_FAILED']);
 const fail=code=>Object.assign(Error('Image validation rejected'),{code});
+// Upper bound on the decoder worker's JavaScript heap. jpeg-js keeps one small
+// typed array per 8x8 block, so a 16,777,216-pixel JPEG needs up to about 210 MB
+// of heap (four components, no subsampling) beyond its counted 449 MB of block,
+// line and pixel bytes. This is a cap, not a reservation; PNG decoding stays far
+// below it. Callers choose the counted budget with maxMemoryUsageInMB (1..512).
+const WORKER_HEAP=Object.freeze({maxOldGenerationSizeMb:384,maxYoungGenerationSizeMb:16});
 function input(buffer,options){
  if(!options||typeof options!=='object'||Array.isArray(options))throw fail('INVALID_OPTIONS');
  const {extension,maxPixels=16777216,maxDimension=8192,timeoutMs=10000,signal,maxMemoryUsageInMB=128}=options;
@@ -72,7 +78,7 @@ function createImageValidationSession(){
    c.signal?.addEventListener('abort',request.abort,{once:true});
    if(c.signal?.aborted){fault('IMAGE_ABORTED');return;}
    try{
-    if(!worker){worker=new Worker(path.join(__dirname,'image-decoder-session-worker.cjs'),{resourceLimits:{maxOldGenerationSizeMb:64,maxYoungGenerationSizeMb:16}});
+    if(!worker){worker=new Worker(path.join(__dirname,'image-decoder-session-worker.cjs'),{resourceLimits:{...WORKER_HEAP}});
      let resolveExit;exitPromise=new Promise(resolve=>{resolveExit=resolve;});
      worker.once('exit',()=>{observedExit=true;resolveExit();if(!closed)fault('IMAGE_DECODE_FAILED');});
      worker.on('message',receive);worker.once('error',()=>fault('IMAGE_DECODE_FAILED'));}
@@ -82,4 +88,4 @@ function createImageValidationSession(){
  }
  return Object.freeze({validate,close:()=>terminate(),snapshot:()=>Object.freeze({closed:terminated,admissionClosed:closed,busy:inflight!==null||closed&&!terminated,requests,hasWorker:worker!==null,faultCode})});
 }
-module.exports={createImageValidationSession};
+module.exports={createImageValidationSession,IMAGE_SESSION_WORKER_HEAP:WORKER_HEAP};

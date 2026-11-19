@@ -1,5 +1,12 @@
 # Codex engineering checkpoint
 
+## 2026-11-19 · Second Claude run (fence 48): large JPEGs on the exchange path. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master after the takeover merges:** PR #57 (`9bc27ca`), PR #58 (`6014793`) and PR #56 (`975fecd`) each had all 6 check groups green on master. Nothing was rerun.
+- **Fixed:** every JPEG above about 9 megapixels was refused on the exchange path (`IMAGE_DECODE_FAILED`, memory). The exchange path now passes a fixed 512 MB counted budget and the session worker's heap cap is 384 MB (was 128 / 64). Limits, timeouts and PNG handling unchanged. Measured numbers: `CHANGELOG.md`.
+- **Local Linux on the branch:** syntax 177 files; 906 tests, 879 pass, 27 Windows-only skips, 0 fail. The first full run had 1 failure: an existing test pinned the old 64 MB heap value; it now pins 384 MB and also the 512 MB budget at both call sites. Run with the local stand-in for the one blocked package; GitHub's checks are the authority.
+- **Found, not fixed:** the older local-folder path refuses the same JPEGs (backlog 2b). A dense progressive 4:4:4 JPEG at the pixel limit takes up to 5.5 s of the fixed 10 s limit on 2 CPUs.
+
 ## 2026-11-19 · Claude takeover (fence 47). Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 Codex stopped on 2026-11-17 during fence 46 and is switched off. Entries below this one are its history.

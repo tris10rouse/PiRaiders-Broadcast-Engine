@@ -2,6 +2,8 @@
 
 Done 2026-11-19 on Engine `master` `50bb524`, with the scheduler at version 2.159.0. Read-only on the scheduler. Linux, Node 22, 2 virtual CPUs, local disk: nothing here is a Windows, synced-folder or hardware result. Per-case fixture results are in `docs/agent/FIXTURE_RESULTS_FOR_SCHEDULER.md`.
 
+**Since the audit (2026-11-19, later the same day).** The large-JPEG defect in section 1 is fixed on the exchange path: the decoder's counted budget is 512 MB and the worker heap cap 384 MB, and every JPEG layout at 4096 x 4096 now passes inside the unchanged 10 s limit (numbers in `CHANGELOG.md`). The findings below are kept as written on `50bb524`. Still open from this audit: total bytes counted per asset row (section 3), suggested polling, and everything under "Unknown or not verified". New since the audit: the older local-folder path refuses the same JPEGs and is not yet changed; and a dense progressive 4:4:4 JPEG at the pixel limit takes up to 5.5 s of the 10 s limit on this 2-CPU machine.
+
 ## Summary
 
 | Question | Answer |
@@ -24,7 +26,7 @@ Limits on the exchange path: 10,000 ms per picture (`LIMITS.timeoutMs`, `scripts
 | Heaviest legal PNG found (16-bit RGBA noise, 19.6 MB) | 2.9 to 3.0 s | passes |
 | Same heaviest PNG with 8 competing processes on 2 CPUs | 10.07 s | `IMAGE_TIMEOUT` |
 | The pack's own picture with 8 competing processes | 1.3 to 1.7 s | passes |
-| JPEG 4096 x 4096 (4:2:0, 4:4:4, greyscale, progressive) | under 1 s | **`IMAGE_DECODE_FAILED`** |
+| JPEG 4096 x 4096 (4:2:0, 4:4:4, greyscale, progressive) | under 1 s | **`IMAGE_DECODE_FAILED`** (on `50bb524`; passes since the fix noted at the top) |
 
 - **PNG.** The old agent recorded `IMAGE_TIMEOUT` at 14,666 ms and no fix. Not reproduced. Load alone does not explain it for the pack's picture. **Cause unknown.** The margin for 16-bit PNGs is about 3.3 times on this machine and the limit is fixed in code; the stadium PC has not been measured.
 - **JPEG (new, an Engine defect against section 5.6).** The decoder counts memory before allocating: about 14.5 bytes per pixel for 4:2:0, 22 for 4:4:4, 10 for greyscale. At 128 MB that allows about 9.2, 6.1 and 13.4 megapixels; measured boundaries agree (4000 x 2304 passes, 4096 x 2304 fails; a 4032 x 3024 phone-sized photo fails). Raising the budget alone is not enough: the worker heap is then exhausted. With both raised (512 MB budget, 512 MB heap) a colour 4096 x 4096 JPEG decodes in 0.8 to 1.6 s. Meaning: a selection the scheduler publishes as complete can be impossible for the Engine to prepare. The fixture pack does not catch it because its limit cases are PNG only.

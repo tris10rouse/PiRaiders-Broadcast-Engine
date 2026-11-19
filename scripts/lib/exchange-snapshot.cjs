@@ -34,7 +34,12 @@ const LIMITS = Object.freeze({
   maxPixels: 16777216,
   maxDimension: 8192,
   timeoutMs: 1e4,
-  manifestBytes: 2097152
+  manifestBytes: 2097152,
+  // Counted decoder memory for one JPEG. Fixed, not a caller option: the
+  // largest contract-legal JPEG (16,777,216 pixels) counts 161 MB greyscale,
+  // 233 MB 4:2:0, 353 MB 4:4:4 and 449 MB with four components in jpeg-js.
+  // The validator's default of 128 MB refused all of them.
+  jpegDecodeMemoryMb: 512
 });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -383,6 +388,7 @@ async function stageExchangeSnapshot(raw = {}) {
           maxPixels: c.maxPixels,
           maxDimension: c.maxDimension,
           timeoutMs: c.timeoutMs,
+          maxMemoryUsageInMB: LIMITS.jpegDecodeMemoryMb,
           signal: c.signal
         });
         abort(c);
@@ -566,6 +572,7 @@ async function loadExchangeSnapshot(snapshotDir, raw = {}) {
         maxPixels: c.maxPixels,
         maxDimension: c.maxDimension,
         timeoutMs: c.timeoutMs,
+        maxMemoryUsageInMB: LIMITS.jpegDecodeMemoryMb,
         signal: c.signal
       });
       if (d.width !== f.width || d.height !== f.height || d.format !== f.format) fail('CACHE_CHANGED');

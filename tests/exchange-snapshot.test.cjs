@@ -920,3 +920,30 @@ for(const mode of ['stage','load'])test('schema2 '+mode+' waits real session clo
  if(mode==='stage')assert.equal((await fs.readdir(f.cacheDir)).filter(n=>n.startsWith('.pending-')).length,1);
  release();const complete=await pending;assert.equal(renames,mode==='stage'?1:0);assert.equal(complete.deck.slides.length,3);if(mode==='load')assert.equal(complete.snapshotDir,good.snapshotDir);
 });
+
+test('4096 x 4096 JPEGs, the largest the contract allows, stage in order and reload offline through the real decoder', { timeout: 120000 }, async t => {
+  const { syntheticJpeg } = require('./synthetic-jpeg.cjs');
+  const side = 4096, blobs = [ syntheticJpeg({ width: side, height: side, layout: '4:2:0' }), syntheticJpeg({ width: side, height: side, layout: '4:4:4', progressive: true }), syntheticJpeg({ width: side, height: side, layout: 'four-component' }) ];
+  assert.equal(side * side, L.maxPixels);
+  const f = await fixture(t, blobs, [ 1, 0, 2, 1 ]);
+  for (const a of f.manifest.assets) {
+    a.width = side;
+    a.height = side;
+  }
+  seal(f.manifest);
+  const s = await stageExchangeSnapshot(request(f));
+  assert.equal(s.manifest.files.length, 3);
+  assert.deepEqual(s.manifest.files.map(x => [ x.format, x.width, x.height ]), [ [ 'jpeg', side, side ], [ 'jpeg', side, side ], [ 'jpeg', side, side ] ]);
+  assert.equal(s.deck.slides.length, 4);
+  assert.equal(s.deck.slides[0].src, s.deck.slides[3].src);
+  await fs.rm(f.sourceRoot, {
+    recursive: true
+  });
+  assert.deepEqual(await loadSnapshot(s.snapshotDir), s);
+  // The limit itself is unchanged: one more row of blocks is refused, never resized or skipped.
+  const over = syntheticJpeg({ width: side, height: side + 8, layout: 'grey' }), g = await fixture(t, [ over ], [ 0 ]);
+  g.manifest.assets[0].width = side;
+  g.manifest.assets[0].height = side + 8;
+  seal(g.manifest);
+  await rejects(stageExchangeSnapshot(request(g)), 'IMAGE_DIMENSION_LIMIT');
+});

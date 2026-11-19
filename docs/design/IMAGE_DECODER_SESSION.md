@@ -33,3 +33,12 @@ Preserve actual initial failures: root's original59-step fixture run timed out o
 Initial scratch test failures were a missing copied helper and two fault hooks still targeting the obsolete one-shot call. Helpers were copied unchanged and hooks moved to the real session with their failure/cleanup assertions retained. Later termination-rejection and idle-fault findings received real-worker regressions before publication. Full regression and final-SHA Windows/source/extracted tests remain required. Do not publish private fixture data or execute supplied publisher scripts.
 
 No dependency, schema, cache migration, provider/UI, runtime control or hardware change is included. The shared core/session worker must ship with the application libraries; extracted-package tests verify that dependency. Rollback restores the paired worker/core/session/snapshot/test changes together. TargetWindows10, Drive hydration, LAN/stadium compatibility, soak and evaluation readiness remain separate gates.
+
+## 2026-11-19 · JPEG memory caps on the exchange path
+
+The statement above that worker heaps remain 64 MiB old / 16 MiB young, and that the existing JPEG memory bound is kept, is no longer true for sessions. Those values refused every JPEG above about 9 megapixels although the exchange contract allows 16,777,216 pixels.
+
+- The session worker's heap cap is 384 MiB old / 16 MiB young (`IMAGE_SESSION_WORKER_HEAP`). The exchange path passes a fixed counted budget of 512 MB to the JPEG decoder (`EXCHANGE_SNAPSHOT_LIMITS.jpegDecodeMemoryMb`) at source staging and at cache reload. Neither is a caller option. The session's own default budget stays 128 MB for any other caller.
+- The one-shot validator used by the local-folder path is unchanged (128 MB, 64 MiB) and still refuses those JPEGs; that is a separate backlog item.
+- Measured at 4096 x 4096 (Linux, 2 CPUs): counted memory up to 449 MB and worker heap up to 209 MiB (four components, no subsampling); whole-process memory near 1.3 GB at the peak for one such picture. These are caps, not reservations, and still not a total process-RSS guarantee. The 10,000 ms per-picture limit, the pixel, side and byte limits and all PNG handling are unchanged.
+- Tests: `tests/image-validator-session.test.cjs` (every layout at 4096 x 4096, a dense picture just under 20 MiB, the limits just above), `tests/exchange-snapshot.test.cjs` (real staging and offline reload), built with `tests/synthetic-jpeg.cjs`. Rollback: revert the two constants and the two call-site lines together with these tests.
