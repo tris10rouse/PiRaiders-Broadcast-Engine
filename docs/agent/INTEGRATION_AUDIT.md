@@ -2,7 +2,7 @@
 
 Done 2026-11-19 on Engine `master` `50bb524`, with the scheduler at version 2.159.0. Read-only on the scheduler. Linux, Node 22, 2 virtual CPUs, local disk: nothing here is a Windows, synced-folder or hardware result. Per-case fixture results are in `docs/agent/FIXTURE_RESULTS_FOR_SCHEDULER.md`.
 
-**Since the audit (2026-11-19, later the same day).** The large-JPEG defect in section 1 is fixed on the exchange path: the decoder's counted budget is 512 MB and the worker heap cap 384 MB, and every JPEG layout at 4096 x 4096 now passes inside the unchanged 10 s limit (numbers in `CHANGELOG.md`). The findings below are kept as written on `50bb524`. Still open from this audit: total bytes counted per asset row (section 3), suggested polling, and everything under "Unknown or not verified". New since the audit: the older local-folder path refuses the same JPEGs and is not yet changed; and a dense progressive 4:4:4 JPEG at the pixel limit takes up to 5.5 s of the 10 s limit on this 2-CPU machine.
+**Since the audit (2026-11-19, later the same day).** The large-JPEG defect in section 1 is fixed on the exchange path: the decoder's counted budget is 512 MB and the worker heap cap 384 MB, and every JPEG layout at 4096 x 4096 now passes inside the unchanged 10 s limit (numbers in `CHANGELOG.md`). The findings below are kept as written on `50bb524`. Still open from this audit: total bytes counted per asset row (section 3), suggested polling, and everything under "Unknown or not verified". New since the audit: the older local-folder path refused the same JPEGs (fixed the same way later that day, fence 50); and a dense progressive 4:4:4 JPEG at the pixel limit takes up to 5.5 s of the 10 s limit on this 2-CPU machine.
 
 ## Summary
 

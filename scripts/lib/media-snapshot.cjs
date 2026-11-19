@@ -11,6 +11,11 @@ const DEFAULTS = Object.freeze({ quietMs: 250, maxFiles: 500, maxFileBytes: 20 *
 const RULES = { quietMs: [0, 60000], maxFiles: [1, 10000], maxFileBytes: [1, 20 * 1024 * 1024],
   maxTotalBytes: [1, 10 * 1024 * 1024 * 1024], maxPixels: [1, 16777216], maxDimension: [1, 8192],
   maxDepth: [0, 64], maxEntries: [1, 100000], timeoutMs: [1, 60000] };
+// Counted decoder memory for one JPEG on the local-folder path. Fixed, not a
+// caller option, and the same value as the exchange path: the largest legal JPEG
+// (16,777,216 pixels) counts up to 449 MB in jpeg-js (four components); the
+// validator's 128 MB default refused every JPEG above about 9 megapixels.
+const JPEG_DECODE_MEMORY_MB = 512;
 const IMAGE_CODES = new Set(['INVALID_OPTIONS', 'IMAGE_TOO_LARGE', 'UNSUPPORTED_IMAGE', 'IMAGE_FORMAT_MISMATCH',
   'INVALID_IMAGE', 'IMAGE_DIMENSION_LIMIT', 'IMAGE_DECODE_FAILED', 'IMAGE_ABORTED', 'IMAGE_TIMEOUT']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -171,7 +176,8 @@ async function stageSnapshot(raw = {}) {
       for (const file of second.media) {
         const buffer = await capturedFile(file, source, config);
         const decoded = await validateImage(buffer, { extension: file.extension, maxPixels: config.maxPixels,
-          maxDimension: config.maxDimension, timeoutMs: config.timeoutMs, signal: config.signal });
+          maxDimension: config.maxDimension, timeoutMs: config.timeoutMs,
+          maxMemoryUsageInMB: JPEG_DECODE_MEMORY_MB, signal: config.signal });
         aborted(config.signal);
         const hash = digest(buffer), mediaId = digest(file.relative);
         const src = 'media/' + mediaId + '-' + hash + (decoded.format === 'png' ? '.png' : '.jpg');
@@ -248,7 +254,8 @@ async function loadSnapshot(snapshotDir, raw = {}) {
       const buffer = await capturedFile({ absolute, bytes: file.bytes, signature: signature(stat) }, folder, config);
       if (digest(buffer) !== file.sha256) fail('CACHE_CHANGED');
       const decoded = await validateImage(buffer, { extension: path.extname(file.src), maxPixels: config.maxPixels,
-        maxDimension: config.maxDimension, timeoutMs: config.timeoutMs, signal: config.signal });
+        maxDimension: config.maxDimension, timeoutMs: config.timeoutMs,
+          maxMemoryUsageInMB: JPEG_DECODE_MEMORY_MB, signal: config.signal });
       if (decoded.width !== file.width || decoded.height !== file.height || decoded.format !== file.format) fail('CACHE_CHANGED');
     }
     // Ordinary cache replacement/tamper of an earlier file during a later
@@ -265,4 +272,4 @@ async function loadSnapshot(snapshotDir, raw = {}) {
     aborted(config.signal); return result(folder, manifest);
   });
 }
-module.exports = { stageSnapshot, loadSnapshot };
+module.exports = { stageSnapshot, loadSnapshot, MEDIA_SNAPSHOT_JPEG_DECODE_MEMORY_MB: JPEG_DECODE_MEMORY_MB };

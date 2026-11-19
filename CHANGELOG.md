@@ -1,5 +1,12 @@
 # PiRaiders engineering changelog
 
+## 2026-11-19 · The largest JPEGs also load from a local folder
+
+- The same defect as on the exchange path, on the older local-folder path: every JPEG above about 9 megapixels was refused with `IMAGE_DECODE_FAILED` (counted budget 128 MB, decoder worker heap 64 MB), although that path's own pixel limit is 16,777,216.
+- The one-shot decoder worker now has the same 384 MB heap cap as the exchange path's worker, and the local-folder path passes the same fixed 512 MB counted budget at staging and at offline reload. Caps, not reservations. No caller option was added; the pixel, side, byte and 10 s limits and all PNG handling are unchanged; the one-shot default budget stays 128 MB.
+- Tests: all five layouts, baseline and progressive, at 4096 x 4096 stage from a local folder and reload with the source folder gone; one block row over the pixel limit is still refused; a four-component picture through the one-shot validator passes with 512 MB and is still refused with the 128 MB default; the heap cap is pinned and equal to the session's. The new tests fail on the previous code (3 of 4; the over-limit refusal passes on both, as it should).
+- Local Linux: syntax 177 files; 911 tests, 884 pass, 27 Windows-only skips, 0 fail (with the local stand-in for the one blocked package). Nothing measured on Windows 10 or the stadium PC.
+
 ## 2026-11-19 · Total bytes count each distinct picture once
 
 - Engine defect against the exchange contract's bounds table (536,870,912 bytes of a selection's distinct pictures, each counted once): the Engine added the bytes of every asset row, so several source files holding identical bytes counted several times. The scheduler's publisher counts each SHA-256 once and emits one asset row per source file, so a selection it published as `complete` could be refused with `TOTAL_LIMIT` (26 files of one identical 20 MiB picture).

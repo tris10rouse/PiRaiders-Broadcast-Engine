@@ -236,3 +236,30 @@ test('strict manifest types reject coercible arrays/objects instead of returning
     await assert.rejects(loadSnapshot(staged.snapshotDir), { code: 'INVALID_MANIFEST' });
   }
 });
+
+// Largest legal picture: 4096 x 4096 = 16,777,216 pixels (the exchange contract's bounds table and this path's maxPixels default).
+test('4096 x 4096 JPEGs in every layout stage from a local folder and reload offline through the real decoder', { timeout: 180000 }, async t => {
+  const { syntheticJpeg, SYNTHETIC_JPEG_LAYOUTS } = require('./synthetic-jpeg.cjs');
+  const { MEDIA_SNAPSHOT_JPEG_DECODE_MEMORY_MB } = require('../scripts/lib/media-snapshot.cjs');
+  assert.equal(MEDIA_SNAPSHOT_JPEG_DECODE_MEMORY_MB, 512);
+  const f = await fixture(t), side = 4096, names = [];
+  for (const layout of SYNTHETIC_JPEG_LAYOUTS) for (const progressive of [ false, true ]) {
+    const name = layout.replace(/[^a-z0-9]/g, '') + (progressive ? '-p' : '-b') + '.jpg';
+    names.push(name);
+    await fs.writeFile(path.join(f.sourceDir, name), syntheticJpeg({ width: side, height: side, layout, progressive }));
+  }
+  const s = await stageSnapshot(f.config);
+  assert.equal(s.manifest.files.length, names.length);
+  assert.ok(s.manifest.files.every(x => x.format === 'jpeg' && x.width === side && x.height === side));
+  await fs.rm(f.sourceDir, { recursive: true });
+  assert.deepEqual((await loadSnapshot(s.snapshotDir)).manifest, s.manifest);
+  await noPending(f.cacheDir);
+});
+
+test('a local JPEG one block row over the pixel limit is still refused, never resized or skipped', { timeout: 60000 }, async t => {
+  const { syntheticJpeg } = require('./synthetic-jpeg.cjs');
+  const f = await fixture(t);
+  await fs.writeFile(path.join(f.sourceDir, 'over.jpg'), syntheticJpeg({ width: 4096, height: 4104, layout: 'grey' }));
+  await assert.rejects(stageSnapshot(f.config), { code: 'IMAGE_DIMENSION_LIMIT' });
+  await noPending(f.cacheDir);
+});
