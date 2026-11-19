@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-19 · Fifth Claude run (fence 51): exact approval revalidation. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master** `5e4c45e` (PR #62, handoff note after PR #61). No open pull requests at the start.
+- **Started BE-006 in slices.** Slice 3a on `feature/be-006-exact-source-revalidation`: a production module that fingerprints the machine's source policy and decides saved approvals exactly, rereading the store at every awaited manager boundary; fails closed on no read, failed or overtaken reads, revocation, foreign feed and store rollback. Not wired into the application. Design: `docs/design/EXCHANGE_APPROVAL_POLICY.md`.
+- **Tests:** 9 new; every guard removed in turn makes at least one fail.
+
 ## 2026-11-19 · Fourth Claude run (fence 50): large JPEGs on the local-folder path. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master after PR #60** (`98717c2`): all 9 checks green (6 groups). Nothing was rerun.
