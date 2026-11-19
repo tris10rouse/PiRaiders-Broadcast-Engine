@@ -170,7 +170,8 @@ test('source occurrence order and repeated bytes survive unique physical staging
   assert.deepEqual(cached, s);
 });
 
-test('matching physical aliases read once but count distinct asset rows against quota', async t => {
+test('matching physical aliases read once and count once against the total-bytes quota', async t => {
+  // Contract 0.3.1, section 5.6: each distinct picture (SHA-256) counts once, however many rows carry it.
   const b = image(), f = await fixture(t, [ b, b ], [ 0, 1, 0 ]), open = fs.open;
   let count = 0;
   fs.open = async (file, ...args) => {
@@ -179,11 +180,11 @@ test('matching physical aliases read once but count distinct asset rows against 
   };
   try {
     await rejects(stageExchangeSnapshot(request(f, {
-      maxTotalBytes: b.length
+      maxTotalBytes: b.length - 1
     })), 'TOTAL_LIMIT');
     assert.equal(count, 0);
     const s = await stageExchangeSnapshot(request(f, {
-      maxTotalBytes: 2 * b.length
+      maxTotalBytes: b.length
     }));
     assert.equal(count, 1);
     assert.equal(s.manifest.files.length, 1);
@@ -192,6 +193,25 @@ test('matching physical aliases read once but count distinct asset rows against 
   } finally {
     fs.open = open;
   }
+});
+
+test('repeated identical bytes count once while distinct pictures each count, at staging and cache reload', async t => {
+  const b = image(), c = image('jpeg'), f = await fixture(t, [ b, c, b, c, b ], [ 0, 1, 2, 3, 4 ]);
+  const exact = b.length + c.length;
+  await rejects(stageExchangeSnapshot(request(f, {
+    maxTotalBytes: exact - 1
+  })), 'TOTAL_LIMIT');
+  const s = await stageExchangeSnapshot(request(f, {
+    maxTotalBytes: exact
+  }));
+  assert.equal(s.manifest.files.length, 2);
+  assert.equal(s.manifest.assets.length, 5);
+  assert.equal((await loadSnapshot(s.snapshotDir, {
+    maxTotalBytes: exact
+  })).deck.slides.length, 5);
+  await rejects(loadSnapshot(s.snapshotDir, {
+    maxTotalBytes: exact - 1
+  }), 'TOTAL_LIMIT');
 });
 
 test('occurrence-derived IDs remain stable when bytes change while playback and content identities change', async t => {
@@ -713,11 +733,14 @@ test('source assets and cached media directory junctions cannot redirect reads',
   await rejects(loadSnapshot(s.snapshotDir), 'UNSAFE_CACHE');
 });
 
-test('inconsistent alias metadata rejects before asset I/O and offline aliases cannot lower quota', async t => {
+test('inconsistent alias metadata rejects before asset I/O and cached aliases count once against quota', async t => {
   const b = image(), f = await fixture(t, [ b, b ], [ 0, 1 ]);
   const s = await stageExchangeSnapshot(request(f));
-  await rejects(loadSnapshot(s.snapshotDir, {
+  assert.equal((await loadSnapshot(s.snapshotDir, {
     maxTotalBytes: b.length
+  })).deck.slides.length, 2);
+  await rejects(loadSnapshot(s.snapshotDir, {
+    maxTotalBytes: b.length - 1
   }), 'TOTAL_LIMIT');
   f.manifest.assets[1].width = 3;
   seal(f.manifest);

@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-19 · Third Claude run (fence 49): total bytes counted once per picture. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master after PR #59** (`98777ea`): all 6 check groups green. Nothing was rerun.
+- **Fixed on `feature/be-006-total-bytes-once`:** the Engine added total bytes per asset row; the contract and the publisher count each SHA-256 once. Now counted once at the plan check, staging and cache reload. Per-row limits unchanged.
+- **Local Linux on the branch:** syntax 177 files; 907 tests, 880 pass, 27 Windows-only skips. The first full run had 7 failures, all real-SPX startups refused by the local stand-in for the blocked spreadsheet package (no `set_fs`); with a no-op added to the stand-in those 7 pass. The new and changed tests fail on the previous code (4 of 4).
+
 ## 2026-11-19 · Second Claude run (fence 48): large JPEGs on the exchange path. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master after the takeover merges:** PR #57 (`9bc27ca`), PR #58 (`6014793`) and PR #56 (`975fecd`) each had all 6 check groups green on master. Nothing was rerun.

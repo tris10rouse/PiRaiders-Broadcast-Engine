@@ -65,10 +65,14 @@ function tuple(raw) {
 
 function planBounds(m) {
     if (m.assets.length > L.maxFiles || m.occurrences.length > L.maxOccurrences) fail("ASSET_PLAN_LIMIT");
+    // Contract 0.3.1, section 5.6: each distinct picture (SHA-256) counts once toward total bytes.
     let total = 0;
-    const deliveries = new Map();
+    const deliveries = new Map(), counted = new Set();
     for (const a of m.assets) {
-        total += a.byteLength;
+        if (!counted.has(a.sha256)) {
+            counted.add(a.sha256);
+            total += a.byteLength;
+        }
         if (a.byteLength > L.maxFileBytes || a.width > L.maxDimension || a.height > L.maxDimension || a.width * a.height > L.maxPixels || total > L.maxTotalBytes) fail("ASSET_PLAN_LIMIT");
         const same = deliveries.get(a.deliveryPath);
         if (same && [ "sha256", "byteLength", "mimeType", "width", "height" ].some(key => same[key] !== a[key])) fail("ASSET_PLAN_ALIAS_MISMATCH");

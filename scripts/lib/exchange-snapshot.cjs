@@ -337,10 +337,15 @@ async function stageExchangeSnapshot(raw = {}) {
     if (!timingGate.validate(owned).ok) fail('INVALID_SOURCE_MANIFEST');
     if (owned.manifestState !== 'complete' || !owned.occurrences.length || owned.occurrences.some(o => o.assetKey === null || o.problem !== null)) fail('NOT_PLAYABLE');
     if (owned.occurrences.length > c.maxOccurrences || owned.assets.length > c.maxFiles) fail('FILE_COUNT_LIMIT');
+    // Contract 0.3.1, section 5.6: total bytes count each distinct picture (SHA-256) once,
+    // however many asset rows carry it. Several source files may hold identical bytes.
     let total = 0;
-    const deliveries = new Map();
+    const deliveries = new Map(), counted = new Set();
     for (const a of owned.assets) {
-      total += a.byteLength;
+      if (!counted.has(a.sha256)) {
+        counted.add(a.sha256);
+        total += a.byteLength;
+      }
       if (total > c.maxTotalBytes) fail('TOTAL_LIMIT');
       if (a.byteLength > c.maxFileBytes) fail('FILE_LIMIT');
       if (a.width > c.maxDimension || a.height > c.maxDimension || a.width * a.height > c.maxPixels) fail('IMAGE_DIMENSION_LIMIT');
@@ -375,7 +380,7 @@ async function stageExchangeSnapshot(raw = {}) {
       await fs.mkdir(mediaDir);
       await verifyOwnedTree();
       mediaId = await directoryIdentity(mediaDir);
-      const files = [], byPath = new Map();
+      const files = [], byPath = new Map(), physical = new Set();
       let physicalTotal = 0;
       for (const [ delivery, a ] of deliveries) {
         abort(c);
@@ -393,7 +398,10 @@ async function stageExchangeSnapshot(raw = {}) {
         });
         abort(c);
         if (decoded.width !== a.width || decoded.height !== a.height || decoded.format !== (a.mimeType === 'image/png' ? 'png' : 'jpeg')) fail('IMAGE_METADATA_MISMATCH');
-        physicalTotal += b.length;
+        if (!physical.has(a.sha256)) {
+          physical.add(a.sha256);
+          physicalTotal += b.length;
+        }
         if (physicalTotal > c.maxTotalBytes) fail('TOTAL_LIMIT');
         const f = {
           id: a.sha256,
@@ -487,7 +495,9 @@ function validateManifest(m, folder, c) {
   if (s.identityTuple.some((x, i) => Array.from(x).length > limits[i]) || !/^\d{4}-\d{4}$/.test(s.identityTuple[0]) || !s.identityTuple[1] || ![ 'event', 'season' ].includes(s.identityTuple[3]) || !s.identityTuple[4] || s.identityTuple[3] === 'season' && !s.identityTuple[2]) fail('INVALID_MANIFEST');
   if (!Array.isArray(m.files) || !m.files.length || m.files.length > c.maxFiles || !Array.isArray(m.assets) || !m.assets.length || m.assets.length > c.maxFiles || !Array.isArray(m.occurrences) || !m.occurrences.length || m.occurrences.length > c.maxOccurrences) fail('INVALID_MANIFEST');
   const files = new Map(), assetMap = new Map(), usedFiles = new Set(), usedAssets = new Set(), occurrences = new Set();
-  let physicalTotal = 0, rowTotal = 0, previous = '';
+  // Files are unique by SHA-256 (strictly increasing ids), so physicalTotal counts each picture once,
+  // as contract section 5.6 does. Asset rows that share a file add nothing more.
+  let physicalTotal = 0, previous = '';
   for (const f of m.files) {
     exact(f, [ 'id', 'src', 'sha256', 'bytes', 'width', 'height', 'format' ]);
     if (typeof f.id !== 'string' || !HEX.test(f.id) || f.id !== f.sha256 || f.id <= previous || ![ 'png', 'jpeg' ].includes(f.format) || f.src !== 'media/' + f.id + '-' + f.sha256 + (f.format === 'png' ? '.png' : '.jpg') || !integer(f.bytes, 1, c.maxFileBytes) || !integer(f.width, 1, c.maxDimension) || !integer(f.height, 1, c.maxDimension) || f.width * f.height > c.maxPixels) fail('INVALID_MANIFEST');
@@ -501,8 +511,6 @@ function validateManifest(m, folder, c) {
     if (typeof a.assetKey !== 'string' || !/^a[0-9]{1,3}$/.test(a.assetKey) || assetMap.has(a.assetKey) || !files.has(a.fileId)) fail('INVALID_MANIFEST');
     assetMap.set(a.assetKey, a.fileId);
     usedFiles.add(a.fileId);
-    rowTotal += files.get(a.fileId).bytes;
-    if (rowTotal > c.maxTotalBytes) fail('TOTAL_LIMIT');
   }
   for (const o of m.occurrences) {
     exact(o, [ 'occurrenceKey', 'fileKey', 'assetKey' ]);
