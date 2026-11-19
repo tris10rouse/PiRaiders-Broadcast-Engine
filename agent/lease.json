@@ -6,7 +6,7 @@
   "task": "Engine defect: contract-legal JPEGs up to 4096 x 4096 refused for memory on the exchange path",
   "workBranch": "feature/be-006-large-jpeg-decode",
   "acquiredAt": "2026-11-19T12:51:59.249Z",
-  "lastHeartbeat": "2026-11-19T13:05:27.700Z",
-  "expiresAt": "2026-11-19T14:35:27.700Z",
+  "lastHeartbeat": "2026-11-19T13:11:04.459Z",
+  "expiresAt": "2026-11-19T14:41:04.459Z",
   "releasedAt": null
 }
