@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-19 (fourth run, lock fence 50). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-19 (fifth run, lock fence 51). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## State of master
 
@@ -9,14 +9,19 @@ Last updated 2026-11-19 (fourth run, lock fence 50). Keep this to one screen. Hi
 - **Large JPEGs** (PR #59, merged as `98777ea`): the exchange path decodes every legal JPEG at 4096 x 4096 inside the unchanged 10 s limit. All 6 check groups on master after the merge were green.
 - **Total bytes counted once per picture** (PR #60, merged as `98717c2`): all 9 checks on master after the merge were green.
 - **Large JPEGs from a local folder** (PR #61, merged as `125b76e`): the older local-folder path has the same 384 MB heap cap and 512 MB budget. All 12 checks on the PR and all 9 on master after the merge were green.
+- **Exact approval revalidation** (BE-006 slice 3a, fence 51, branch `feature/be-006-exact-source-revalidation`): one module fingerprints the machine's source policy and decides saved approvals exactly, rereading the store before each new event is published, started and acknowledged. Not used by the application yet. PR status: see "Open pull request" below.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
 - The source PC service, selector and approval screen are still not enabled. First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. BE-006 exact source revalidation and the source service (from the backlog). Larger than the last increments: write the success criteria first and split it if it will not fit one run.
+1. BE-006, in slices (backlog item 3). Done: 3a exact approval revalidation. Next: 3b the source catalog service (provider + revalidator + catalog pages behind the machine config, still no screen).
 2. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
 3. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
+
+## Open pull request
+
+- PR for slice 3a (`feature/be-006-exact-source-revalidation`): opened at fence 51; merge only when every check on its final commit is green.
 
 ## Open risks
 

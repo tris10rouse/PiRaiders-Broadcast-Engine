@@ -1,5 +1,12 @@
 # PiRaiders engineering changelog
 
+## 2026-11-19 · Saved approvals are rechecked exactly (first part of the source service)
+
+- New: one module decides whether a saved PC confirmation still allows a source selection (`docs/design/EXCHANGE_APPROVAL_POLICY.md`). It fingerprints this machine's source policy, rereads the approval store before each new event is published, started and acknowledged, and requires an exact match of policy, feed, selection, production window and, for cached startup, the exact cached snapshot.
+- Fails closed: no read yet, a failed or overtaken read, a revocation, a foreign feed or a store restored to an older copy all deny. A restored older store stays denied until restart. Active playback and Stop are not affected.
+- Not yet used by the application: there is still no source catalog service, selector or confirmation screen, so a source-enabled machine still cannot run.
+- Tests: 9 new, synthetic only, including the real manager refusing activation when a revocation is written while the event starts. Each guard removed in turn makes at least one test fail.
+
 ## 2026-11-19 · The largest JPEGs also load from a local folder
 
 - The same defect as on the exchange path, on the older local-folder path: every JPEG above about 9 megapixels was refused with `IMAGE_DECODE_FAILED` (counted budget 128 MB, decoder worker heap 64 MB), although that path's own pixel limit is 16,777,216.
