@@ -6,7 +6,7 @@
   "task": "BE hourly run",
   "workBranch": null,
   "acquiredAt": "2026-11-20T16:51:14.000Z",
-  "lastHeartbeat": "2026-11-20T17:47:13.000Z",
-  "expiresAt": "2026-11-20T19:17:13.000Z",
+  "lastHeartbeat": "2026-11-20T17:47:56.000Z",
+  "expiresAt": "2026-11-20T19:17:56.000Z",
   "releasedAt": null
 }
