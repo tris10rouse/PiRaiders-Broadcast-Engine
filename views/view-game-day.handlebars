@@ -18,7 +18,7 @@
   <main id="main">
     <div class="page-heading"><div><h1>Game Day</h1><p>Prepare an event, then activate its playback controls.</p></div><button id="retry" type="button" hidden>Retry connection</button></div>
     <div id="connection-warning" class="message warning" hidden><p id="connection-detail"></p><a id="sign-in" href="/login" hidden>Sign in to SPX</a><a id="configure-spx" href="/config" hidden>Open SPX configuration</a><button id="reload-page" type="button" hidden>Reload Game Day</button></div>
-    {{#if sourceMode}}<div class="message warning"><p>This PC is set to read events from the scheduler’s exchange folder. You can browse its events, boards and buttons here. Approving a selection, preparing it and playing it on this PC are not built yet, so playback is unavailable.</p></div>{{/if}}
+    {{#if sourceMode}}<div class="message warning"><p>This PC is set to read events from the scheduler’s exchange folder. You can browse its events, boards and buttons here and approve one for this PC. Preparing and playing an approved selection on this PC are not built yet, so playback is unavailable.</p></div>{{/if}}
     <p id="notice" class="notice" role="status" aria-live="polite">Loading event status…</p>
     <div class="workspace">
       {{#if sourceMode}}<section id="source-section" class="event-section source-section" aria-labelledby="source-heading">
@@ -45,7 +45,36 @@
             <div><dt>Pictures</dt><dd id="source-choice-pictures"></dd></div>
             <div><dt>Generation</dt><dd id="source-choice-generation" class="version"></dd></div>
           </dl>
-          <p class="support">Reviewing and approving a selection on this PC is not built yet. Nothing is prepared and output is unchanged.</p>
+          <p id="source-check-note" class="support">Check this button to see the scheduler’s times and approve it for this PC. Approving prepares and plays nothing; output is unchanged.</p>
+          <button id="source-check" class="wide" type="button">Check this button</button>
+          <div id="source-review" class="review" hidden>
+            <h3 id="source-review-heading" tabindex="-1">Approval on this PC</h3>
+            <dl class="details">
+              <div><dt>Checked version</dt><dd id="source-review-version" class="version"></dd></div>
+              <div><dt>Scheduler times</dt><dd id="source-review-times"></dd></div>
+              <div><dt>Approval</dt><dd id="source-review-approval"></dd></div>
+            </dl>
+            <p id="source-review-flags" class="support" hidden></p>
+            <form id="source-window" class="window-form" novalidate>
+              <fieldset>
+                <legend>Production window to approve</legend>
+                <label for="source-window-start">Start</label>
+                <input id="source-window-start" type="datetime-local" step="60" required aria-describedby="source-window-clock">
+                <label for="source-window-end">End</label>
+                <input id="source-window-end" type="datetime-local" step="60" required aria-describedby="source-window-clock">
+                <label for="source-window-prewarm">Warm-up before the start, in minutes</label>
+                <input id="source-window-prewarm" type="number" inputmode="numeric" min="0" max="60" step="1" value="15" required>
+                <p id="source-window-clock" class="support">Enter times on this PC’s clock. The confirmation shows them in Central time.</p>
+              </fieldset>
+              <button id="source-approve" class="primary wide" type="submit">Approve for this window…</button>
+            </form>
+            <p id="source-review-message" class="message" role="status" aria-live="polite" hidden></p>
+            <button id="source-revoke" class="danger wide" type="button" hidden>Revoke approval…</button>
+            <div id="source-confirm" class="message confirm" role="group" aria-labelledby="source-confirm-text" hidden>
+              <p id="source-confirm-text" tabindex="-1"></p>
+              <div class="button-pair"><button id="source-confirm-yes" class="primary" type="button"></button><button id="source-confirm-no" type="button">Cancel</button></div>
+            </div>
+          </div>
         </div>
       </section>{{/if}}
       <section class="event-section" aria-labelledby="events-heading">

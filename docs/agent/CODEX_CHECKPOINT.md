@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Tenth Claude run (fence 56): review and approval on a source machine (item 4c). Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master** `1e2bf55` (PR #68). All 6 check groups on master after PR #67 green. No open pull requests at the start.
+- **4c** on `feature/be-006-source-approval`, PR #69: service `reviewSelection`/`confirmSelection`/`revokeSelection`; routes `source/review`, `source/approve`, `source/revoke`; the chosen button's review and two-step confirmation. Store setup decided: a setup step (item 5), never a screen action. Design: `EXCHANGE_SOURCE_SERVICE.md` › Review and approval.
+- **Tests:** 2 service, 1 HTTP (plus exact bodies), 3 browser. Each guard removed in turn made a test fail. Local Linux: syntax 183 files; 935 tests, 908 pass, 27 Windows-only skips, 0 fail (local stand-in for the blocked package); browser 53/53.
+
 ## 2026-11-20 · Ninth Claude run (fence 55): the exchange catalog screen (item 4b). Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master** `ff92534` (PR #66 merged by the eighth run, fence 54; all 6 check groups on master after the merge green). No open pull requests at the start.

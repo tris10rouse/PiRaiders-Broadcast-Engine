@@ -1,5 +1,14 @@
 # PiRaiders engineering changelog
 
+## 2026-11-20 · Approving one exchange board button on this PC (third part of the PC selector)
+
+- On a PC set to read the scheduler's exchange folder, a chosen board button now has **Check this button**: the application reads that button's metadata from the exchange again and shows the checked version, the scheduler's production times in Central time, any timing warnings, and whether this PC already approved it.
+- **Approve for this window…** offers the scheduler's window (start, end, and a warm-up of 15 minutes, all editable), checks it on the page (end after start, at most 24 hours, warm-up 0–60 minutes), then asks for a second, explicit **Confirm approval**. Only then is one approval saved, in this PC's own approval list, bound to this PC's setup, the exact button and the confirmed window. **Revoke approval…** asks the same way.
+- Nothing is saved when the scheduler changed the button after the check, the event is marked not eligible, the exchange folder is missing or not the one this PC was set up with, the window is refused, another change was saved at the same moment, or this PC's approval list is not set up. Revoking works with the exchange folder gone.
+- A revocation reaches playback admission at once: the next preparation or start of that button is refused. Nothing is prepared or played from this screen yet, and Stop and the playback controls are unchanged.
+- Setting up this PC's approval list stays an explicit setup step (it is part of the later setup work), never a screen action: until then the screen says approvals are not set up and offers no approval.
+- Tests: 2 new service tests, 1 new HTTP test plus the exact request rules for the three new routes, 3 new browser tests (desktop and 390 px, late answers, stale checks, missing approval list, ineligible event). Removing the version check, the eligibility check, the reread after a write, the one-writer rule or the old-setup flag each made a test fail.
+
 ## 2026-11-20 · The exchange catalog screen on the Game Day page (second part of the PC selector)
 
 - On a PC set to read the scheduler's exchange folder, the Game Day page now shows **Exchange events** in place of the local event list: it reads the catalog when the page opens (or reuses the one already read), shows the school year, the number of events and the catalog number, lists the events 25 at a time with **Show more events**, and for the chosen event lists its boards and buttons 25 at a time. Choosing a button shows its event, board, button label, picture count and generation.
