@@ -17,15 +17,17 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
 | Open failing check: console proof failed at START on master `79ff344` and again on `bc679a3` (passed on PR #77's `abe8904` between them, so intermittent) | fix | Cause unknown: the failure line said only `ASSERTION_OR_COMPONENT`. Step 1 (fence 62): the line now names the step, its elapsed time and a fixed error kind | PR open (#79) |
+| Open failing check: browser suite hung on Linux, push run of PR #79's first commit `4845f49` (job 136389005230): sat 16 min after "check a button, confirm a production window, then revoke" until the 20-minute job limit; the same hang happened locally today; the same commit's pull-request run passed | fix | The next test waits on a held answer with no bound. Step 1 (fence 62, in PR #79): every test in that file has a 2-minute bound and each held-answer wait fails by name after 15 s | PR open (#79) |
+| Open failing check: NDI proof on master `f89a8b1` (docs only, job 136388517018): RECEIVER, the negative-control receiver exited 1 with `NDI_PROBE_FAILED_RUNTIME_PATH` | fix | Cause unknown; passed on PR #79 minutes later. Not rerun | recorded |
 
-**Estimate:** remaining sizes 1 S + 4 M + 2 L = 15 sized runs; pace 1.5 runs per sized run (reconstructed from lock fences 52–60: 9 runs for 6 merged S parts, 3b to 4d-2; this log so far: 1 run for 1 merged S part, pace 1.0; the reconstructed 1.5 stays until this log has 3 merged parts); 15 x 1.5 + 1 open failing check = **about 24 runs**. The console fix may need a second run once a classified failure shows its cause.
+**Estimate:** remaining sizes 1 S + 4 M + 2 L = 15 sized runs; pace 1.5 runs per sized run (reconstructed from lock fences 52–60: 9 runs for 6 merged S parts, 3b to 4d-2; this log so far: 1 run for 1 merged S part, pace 1.0; the reconstructed 1.5 stays until this log has 3 merged parts); 15 x 1.5 + 3 open failing checks = **about 26 runs** (up from 24: two intermittent failures were found this run).
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
-| 2026-11-20 15:22 | 62 | fix, PR open | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79 |
+| 2026-11-20 15:22 | 62 | fix, PR open | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
 
 ## State of master
 
@@ -36,7 +38,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. PR #79 (console failure line): read its checks (the console proof runs on it); merge if all green. Then read master's console proof after the merge: if it fails, its line now names the step and kind; fix that cause (one run) before 5a-2. If it passes, keep the row until one more master run is green.
+1. PR #79 (console failure line, browser-suite bounds): read its checks on its final commit (the console proof and both Linux browser runs run on it); merge if all green. If the browser suite fails by name (`HELD_REVIEW_NOT_ASKED` or a test timeout), the page ignored a click under load: fix that next. Then read master's console proof after the merge: if it fails, its line now names the step and kind; fix that cause (one run) before 5a-2. If it passes, keep the row until one more master run is green.
 2. 5a-2: the Windows job. Start from `scripts/smoke-full-app-windows.cjs` (`application()`, `receiver()`, the capture helpers) and `buildExchangeActivationFixture` (machine parts: Caspar, output NDI, renderer profile, RossTalk as the full-app proof writes them). A new job beside `actual-full-app-private-ndi`, not a change to its assertions. Approve with a window that contains now (the proof's own clock), prewarm 0.
 3. Then 5a-3, 5b, 5c, 5d, 5e, 5f.
 
