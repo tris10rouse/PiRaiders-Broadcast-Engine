@@ -12,7 +12,7 @@ Last updated 2026-11-20 (ninth run, lock fence 55). Keep this to one screen. His
 - **Exact approval revalidation** (BE-006 slice 3a, PR #63, merged as `fe0812c`): one module fingerprints the machine's source policy and decides saved approvals exactly, rereading the store before each new event is published, started and acknowledged. Not used by the application yet. All 12 checks on the PR and all 9 on master after the merge were green.
 - **Source catalog service** (BE-006 slice 3b, PR #65, merged as `f9d8e46`): one object built from the machine configuration owns the provider and the approval check. All 6 check groups on master after the merge were green.
 - **Source catalog routes** (item 4a, PR #66, merged as `ff92534` by the eighth run, fence 54): the web part builds the source service on a source machine and serves status, refresh, events-page and selections-page routes; playback routes there answer `SOURCE_PLAYBACK_NOT_READY`. All 12 checks on its final commit and all 6 check groups on master after the merge green. Still recorded, not rerun: the prepared-event proof failure on `398e336` (cause unknown) and one Windows baseline `ETIMEDOUT` on `7acbb00`.
-- **Source catalog screen** (item 4b, branch `feature/be-006-source-catalog-screen`, PR #67): on a source machine the Game Day page shows **Exchange events** instead of the local list: auto-read on open, school year and counts, events and an event's board buttons 25 per page, a read-only review of one button, stale/unavailable/busy states with a refresh button. Local machines unchanged. Merge only when every check on its final commit is green (see the checkpoint's top entry for what ran).
+- **Source catalog screen** (item 4b, PR #67, merged as `ac88976`): on a source machine the Game Day page shows **Exchange events** instead of the local list: auto-read on open, school year and counts, events and an event's board buttons 25 per page, a read-only review of one button, stale/unavailable/busy states with a refresh button. Local machines unchanged. All 12 checks on its final commit `15c7d66` green; read the master checks after the merge at the start of the next run.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
 - The selector screen, approval and playback on a source machine are still not built. First evaluation release: NOT READY. No Windows artifact exists.
 
@@ -20,7 +20,7 @@ Last updated 2026-11-20 (ninth run, lock fence 55). Keep this to one screen. His
 
 Item 4 is split into 4a–4d in the backlog's top section (success criteria there).
 
-1. First finish PR #67 (4b). If a Windows process listing times out again, make the test-side `processTable` callers repeat a timed-out listing a bounded number of times and record each attempt, as the Caspar proof already does (its own increment and PR).
+1. Confirm the checks on master after PR #67 and this note are green. If a Windows process listing times out again, make the test-side `processTable` callers repeat a timed-out listing a bounded number of times and record each attempt, as the Caspar proof already does (its own increment and PR).
 2. 4c: inspection, confirm and revoke routes and the confirmation screen (build on `#source-choice` in the view; decide first-time approval store setup there).
 3. 4d: preparation and playback of an approved selection on a source machine.
 4. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
