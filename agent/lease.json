@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261120T0752Z",
   "fence": 56,
-  "task": "BE-006 4c PR #69",
-  "workBranch": "feature/be-006-source-approval",
+  "task": "handoff after PR #69",
+  "workBranch": "docs/handoff-after-69",
   "acquiredAt": "2026-11-20T07:52:09.000Z",
-  "lastHeartbeat": "2026-11-20T08:53:40.000Z",
-  "expiresAt": "2026-11-20T10:23:40.000Z",
+  "lastHeartbeat": "2026-11-20T08:59:13.000Z",
+  "expiresAt": "2026-11-20T10:29:13.000Z",
   "releasedAt": null
 }
