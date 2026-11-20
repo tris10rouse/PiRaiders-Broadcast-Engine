@@ -1,6 +1,6 @@
 'use strict';
 // BE-006 item 4b: the exchange catalog screen on the Game Day page of a source
-// machine, in a real browser. A scripted server drives paging, stale and
+// machine, in a real browser (items 4c and 4d add approval and playback). A scripted server drives paging, stale and
 // unavailable states; a second test runs the real web adapter and the real
 // source service on temporary synthetic folders. Every name is synthetic.
 const {test,before,after}=require('node:test');
@@ -37,7 +37,7 @@ async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
   const data=catalog();
   const model={revision:'a'.repeat(64),sequence:7,available:false,statusHidden:false,refreshCode,pageCode:null,hold:null,requests:[],
     // Item 4c: review, approve and revoke.
-    inspectionRevision:'f'.repeat(64),eligible:true,approvalRead:true,approvals:new Map(),storeRevision:0,reviewHold:null,timing:true};
+    inspectionRevision:'f'.repeat(64),eligible:true,held:[],approvalRead:true,approvals:new Map(),storeRevision:0,reviewHold:null,timing:true};
   const summary=()=>({scope:'source-catalog-metadata',ready:false,revision:model.revision,feedId:'synthetic-feed',epoch:1,schoolYear:'2026-2027',catalogSequence:model.sequence,eventCount:data.events.length});
   const html=await exphbs.create({extname:'.handlebars'}).render(VIEW,{csrfToken:'c'.repeat(64),sourceMode:true},{layout:false});
   const server=http.createServer(async(req,res)=>{try{
@@ -56,7 +56,7 @@ async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
       if(model.refreshCode){model.available=false;return answer(model.refreshCode==='BUSY'?409:503,{ok:false,ready:false,code:model.refreshCode});}
       model.available=true;return answer(200,{ok:true,ready:false,catalogSequence:model.sequence,catalog:summary()});}
     if((route==='source/events'||route==='source/selections')&&req.method==='POST'){
-      const hold=model.hold;if(hold&&body.eventKey===hold.eventKey){model.hold=null;hold.entered.resolve();await hold.release.promise;}
+      const hold=model.hold;if(hold&&body.eventKey===hold.eventKey){model.hold=null;model.held.push(hold);hold.entered.resolve();await hold.release.promise;}
       if(model.pageCode)return answer(409,{ok:false,ready:false,code:model.pageCode});
       if(!model.available)return answer(409,{ok:false,ready:false,code:'CATALOG_UNAVAILABLE'});
       if(body.revision!==model.revision)return answer(409,{ok:false,ready:false,code:'CATALOG_REVISION_STALE'});
@@ -65,7 +65,7 @@ async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
       const page={ok:true,...summary(),offset:body.offset,limit:body.limit,total:rows.length,nextOffset:body.offset+body.limit<rows.length?body.offset+body.limit:null};
       return answer(200,route==='source/events'?{...page,events:rows.slice(body.offset,body.offset+body.limit)}:{...page,eventKey:body.eventKey,selections:rows.slice(body.offset,body.offset+body.limit)});}
     if(route==='source/review'&&req.method==='POST'){
-      const hold=model.reviewHold;if(hold&&body.identityTuple[4]===hold.label){model.reviewHold=null;hold.entered.resolve();await hold.release.promise;}
+      const hold=model.reviewHold;if(hold&&body.identityTuple[4]===hold.label){model.reviewHold=null;model.held.push(hold);hold.entered.resolve();await hold.release.promise;}
       const key=JSON.stringify(body.identityTuple),row=Object.values(data.selections).flat().find(x=>JSON.stringify(x.identityTuple)===key);
       if(!row)return answer(503,{ok:false,ready:false,code:'SOURCE_SELECTION_MISSING'});
       const broadcastWindow=model.timing?{startsAt:'2026-10-23T18:00:00-05:00',endsAt:'2026-10-23T23:45:00-05:00',startSource:'event_type_lead_tail',endSource:'event_type_fixed_end'}:{startsAt:null,endsAt:null,startSource:'missing',endSource:'missing'};
@@ -82,18 +82,25 @@ async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
     if(route==='source/revoke'&&req.method==='POST'){
       const changed=model.approvals.delete(JSON.stringify(body.identityTuple));if(changed)model.storeRevision++;
       return answer(200,{ok:true,ready:false,changed,revision:model.storeRevision,approval:null});}
+    // Item 4d: the ordinary playback reads. This PC's approvals are the event list.
+    if(route==='state'&&req.method==='GET')return answer(200,{ok:true,state:{expectedEventId:null,expectedSelection:0,active:null,candidate:null,operation:null,preparing:false,physicalBarrier:false,closed:false,lastError:null}});
+    if(route==='events'&&req.method==='GET')return answer(200,{ok:true,events:[...model.approvals.keys()].map(key=>{const t=JSON.parse(key);
+      return{eventId:'sel-'+crypto.createHash('sha1').update(key).digest('hex'),displayName:[t[4],t[1],t[2]].join(' · '),status:'available'};})});
     answer(503,{ok:false,code:'SOURCE_PLAYBACK_NOT_READY'});
   }catch{res.statusCode=500;res.end(JSON.stringify({ok:false,code:'FIXTURE_FAILED'}));}});
   server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
   const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',timezoneId:'America/Chicago'}),page=await context.newPage();const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
-  t.after(async()=>{model.hold?.release.resolve();model.reviewHold?.release.resolve();await context.close();await new Promise(resolve=>server.close(resolve));assert.deepEqual(pageErrors,[]);});
+  // A held answer is released even when a test fails, so the server can close.
+  t.after(async()=>{model.hold?.release.resolve();model.reviewHold?.release.resolve();for(const hold of model.held)hold.release.resolve();await context.close();await new Promise(resolve=>server.close(resolve));assert.deepEqual(pageErrors,[]);});
   await page.goto(origin+'/game-day');
   return{page,model,data};
 }
-// Only the source routes are used: nothing prepares, activates, plays or asks for playback state.
-// Review, approve and revoke (item 4c) only where a test lets the operator use them.
+// Only the source routes and the two playback reads (state and the approved
+// list, item 4d) are used: nothing prepares, activates or plays. Review,
+// approve and revoke (item 4c) only where a test lets the operator use them.
 function onlySource(model,{approvals=false}={}){
-  for(const r of model.requests)assert.match(r.route,approvals?/^source\/(status|refresh|events|selections|review|approve|revoke)$/:/^source\/(status|refresh|events|selections)$/,r.method+' '+r.route);
+  for(const r of model.requests)if(r.method==='GET'&&(r.route==='state'||r.route==='events'))continue;
+  else assert.match(r.route,approvals?/^source\/(status|refresh|events|selections|review|approve|revoke)$/:/^source\/(status|refresh|events|selections)$/,r.method+' '+r.route);
   for(const r of model.requests.filter(r=>r.method==='POST'))assert.equal(r.csrf,'c'.repeat(64),'every POST carries the page token');
 }
 const summaryText=page=>page.locator('#source-summary').textContent();
@@ -102,8 +109,10 @@ test('source machine: refresh, page through events and board buttons, and review
   const {page,model}=await scripted(t);
   await page.getByText('School year 2026-2027 · 30 events · catalog 7',{exact:true}).waitFor();
   assert.equal(await page.locator('#source-events > li').count(),25,'first page of events');
-  assert.equal(await page.locator('#event-section, .event-section:not(.source-section)').first().isVisible(),false,'the local event list is not shown');
-  assert.equal(await page.locator('#active-detail').textContent(),'Playback on this PC needs an approved exchange selection. Preparing it on this PC is not built yet.');
+  assert.equal(await page.locator('#events-heading').textContent(),'Approved board buttons','the approved list replaces the local event list');
+  await page.getByText('No board button is approved on this PC yet. Approve one under Exchange events.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#prepare').textContent(),'Prepare selected button');assert.equal(await page.locator('#prepare').isDisabled(),true);
+  assert.equal(await page.locator('#active-detail').textContent(),'Prepare an approved board button to begin.');
   assert.equal(await page.locator('#stop').isDisabled(),true);assert.equal(await page.locator('#launch').isDisabled(),true);
   await page.getByRole('button',{name:'Show more events'}).click();
   await page.locator('#source-events > li').nth(29).waitFor();assert.equal(await page.locator('#source-events > li').count(),30);
@@ -279,19 +288,25 @@ test('source machine: check a button, confirm a production window, then revoke t
   await page.getByRole('button',{name:'Approve for this window…'}).click();
   await page.screenshot({path:path.join(evidence,'game-day-source-confirm.png'),fullPage:true});
   await page.getByRole('button',{name:'Confirm approval'}).click();
-  await page.getByText('Approved for this PC. Nothing is prepared or played yet.',{exact:true}).waitFor();
+  await page.getByText('Approved for this PC. Prepare it under Approved board buttons.',{exact:true}).waitFor();
   const sent=model.requests.filter(r=>r.route==='source/approve');
   assert.deepEqual(sent.map(r=>r.body),[{identityTuple:['2026-2027','EV-02','BOARD-MAIN','event','Synthetic button 00'],inspectionRevision:'f'.repeat(64),
     productionWindow:{start:'2026-10-23T23:00:00.000Z',end:'2026-10-24T04:45:00.000Z',prewarmMinutes:20}}],'the confirmed window, in UTC, with the checked revision');
   assert.equal(await page.locator('#source-review-approval').textContent(),'Approved for Fri, Oct 23, 2026, 6:00 PM to Fri, Oct 23, 2026, 11:45 PM Central time, warm-up 20 minutes');
   assert.equal(await page.locator('#stop').isDisabled(),true,'playback controls are untouched');
+  // Item 4d: the approval is now in this PC's approved list and can be prepared.
+  await page.locator('#event-select option',{hasText:'Synthetic button 00 · EV-02 · BOARD-MAIN'}).waitFor({state:'attached'});
+  await page.getByText('Preparing reads the exchange pictures; it does not change active output.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#prepare').isDisabled(),false);
   // Revoke, with its own confirmation.
   await page.getByRole('button',{name:'Revoke approval…'}).click();
   assert.match(await page.locator('#source-confirm-text').textContent(),/^Revoke the approval for “Synthetic button with a deliberately long label/);
   await page.locator('#source-confirm-yes').click();
-  await page.getByText('Approval revoked on this PC.',{exact:true}).waitFor();
+  await page.getByText('Approval revoked on this PC. A prepared copy can no longer be activated.',{exact:true}).waitFor();
   assert.equal(await page.locator('#source-review-approval').textContent(),'Not approved on this PC');
   assert.equal(await page.locator('#source-revoke').isVisible(),false);
+  await page.locator('#event-select option',{hasText:'No approved board buttons'}).waitFor({state:'attached'});
+  assert.equal(await page.locator('#prepare').isDisabled(),true,'a revoked button leaves the approved list');
   // The scheduler changed the button after the check: nothing is saved and a new check is needed.
   model.inspectionRevision='e'.repeat(64);
   await page.getByRole('button',{name:'Approve for this window…'}).click();await page.getByRole('button',{name:'Confirm approval'}).click();
@@ -300,7 +315,7 @@ test('source machine: check a button, confirm a production window, then revoke t
   assert.equal(await page.locator('#source-check').textContent(),'Check this button');
   assert.equal(model.approvals.size,0);
   onlySource(model,{approvals:true});
-  assert.ok(!model.requests.some(r=>/^(command|prepare|activate|discard|state|events)$/.test(r.route)),'no playback route');
+  assert.ok(!model.requests.some(r=>/^(command|prepare|activate|discard)$/.test(r.route)),'nothing prepared or played');
 });
 
 test('source machine: a late review never lands on another button, and an unset approval list blocks approving',async t=>{
@@ -355,3 +370,106 @@ test('source machine at 390 px: the approval review and confirmation fit without
   await page.screenshot({path:path.join(evidence,'game-day-source-confirm-390.png'),fullPage:true});
   onlySource(model,{approvals:true});
 });
+
+// Item 4d part 2: the whole source flow through the real adapter, the real
+// source service and approval store, with a trusted synthetic runtime (no
+// Caspar here): approve, prepare, revoke while prepared (activation refused),
+// approve again, prepare, activate, play and stop. Desktop and 390 px.
+async function realSourcePlayback(t,{width,height}){
+  const {fixture,source,copy}=require('../exchange-provider-fixtures.cjs');
+  const {createGameDayWeb}=require('../../scripts/lib/game-day-web.cjs');
+  const {createExchangeApprovalStore}=require('../../scripts/lib/exchange-approval-store.cjs');
+  const f=await fixture(t),m=source();await f.publish(m);
+  await fs.mkdir(path.join(f.parent,'config'),{recursive:true});await fs.writeFile(path.join(f.parent,'config','spx.json'),'{}');
+  const raw={schemaVersion:1,spxConfigFile:'config/spx.json',catalogDirectory:path.join(f.parent,'catalog'),mediaRoot:f.config.sourceRoot,cacheRoot:f.config.cacheDir,runtimeRoot:path.join(f.parent,'runtime'),
+    caspar:{executable:path.join(f.parent,'components','casparcg.exe'),cwd:path.join(f.parent,'components')},output:{type:'none'},
+    rossTalk:{host:'127.0.0.1',port:7788,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',8:'stop'}},
+    source:{providerId:'approved-feed',journalDirectory:f.config.journalDir,journalStoreId:f.config.storeId,approvalDirectory:path.join(f.parent,'private','approvals'),
+      approvalStoreId:crypto.randomUUID(),expectedCanonicalRoot:f.config.sourceRoot,binding:copy(f.config.binding)}};
+  const machineFile=path.join(f.parent,'machine-'+crypto.randomUUID()+'.json');await fs.writeFile(machineFile,JSON.stringify(raw));
+  // Setting up the approval list is a setup step, never a screen action.
+  await fs.mkdir(path.dirname(raw.source.approvalDirectory),{recursive:true});
+  assert.equal((await createExchangeApprovalStore().initialize(raw.source.approvalDirectory,raw.source.approvalStoreId)).ok,true);
+  const seen={actions:[],closes:0,starts:0};
+  const runtimeFactory=async(profile,options)=>{
+    await options.preparedMedia.initial({privateRoots:options.privateRoots});
+    let state='prepared',index=null;
+    return{candidateAdmissionToken:()=>options.preparedMedia.admissionToken(),start:async()=>{seen.starts++;state='ready';},close:async()=>{seen.closes++;state='closed';options.preparedMedia.close();},
+      snapshot:()=>({preparing:false,state,ready:state==='ready',windowAllowed:false,index,slideCount:1,mode:'manual',output:'none'}),
+      dispatch:async action=>{seen.actions.push(action);if(action==='launch')index=0;return{ok:true};}};
+  };
+  const prior=global.config;global.config={general:{username:'',password:''}};
+  const app=express();app.engine('handlebars',exphbs.engine({extname:'.handlebars'}));app.set('view engine','handlebars');app.set('views',path.join(root,'views'));
+  const server=http.createServer(app);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const port=server.address().port;
+  const web=createGameDayWeb({port,appRoot:f.parent,machineFile,configFile:path.join(f.parent,'config','spx.json'),runtimeFactory});
+  app.use(express.static(path.join(root,'static')));
+  app.use(web.guard);app.use(session({secret:'synthetic-source-playback',resave:false,saveUninitialized:false}));app.use(web.router);
+  const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',timezoneId:'America/Chicago'}),page=await context.newPage();const pageErrors=[],answers=[],posts=[];
+  page.on('pageerror',error=>pageErrors.push(error.message));
+  page.on('response',r=>{if(r.url().includes('/game-day/api/')){answers.push(r.text().catch(()=>''));if(r.request().method()==='POST')posts.push(r.url().replace(/^.*\/game-day\/api\//,''));}});
+  t.after(async()=>{await context.close();await web.close();await new Promise(resolve=>server.close(resolve));global.config=prior;});
+  const fits=async label=>{const w=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,
+    widest:Math.max(...[...document.querySelectorAll('main *')].filter(e=>e.getClientRects().length&&!e.closest('[hidden]')&&getComputedStyle(e).position!=='fixed').map(e=>e.getBoundingClientRect().right))}));
+    assert.ok(w.scroll<=w.client&&w.widest<=w.client+0.5,label+': no sideways scrolling '+JSON.stringify(w));};
+  await page.goto('http://127.0.0.1:'+port+'/game-day');
+  await page.getByText('School year '+m.schoolYear+' · 1 event · catalog '+m.generationSequence,{exact:true}).waitFor({timeout:20000});
+  await page.getByText('No board button is approved on this PC yet. Approve one under Exchange events.',{exact:true}).waitFor();
+  assert.equal(await page.getByText('Connected to application',{exact:true}).count(),1);
+  if(width>620){
+    // Desktop: the exchange catalog above the approved list, playback beside both.
+    const [catalogBox,approvedBox,playbackBox]=await Promise.all(['#source-section','#prepare-section','.playback-section'].map(s=>page.locator(s).boundingBox()));
+    assert.ok(approvedBox.y>=catalogBox.y+catalogBox.height-1&&Math.abs(approvedBox.x-catalogBox.x)<1,'approved list under the catalog');
+    assert.ok(playbackBox.x>=catalogBox.x+catalogBox.width-1&&Math.abs(playbackBox.y-catalogBox.y)<1,'playback beside them');
+  }
+  const approve=async()=>{
+    await page.getByRole('button',{name:'Check this button'}).or(page.getByRole('button',{name:'Check again'})).click();
+    await page.locator('#source-window').waitFor();
+    await page.locator('#source-window-start').fill('2026-10-23T18:00');await page.locator('#source-window-end').fill('2026-10-23T23:45');
+    await page.getByRole('button',{name:'Approve for this window…'}).click();await page.getByRole('button',{name:'Confirm approval'}).click();
+    await page.getByText('Approved for this PC. Prepare it under Approved board buttons.',{exact:true}).waitFor();
+    await page.getByText('Preparing reads the exchange pictures; it does not change active output.',{exact:true}).waitFor();
+  };
+  await page.getByRole('button',{name:new RegExp(m.event.displayName)}).click();
+  await page.getByRole('button',{name:new RegExp(m.button.displayLabel)}).click();
+  await approve();
+  const option=await page.locator('#event-select option:checked').textContent();
+  assert.ok(option.startsWith(m.button.displayLabel+' · '),'the approved button is listed by its label: '+option);
+  await page.getByRole('button',{name:'Prepare selected button'}).click();
+  await page.getByText('Pictures prepared. Review the button, then activate it.',{exact:true}).waitFor({timeout:20000});
+  await page.waitForFunction(()=>document.activeElement?.id==='candidate-heading');
+  assert.equal(await page.locator('#candidate-status').textContent(),'Pictures prepared on this PC. Not activated.');
+  assert.equal(await page.locator('#activate').isDisabled(),false);
+  await fits('prepared');
+  await page.screenshot({path:path.join(evidence,'game-day-source-prepared-'+width+'.png'),fullPage:true});
+  // Revoke while prepared: the list empties and activation is refused; nothing starts.
+  await page.getByRole('button',{name:'Revoke approval…'}).click();await page.locator('#source-confirm-yes').click();
+  await page.getByText('Approval revoked on this PC. A prepared copy can no longer be activated.',{exact:true}).waitFor();
+  await page.locator('#event-select option',{hasText:'No approved board buttons'}).waitFor({state:'attached'});
+  assert.equal(await page.locator('#prepare').isDisabled(),true);
+  await page.getByRole('button',{name:'Activate event'}).click();
+  await page.locator('#notice[data-tone=error]').waitFor();
+  const refusal=await page.locator('#notice').textContent();
+  assert.equal(refusal,'This PC no longer accepts that button: its approval was revoked or changed. Nothing new was started. Approve it again under Exchange events, then prepare it again.','activation refused in plain words');
+  assert.equal(seen.starts,0,'nothing started after the revocation');
+  assert.equal(await page.locator('#launch').isDisabled(),true);
+  await fits('refused');
+  await page.screenshot({path:path.join(evidence,'game-day-source-revoked-'+width+'.png'),fullPage:true});
+  // Approve again, discard the old preparation, prepare again, activate, play and stop.
+  await approve();
+  if(await page.locator('#candidate').isVisible()){await page.getByRole('button',{name:'Discard'}).click();await page.getByText('Prepared event discarded.',{exact:true}).waitFor();}
+  await page.getByRole('button',{name:'Prepare selected button'}).click();
+  await page.getByText('Pictures prepared. Review the button, then activate it.',{exact:true}).waitFor({timeout:20000});
+  await page.getByRole('button',{name:'Activate event'}).click();
+  await page.getByText('Event activated. Launch starts at slide 1.',{exact:true}).waitFor({timeout:20000});
+  await page.locator('#launch:not([disabled])').waitFor();
+  await page.locator('#launch').click();await page.getByText('Launch acknowledged.',{exact:true}).waitFor();
+  await page.locator('#stop').click();await page.getByText('Black output acknowledged. The sender remains governed by its production window.',{exact:true}).waitFor();
+  assert.deepEqual(seen.actions,['launch','stop']);assert.equal(seen.starts,1);
+  assert.ok(posts.every(route=>/^(source\/(refresh|events|selections|review|approve|revoke)|prepare|activate|discard|command)$/.test(route)),'only the ordinary and source routes: '+posts.join(','));
+  await fits('playing');
+  await page.screenshot({path:path.join(evidence,'game-day-source-playing-'+width+'.png'),fullPage:true});
+  for(const text of await Promise.all(answers))for(const p of [f.parent,f.config.sourceRoot,f.config.cacheDir,f.config.journalDir])assert.equal(text.includes(p)||text.includes(JSON.stringify(p).slice(1,-1)),false,'no private path reaches the page');
+  assert.deepEqual(pageErrors,[]);
+}
+test('source machine end to end: approve, prepare, revoke while prepared, then approve again and play (desktop)',t=>realSourcePlayback(t,{width:1280,height:900}));
+test('source machine end to end at 390 px: the same flow fits without sideways scrolling',t=>realSourcePlayback(t,{width:390,height:844}));

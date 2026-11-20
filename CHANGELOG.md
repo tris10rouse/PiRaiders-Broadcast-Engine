@@ -1,5 +1,13 @@
 # PiRaiders engineering changelog
 
+## 2026-11-20 · Approved exchange buttons can be prepared and played from the Game Day page (fourth part, the screen)
+
+- On a PC set to read the scheduler's exchange folder, the Game Day page now shows **Approved board buttons** under **Exchange events**, with playback beside both (one column on a phone). The list holds only the buttons this PC approved, named "button label · event · board"; **Prepare selected button**, **Activate event**, the playback buttons and **Stop** work as on a local-folder PC, through the same routes.
+- Approving or revoking a button rereads that list at once. A revoked button leaves the list; a copy already prepared stays on screen but **Activate event** is refused in plain words ("This PC no longer accepts that button: its approval was revoked or changed. Nothing new was started…"), and nothing starts.
+- The old notice "preparing and playing an approved selection on this PC are not built yet" is gone; the page now says where to approve and where to prepare. Local-folder PCs are unchanged.
+- Not yet: cached (offline) startup, setup of the approval list, anything on Windows, Caspar, NDI or the board. No hardware claim.
+- Tests: 2 new browser tests with the real web adapter, source service and approval list and a synthetic runtime (desktop and 390 px: approve, prepare, revoke while prepared, activation refused and nothing started, approve again, prepare, activate, launch, Stop; no sideways scrolling; no private path reaches the page), and the scripted browser tests now check the approved list follows approve and revoke. The new desktop test fails against the previous screen. A held test answer is now released when a test fails, so a failure is reported instead of hanging the file.
+
 ## 2026-11-20 · Approved exchange buttons can be prepared and played on this PC (fourth part, behind the screen)
 
 - On a PC set to read the scheduler's exchange folder, the application now has a playback manager like a local-folder PC. Its event list holds only the buttons this PC approved (same PC setup, same exchange feed); a revoked button leaves the list at once.

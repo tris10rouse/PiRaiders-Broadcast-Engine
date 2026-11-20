@@ -43,7 +43,9 @@ test('a source machine serves path-free catalog pages behind the page token; pla
   const f=await fixture(t),m=source();await f.publish(m);
   const file=await machineFile(f),s=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json')}));
   const p=await s.page();assert.equal(p.response.status,200);assert.match(p.token,/^[a-f0-9]{64}$/);
-  assert.match(p.response.text,/read events from the scheduler’s exchange folder/,'source mode says approval and playback are not built');
+  assert.match(p.response.text,/reads events from the scheduler’s exchange folder/,'source mode says where to approve and prepare');
+  assert.match(p.response.text,/<h2 id="events-heading">Approved board buttons<\/h2>/,'the approved list (item 4d part 2)');
+  assert.doesNotMatch(p.response.text,/not built yet/,'no notice that playback is missing');
   assert.match(p.response.text,/<body data-mode="source">/);assert.match(p.response.text,/id="source-section"/,'the exchange catalog screen (item 4b)');
   const responses=[];const keep=r=>{responses.push(r.text);return r;};
   // Item 4d: a source machine has a playback manager whose catalog is this
