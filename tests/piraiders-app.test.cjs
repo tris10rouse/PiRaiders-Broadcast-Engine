@@ -9,7 +9,7 @@ const {spawn,fork}=require('node:child_process');
 const {randomBytes,createHmac}=require('node:crypto');
 const {once}=require('node:events');
 const {loadAppSettings,assertPortFree,probeStartupIdentity,PersistentAppLauncher}=require('../scripts/piraiders-app.cjs');
-const {processTable,descendants,treeState}=require('../scripts/windows-process-evidence.cjs');
+const {processTable,processTableForCapture,descendants,treeState}=require('../scripts/windows-process-evidence.cjs');
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn){for(let n=0;n<600;n++){if(await fn())return;await wait(10);}throw Error('fixture timeout');}
 async function listen(t,handler){const server=http.createServer(handler);await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>{server.closeAllConnections();server.close(r);}));return server;}
@@ -139,13 +139,17 @@ test('actual Windows JobHost contains application stand-in and terminates it on 
  const f=await fixture(t),app=f.create({spawnProcess:undefined});await app.start({browser:false});assert.equal(app.snapshot().state,'ready');await app.close();await assertPortFree(f.settings.port,{timeoutMs:1000});
 });
 
-test('actual Windows launcher-parent termination removes its owned SPX stand-in and descendant',{skip:process.platform!=='win32'?'Requires actual Windows parent-death/JobHost containment; no mock native claim':false,timeout:30000},async t=>{
+test('actual Windows launcher-parent termination removes its owned SPX stand-in and descendant',{skip:process.platform!=='win32'?'Requires actual Windows parent-death/JobHost containment; no mock native claim':false,timeout:75000},async t=>{
  const f=await fixture(t,{descendant:true}),wrapper=path.join(f.root,'launcher-parent.cjs');
  await fs.writeFile(wrapper,"const{loadAppSettings,PersistentAppLauncher}=require(process.argv[2]);(async()=>{const app=new PersistentAppLauncher(await loadAppSettings(process.argv[3],{appRoot:process.argv[4],nodeExecutable:process.execPath}));await app.start({browser:false});process.send({ready:true});})().catch(()=>process.exit(1));");
  const parent=fork(wrapper,[path.resolve(__dirname,'../scripts/piraiders-app.cjs'),f.file,f.root],{stdio:['ignore','ignore','ignore','ipc']}),parentClosed=once(parent,'close');
  f.cleanup(async()=>{if(parent.exitCode===null&&parent.signalCode===null)parent.kill('SIGKILL');await parentClosed;await until(async()=>{try{await assertPortFree(f.settings.port);return true;}catch{return false;}});});
  const [message]=await once(parent,'message');assert.equal(message.ready,true);const captured=JSON.parse(await fs.readFile(path.join(f.root,'captured.json'),'utf8'));assert.ok(Number.isSafeInteger(captured.pid)&&Number.isSafeInteger(captured.descendant));
- const tree=descendants(processTable(),parent.pid);
+ // Pre-action capture (no cleanup deadline runs yet): a listing that times out
+ // is repeated at most twice more, and every attempt is reported. Anything
+ // else, and the deadline-bound observations below, still fail at once.
+ const attempts=[],tree=descendants(processTableForCapture({record:value=>attempts.push(value)}),parent.pid);
+ for(const value of attempts)t.diagnostic('process listing attempt '+value.attempt+(value.timedOut?' timed out':' completed')+' after '+value.elapsedMs+' ms');
  assert.ok(tree.some(row=>row.ProcessId===captured.pid)&&tree.some(row=>row.ProcessId===captured.descendant),'both owned generations captured before parent death');
  parent.kill('SIGKILL');await parentClosed;
  const deadline=Date.now()+10000;let surviving;

@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-20 · A slow Windows process listing no longer fails one test outright
+
+- GitHub's hosted Windows test run failed twice (Nov 20) in the test that checks the launcher's child processes are removed when the launcher dies: the one-time process listing taken before the launcher is killed took longer than its 15-second limit (`spawnSync powershell.exe ETIMEDOUT`).
+- That listing now uses the existing bounded capture helper: a listing that times out is repeated at most twice more, and each attempt is written to the test output. Any other failure, and every listing made after the kill (which runs against a deadline), still fails at once. The test's own time limit grew from 30 to 75 seconds to fit three listings.
+- Test-only change; nothing in the application changes. Why the hosted Windows machine is sometimes this slow is unknown.
+
 ## 2026-11-20 · Approving one exchange board button on this PC (third part of the PC selector)
 
 - On a PC set to read the scheduler's exchange folder, a chosen board button now has **Check this button**: the application reads that button's metadata from the exchange again and shows the checked version, the scheduler's production times in Central time, any timing warnings, and whether this PC already approved it.
