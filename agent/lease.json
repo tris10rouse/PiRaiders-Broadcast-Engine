@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261120T0051Z",
+  "status": "idle",
+  "owner": null,
   "fence": 52,
-  "task": "BE-006",
-  "workBranch": "feature/be-006-source-catalog-service",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-20T00:51:15.000Z",
-  "lastHeartbeat": "2026-11-20T01:33:23.000Z",
-  "expiresAt": "2026-11-20T03:03:23.000Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-20T01:33:37.000Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-20T01:33:37.000Z"
 }
