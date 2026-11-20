@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 57,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-20T09:52:02.000Z",
-  "lastHeartbeat": "2026-11-20T11:06:48.000Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-20T11:06:48.000Z"
+  "status": "active",
+  "owner": "claude-20261120T115055000Z",
+  "fence": 58,
+  "task": "BE-006 4d-2 source playback screen",
+  "workBranch": "feature/be-006-source-playback-screen",
+  "acquiredAt": "2026-11-20T11:50:55.000Z",
+  "lastHeartbeat": "2026-11-20T11:50:55.000Z",
+  "expiresAt": "2026-11-20T13:20:55.000Z",
+  "releasedAt": null
 }
