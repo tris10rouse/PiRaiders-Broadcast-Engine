@@ -16,9 +16,9 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
-
 | Open failing check: browser test "a late review never lands on another button, and an unset approval list blocks approving" failed with `HELD_ANSWER_NOT_FINISHED` after 15 s on the Linux push run of PR #81's `cf91a8c` (job 136447114406); one browser test also failed on Windows `static-contracts` for `1819e74` (job 136440648349; its name was not in the part of the log read). The same test that hung before #79; the bound now makes it fail by name | fix | Cause unknown; PR #81 does not touch the page or this test, and the test passed on `f8459cd`. Not rerun | recorded |
 | Open failing check: Caspar software proof (`actual-caspar-cef-mixer`) failed at `MANAGED_CEF`, `PROTOCOL_REJECTED`, renderer `DISCONNECTED`, on `cf91a8c` (job 136445042248) | fix | Cause unknown; PR #81 does not touch that proof; passed on `f8459cd`. Not rerun | recorded |
+
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place.
 
 **Estimate:** remaining sizes 1 S + 3 M + 2 L = 13 sized runs. Pace from every merged part so far: 11 runs for 9 sized runs = 1.22 (fences 52–60: 9 runs for 6 S parts; this log: 5a-1, 1 run for S; 5a-2, 1 run for M). 13 x 1.22 + 2 open failing checks = **about 18 runs** (down from 23: 5a-2 merged in one run and the pace now counts this log's parts; up 2 from the first count of this run because two intermittent failures on PR #81's middle commits were found afterwards).
