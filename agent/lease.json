@@ -6,7 +6,7 @@
   "task": "BE item 5 (Windows evaluation build)",
   "workBranch": "feature/be-002-console-failure-kind",
   "acquiredAt": "2026-11-20T15:22:29.000Z",
-  "lastHeartbeat": "2026-11-20T15:49:21.000Z",
-  "expiresAt": "2026-11-20T17:19:21.000Z",
+  "lastHeartbeat": "2026-11-20T16:04:09.000Z",
+  "expiresAt": "2026-11-20T17:34:09.000Z",
   "releasedAt": null
 }
