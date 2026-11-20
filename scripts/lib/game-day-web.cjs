@@ -7,6 +7,7 @@ const {canonicalAddress}=require('./rosstalk-protocol.cjs');
 const {loadGameDayMachineConfig,createLocalEventCatalog}=require('./game-day-catalog.cjs');
 const {createGameDayManager}=require('./game-day-manager.cjs');
 const {createExchangeSourceService}=require('./exchange-source-service.cjs');
+const {createPreparedEventRuntime}=require('./prepared-event-runtime.cjs');
 const ASSETS=Object.freeze({'/css/piraiders-game-day.css':['static/css/piraiders-game-day.css','text/css'],'/js/piraiders-game-day.js':['static/js/piraiders-game-day.js','application/javascript']});
 const ACTIONS=new Set(['launch','next','previous','toggle-auto','auto','manual','reload','stop']);
 const ID=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -51,21 +52,35 @@ function identityTuple(value){return Array.isArray(value)&&value.length===5&&val
 function windowBody(value){return body(value,['start','end','prewarmMinutes'])&&['start','end'].every(k=>typeof value[k]==='string'&&value[k].length<=40)&&Number.isSafeInteger(value.prewarmMinutes)&&value.prewarmMinutes>=0&&value.prewarmMinutes<=60;}
 const SERVICE_KEYS=['refreshCatalog','catalogState','catalogEventsPage','catalogSelectionsPage','reviewSelection','confirmSelection','revokeSelection','status','close'];
 /** Trusted Node adapter: injected manager or source service is never accepted through environment/profile/HTTP. */
-function createGameDayWeb({manager,sourceService,port,appRoot,machineFile,configFile}={}){
+function createGameDayWeb({manager,sourceService,runtimeFactory,port,appRoot,machineFile,configFile}={}){
  if(!Number.isSafeInteger(port)||port<1||port>65535||typeof appRoot!=='string'||!path.isAbsolute(appRoot)||(manager&&sourceService)||
   (!manager&&!sourceService&&(typeof machineFile!=='string'||machineFile.length>4096||/[\x00-\x1f\x7f]/.test(machineFile)||!path.isAbsolute(machineFile))))throw failure('APP_CONFIG_INVALID');
  if(manager&&!['snapshot','listEvents','prepare','activate','discardCandidate','dispatch','close'].every(key=>typeof manager[key]==='function'))throw failure('APP_CONFIG_INVALID');
  if(sourceService&&!SERVICE_KEYS.every(key=>typeof sourceService[key]==='function'))throw failure('APP_CONFIG_INVALID');
+ // runtimeFactory is a trusted Node seam for a loaded source machine's
+ // playback (tests); it is never read from a profile, the environment or HTTP.
+ if(runtimeFactory!==undefined&&(typeof runtimeFactory!=='function'||manager||sourceService))throw failure('APP_CONFIG_INVALID');
  const startupSecret=process.env.PIRAIDERS_APP_STARTUP_SECRET;
  if(startupSecret!==undefined&&!TOKEN.test(startupSecret))throw failure('APP_CONFIG_INVALID');
  const startupKey=startupSecret===undefined?null:Buffer.from(startupSecret,'hex');
  const origin=new URL('http://127.0.0.1:'+port).origin,host=new URL(origin).host;
  // One owned backend per web adapter: a playback manager for a local-folder
- // machine, or the source catalog service for a source machine. A source
- // machine has no manager yet (backlog item 4d): its playback routes answer
- // SOURCE_PLAYBACK_NOT_READY and only the source browsing routes work.
+ // machine; for a source machine the source catalog service and, since item
+ // 4d, a manager whose catalog is that service's approved selections. An
+ // injected service alone (tests) has no manager: its playback routes answer
+ // SOURCE_PLAYBACK_NOT_READY. The manager closes first; the service (and its
+ // provider) only once every runtime has closed, so a failed close is retried.
  const backend=(managerValue,sourceValue)=>Object.freeze({manager:managerValue||null,source:sourceValue||null,
-  close:managerValue?()=>managerValue.close():()=>{sourceValue.close();return{ok:true};}});
+  close:!sourceValue?()=>managerValue.close():!managerValue?()=>{sourceValue.close();return{ok:true};}:
+   ()=>Promise.resolve(managerValue.close()).then(value=>{if(value?.ok!==false)sourceValue.close();return value;})});
+ function sourceBackend(machine){
+  const service=createExchangeSourceService(machine);
+  try{
+   return backend(createGameDayManager({catalog:service.playbackCatalog,runtimeFactory:service.preparedRuntimeFactory(runtimeFactory||createPreparedEventRuntime),
+    sourceRoot:machine.mediaRoot,privateRoots:[machine.runtimeRoot,machine.catalogDirectory,machine.source.approvalDirectory],
+    admitCandidate:service.admission.admitCandidate,refreshAdmission:service.admission.refreshAdmission}),service);
+  }catch(error){service.close();throw error;}
+ }
  let owned=manager||sourceService?backend(manager,sourceService):null,closed=false,closePromise=null;
  const ready=owned?Promise.resolve(owned):loadGameDayMachineConfig(machineFile,{appRoot,nodeExecutable:process.execPath}).then(async machine=>{
   if(typeof configFile!=='string'||!path.isAbsolute(configFile))throw failure('APP_CONFIG_INVALID');
@@ -74,7 +89,7 @@ function createGameDayWeb({manager,sourceService,port,appRoot,machineFile,config
   const [expectedConfig,actualConfig]=await Promise.all([fs.realpath(path.join(appRoot,machine.spxConfigFile)),fs.realpath(configFile)]);
   const normalize=value=>process.platform==='win32'?value.toLowerCase():value;
   if(normalize(expectedConfig)!==normalize(actualConfig))throw failure('APP_CONFIG_INVALID');
-  owned=machine.source?backend(null,createExchangeSourceService(machine)):backend(createGameDayManager({catalog:createLocalEventCatalog(machine),sourceRoot:machine.mediaRoot,privateRoots:[machine.cacheRoot,machine.runtimeRoot,machine.catalogDirectory]}),null);
+  owned=machine.source?sourceBackend(machine):backend(createGameDayManager({catalog:createLocalEventCatalog(machine),sourceRoot:machine.mediaRoot,privateRoots:[machine.cacheRoot,machine.runtimeRoot,machine.catalogDirectory]}),null);
   if(closed){
    let stopping;try{stopping=owned.close();}catch{stopping=Promise.reject(failure('CLOSE_FAILED'));}
    void Promise.resolve(stopping).then(value=>{if(value?.ok===false)closePromise=null;},()=>{closePromise=null;});return null;
