@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261120T152229Z",
+  "status": "idle",
+  "owner": null,
   "fence": 62,
-  "task": "BE item 5 (Windows evaluation build)",
-  "workBranch": "feature/be-002-console-failure-kind",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-20T15:22:29.000Z",
-  "lastHeartbeat": "2026-11-20T16:14:46.000Z",
-  "expiresAt": "2026-11-20T17:44:46.000Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-20T16:20:55.000Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-20T16:20:55.000Z"
 }
