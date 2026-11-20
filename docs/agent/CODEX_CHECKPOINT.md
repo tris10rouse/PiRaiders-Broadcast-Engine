@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Sixth Claude run (fence 52): the source catalog service. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master** `03fb76b` (PR #64). No open pull requests at the start.
+- **BE-006 slice 3b** on `feature/be-006-source-catalog-service`: `scripts/lib/exchange-source-service.cjs` builds the provider and the approval revalidator from a loader-made source machine, checks the retained canonical source spelling before every source read, gates catalog pages behind its own newest refresh, and exposes the manager hooks and branded prepared media. Not wired into the application. Design: `docs/design/EXCHANGE_SOURCE_SERVICE.md`.
+- **Found:** the existing source reader refuses a linked source root (`UNSAFE_INPUT`) although the machine-policy design allows "a configured alias"; unchanged here, recorded in the handoff.
+
 ## 2026-11-19 · Fifth Claude run (fence 51): exact approval revalidation. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master** `5e4c45e` (PR #62, handoff note after PR #61). No open pull requests at the start.
