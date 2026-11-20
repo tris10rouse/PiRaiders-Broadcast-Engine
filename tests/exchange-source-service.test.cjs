@@ -255,3 +255,72 @@ test('confirmation refuses an ineligible event, a missing store, a moved machine
   release.release();const done=await first;assert.equal(done.ok,true,done.code);assert.equal(done.changed,true);
   assert.equal((await service.reviewSelection(tuple)).approval.record,null);
 });
+
+// Item 4d: approved selections become the playback manager's catalog, and
+// each runtime gets this service's prepared-media driver.
+test('approved selections are the manager catalog and prepare, start and stop through the service',async t=>{
+  const f=await fixture(t),m=source();await f.publish(m);
+  const machine=await machineFor(f),append=await approvals(machine),service=serviceFor(t,machine),tuple=[...m.identityTuple];
+  const {createGameDayManager}=require('../scripts/lib/game-day-manager.cjs');
+  assert.deepEqual(await service.playbackCatalog.list(),[],'nothing approved yet');
+  // A confirmation for another machine policy is never listed.
+  await append(confirmFor(service,machine,profileFor(f,m),{machinePolicyFingerprint:'e'.repeat(64)}));
+  assert.deepEqual(await service.playbackCatalog.list(),[],'another machine policy');
+  const review=await service.reviewSelection(tuple),window={start:'2026-11-17T00:00:00Z',end:'2026-11-17T23:00:00Z',prewarmMinutes:15};
+  assert.equal((await service.confirmSelection({identityTuple:tuple,inspectionRevision:review.inspection.revision,productionWindow:window})).ok,true);
+  const listed=await service.playbackCatalog.list();noPaths(listed,f);
+  assert.equal(listed.length,1);assert.match(listed[0].eventId,/^sel-[a-f0-9]{40}$/);assert.equal(listed[0].status,'available');
+  assert.equal(listed[0].displayName,[tuple[4],tuple[1],tuple[2]].filter(Boolean).join(' · '));
+  const id=listed[0].eventId,entry=await service.playbackCatalog.read(id);
+  assert.equal(Object.isFrozen(entry),true);assert.match(entry.revision,/^[a-f0-9]{64}$/);
+  assert.equal(entry.profile.provider,'exchange-v1');assert.equal(entry.profile.eventId,id);
+  assert.deepEqual(entry.profile.media.identityTuple,tuple);assert.deepEqual(entry.profile.media.startup,{mode:'source'},'online startup only');
+  assert.equal(entry.profile.media.cacheDir,machine.cacheRoot);assert.equal(entry.profile.caspar.runtimeDir,path.join(machine.runtimeRoot,id));
+  assert.deepEqual(JSON.parse(JSON.stringify(entry.profile.productionWindow)),{start:'2026-11-17T00:00:00.000Z',end:'2026-11-17T23:00:00.000Z',prewarmMinutes:15});
+  assert.deepEqual(entry.profile.rossTalk,machine.rossTalk,'transport from machine policy');
+  await assert.rejects(service.playbackCatalog.read('sel-'+'0'.repeat(40)),{code:'CATALOG_INVALID'});
+  await assert.rejects(service.playbackCatalog.read('../'+id),{code:'CATALOG_INVALID'});
+  // A real manager over the service: the runtime gets the service's driver.
+  const seen={media:null,starts:0,closes:0,actions:[]};
+  const base=async(profile,options)=>{
+    assert.equal(isExchangePreparedMedia(options.preparedMedia,profile),true,'the service driver for this exact profile');
+    assert.equal(options.manageSpx,false);seen.media=options.preparedMedia;await options.preparedMedia.initial({privateRoots:options.privateRoots});
+    return{candidateAdmissionToken:()=>options.preparedMedia.admissionToken(),start:async()=>{seen.starts++;},close:async()=>{seen.closes++;options.preparedMedia.close();},
+      snapshot:()=>({preparing:false,state:'prepared',ready:false,windowAllowed:false}),dispatch:async action=>{seen.actions.push(action);return{ok:true};}};
+  };
+  const manager=createGameDayManager({catalog:service.playbackCatalog,runtimeFactory:service.preparedRuntimeFactory(base),clock:()=>Date.parse('2026-11-16T12:00:00Z'),
+    sourceRoot:machine.mediaRoot,privateRoots:[machine.runtimeRoot,machine.catalogDirectory,machine.source.approvalDirectory],...service.admission});
+  t.after(()=>manager.close());
+  const request=extra=>{const s=manager.snapshot();return{expectedEventId:s.expectedEventId,expectedSelection:s.expectedSelection,...extra};};
+  const events=await manager.listEvents();assert.equal(events.ok,true);assert.deepEqual(events.events.map(e=>e.eventId),[id]);
+  const prepared=await manager.prepare(id,request());assert.equal(prepared.ok,true,prepared.code);
+  assert.equal((await manager.activate(request({candidateId:prepared.candidateId}))).ok,true);
+  assert.equal(manager.snapshot().active.eventId,id);
+  assert.equal((await manager.dispatch('next',request())).ok,true);assert.equal((await manager.dispatch('stop',request())).ok,true);
+  assert.deepEqual(seen.actions,['next','stop']);assert.equal(seen.starts,1);
+  // A changed window keeps the selection's id and changes its revision.
+  const moved={start:'2026-11-17T01:00:00Z',end:'2026-11-17T23:00:00Z',prewarmMinutes:15};
+  assert.equal((await service.confirmSelection({identityTuple:tuple,inspectionRevision:review.inspection.revision,productionWindow:moved})).ok,true);
+  const after=await service.playbackCatalog.read(id);assert.notEqual(after.revision,entry.revision);assert.equal(after.profile.productionWindow.start,'2026-11-17T01:00:00.000Z');
+  // Revocation removes it from the list; preparing it is refused.
+  assert.equal((await service.revokeSelection({identityTuple:tuple})).ok,true);
+  assert.deepEqual(await service.playbackCatalog.list(),[]);
+  assert.equal((await manager.prepare(id,request())).code,'CATALOG_INVALID');
+  assert.equal((await manager.dispatch('stop',request())).ok,true,'Stop never waits on approvals');
+  service.close();await assert.rejects(service.playbackCatalog.list(),{code:'SOURCE_SERVICE_CLOSED'});
+});
+
+test('a runtime that is never built closes the service driver it was given',async t=>{
+  const f=await fixture(t),m=source();await f.publish(m);
+  const machine=await machineFor(f),append=await approvals(machine),service=serviceFor(t,machine);
+  const profile=profileFor(f,m);await append(confirmFor(service,machine,profile));
+  assert.throws(()=>service.preparedRuntimeFactory(null),{code:'SOURCE_SERVICE_OPTIONS_INVALID'});
+  let media=null;
+  const factory=service.preparedRuntimeFactory(async(normalized,options)=>{media=options.preparedMedia;await media.initial();
+    assert.equal(admitExchangeCandidate(media.admissionToken(),normalized),true);throw Object.assign(Error('PROFILE_PATHS'),{code:'PROFILE_PATHS'});});
+  await assert.rejects(factory(profile,{}),{code:'PROFILE_PATHS'},'the factory error is kept');
+  assert.equal(admitExchangeCandidate(media.admissionToken(),profile),false,'the driver was closed');
+  // The source root is checked before a driver exists.
+  await fs.rename(f.config.sourceRoot,path.join(f.parent,'disconnected-source'));media=null;
+  await assert.rejects(factory(profile,{}),{code:'SOURCE_UNAVAILABLE'});assert.equal(media,null);
+});

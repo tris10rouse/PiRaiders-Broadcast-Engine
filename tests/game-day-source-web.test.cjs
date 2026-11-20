@@ -39,17 +39,22 @@ async function serve(t,options,{username='',password=''}={}){
 }
 function noPaths(text,f){for(const p of [f.parent,f.config.sourceRoot,f.config.cacheDir,f.config.journalDir,path.join(f.parent,'private')])assert.equal(text.includes(p)||text.includes(JSON.stringify(p).slice(1,-1)),false,'no private path in a response');}
 
-test('a source machine serves path-free catalog pages behind the page token and refuses playback',async t=>{
+test('a source machine serves path-free catalog pages behind the page token; playback lists only approvals',async t=>{
   const f=await fixture(t),m=source();await f.publish(m);
   const file=await machineFile(f),s=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json')}));
   const p=await s.page();assert.equal(p.response.status,200);assert.match(p.token,/^[a-f0-9]{64}$/);
   assert.match(p.response.text,/read events from the scheduler’s exchange folder/,'source mode says approval and playback are not built');
   assert.match(p.response.text,/<body data-mode="source">/);assert.match(p.response.text,/id="source-section"/,'the exchange catalog screen (item 4b)');
   const responses=[];const keep=r=>{responses.push(r.text);return r;};
-  // Playback has no manager on a source machine yet.
-  for(const url of ['/game-day/api/state','/game-day/api/events'])assert.deepEqual(keep(await s.request(url,{headers:{Cookie:p.cookie}})).value,{ok:false,code:'SOURCE_PLAYBACK_NOT_READY'});
+  // Item 4d: a source machine has a playback manager whose catalog is this
+  // PC's approvals. With no approval store set up there is nothing to list,
+  // and Stop with nothing playing is simply not ready.
+  const state=keep(await s.request('/game-day/api/state',{headers:{Cookie:p.cookie}}));
+  assert.equal(state.status,200);assert.equal(state.value.state.state,'idle');assert.equal(state.value.state.active,null);
+  const listed=keep(await s.request('/game-day/api/events',{headers:{Cookie:p.cookie}}));
+  assert.equal(listed.status,422);assert.deepEqual(listed.value,{ok:false,code:'CATALOG_INVALID'},'no approval store yet');
   const stop=keep(await s.post(p,'/game-day/api/command',{action:'stop',expectedEventId:null,expectedSelection:0}));
-  assert.equal(stop.status,503);assert.equal(stop.value.code,'SOURCE_PLAYBACK_NOT_READY');
+  assert.equal(stop.status,409);assert.equal(stop.value.code,'NOT_READY');
   // Before a refresh nothing is browsable.
   const before=keep(await s.request('/game-day/api/source/status',{headers:{Cookie:p.cookie}}));
   assert.equal(before.status,200);assert.equal(before.value.ready,false);assert.equal(before.value.status.catalog.code,'CATALOG_NOT_READ');
@@ -181,10 +186,65 @@ test('a source machine reviews, approves and revokes one selection over HTTP, pa
   const status=keep(await s.request('/game-day/api/source/status',{headers:{Cookie:p.cookie}}));
   assert.equal(status.value.status.approvals.read,true);assert.equal(status.value.status.approvals.revision,1);assert.equal(status.value.status.ready,false);
   assert.deepEqual(keep(await s.post(p,'/game-day/api/source/review',{identityTuple:tupleBody})).value.approval.record,approved.value.approval);
-  // Playback is still refused on a source machine (item 4d).
-  assert.equal(keep(await s.request('/game-day/api/state',{headers:{Cookie:p.cookie}})).value.code,'SOURCE_PLAYBACK_NOT_READY');
+  // The approval is now the one selection playback can prepare (item 4d).
+  const events=keep(await s.request('/game-day/api/events',{headers:{Cookie:p.cookie}}));
+  assert.equal(events.status,200,events.text);assert.equal(events.value.events.length,1);assert.match(events.value.events[0].eventId,/^sel-[a-f0-9]{40}$/);
   const revoked=keep(await s.post(p,'/game-day/api/source/revoke',{identityTuple:tupleBody}));
   assert.equal(revoked.status,200);assert.deepEqual(revoked.value,{ok:true,ready:false,changed:true,revision:2,approval:null});
   assert.equal((await createExchangeApprovalStore().open(raw.source.approvalDirectory,raw.source.approvalStoreId)).approvals.length,0,'the store holds the revocation');
+  assert.deepEqual(keep(await s.request('/game-day/api/events',{headers:{Cookie:p.cookie}})).value,{ok:true,events:[]},'a revoked selection leaves the list');
   for(const r of responses)noPaths(r,f);
+});
+
+// Item 4d over real HTTP: an approved selection is prepared, started, played
+// and stopped through the ordinary playback routes. The runtime is a trusted
+// synthetic one (no Caspar here); it receives the service's own driver.
+test('a source machine prepares, starts and stops an approved selection over HTTP',async t=>{
+  const {createExchangeApprovalStore}=require('../scripts/lib/exchange-approval-store.cjs');
+  const {isExchangePreparedMedia}=require('../scripts/lib/exchange-source-provider.cjs');
+  const f=await fixture(t),m=source();await f.publish(m);
+  const file=await machineFile(f),raw=JSON.parse(await fs.readFile(file,'utf8'));
+  await fs.mkdir(path.dirname(raw.source.approvalDirectory),{recursive:true});
+  assert.equal((await createExchangeApprovalStore().initialize(raw.source.approvalDirectory,raw.source.approvalStoreId)).ok,true);
+  const seen={profiles:[],actions:[],closes:0,fail:false};
+  const runtimeFactory=async(profile,options)=>{
+    assert.equal(isExchangePreparedMedia(options.preparedMedia,profile),true);seen.profiles.push(profile);
+    if(seen.fail)throw Object.assign(Error('PROFILE_PATHS'),{code:'PROFILE_PATHS'});
+    await options.preparedMedia.initial({privateRoots:options.privateRoots});
+    let state='prepared';
+    return{candidateAdmissionToken:()=>options.preparedMedia.admissionToken(),start:async()=>{state='ready';},close:async()=>{seen.closes++;state='closed';options.preparedMedia.close();},
+      snapshot:()=>({preparing:false,state,ready:state==='ready',windowAllowed:false}),dispatch:async action=>{seen.actions.push(action);return{ok:true};}};
+  };
+  assert.throws(()=>createGameDayWeb({port:1,appRoot:f.parent,runtimeFactory:'no',machineFile:file}),{code:'APP_CONFIG_INVALID'});
+  assert.throws(()=>createGameDayWeb({port:1,appRoot:f.parent,runtimeFactory,sourceService:{}}),{code:'APP_CONFIG_INVALID'});
+  const s=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json'),runtimeFactory}));
+  const p=await s.page(),responses=[];const keep=r=>{responses.push(r.text);return r;};
+  const tupleBody=[...m.identityTuple],win={start:'2026-10-23T18:00:00-05:00',end:'2026-10-23T23:45:00-05:00',prewarmMinutes:20};
+  const review=keep(await s.post(p,'/game-day/api/source/review',{identityTuple:tupleBody}));
+  assert.equal(keep(await s.post(p,'/game-day/api/source/approve',{identityTuple:tupleBody,inspectionRevision:review.value.inspection.revision,productionWindow:win})).status,200);
+  const events=keep(await s.request('/game-day/api/events',{headers:{Cookie:p.cookie}})),id=events.value.events[0].eventId;
+  const request=async extra=>{const st=(await s.request('/game-day/api/state',{headers:{Cookie:p.cookie}})).value.state;return{expectedEventId:st.expectedEventId,expectedSelection:st.expectedSelection,...extra};};
+  // A runtime that cannot be built is a plain preparation failure.
+  seen.fail=true;const failed=keep(await s.post(p,'/game-day/api/prepare',await request({eventId:id})));
+  assert.equal(failed.status,422);assert.equal(failed.value.code,'PREPARE_FAILED');seen.fail=false;
+  const prepared=keep(await s.post(p,'/game-day/api/prepare',await request({eventId:id})));
+  assert.equal(prepared.status,200,prepared.text);
+  const profile=seen.profiles.at(-1);assert.deepEqual(profile.media.identityTuple,tupleBody);assert.equal(profile.productionWindow.prewarmMinutes,20);
+  assert.equal(profile.caspar.runtimeDir,path.join(raw.runtimeRoot,id));
+  const activated=keep(await s.post(p,'/game-day/api/activate',await request({candidateId:prepared.value.candidateId})));
+  assert.equal(activated.status,200,activated.text);
+  const state=keep(await s.request('/game-day/api/state',{headers:{Cookie:p.cookie}})).value.state;
+  assert.equal(state.state,'active');assert.equal(state.active.eventId,id);assert.equal(state.active.runtime.ready,true);
+  assert.equal(state.receiverVerified,false);assert.equal(state.boardVerified,false);
+  assert.equal(keep(await s.post(p,'/game-day/api/command',await request({action:'next'}))).status,200);
+  assert.equal(keep(await s.post(p,'/game-day/api/command',await request({action:'stop'}))).status,200);
+  assert.deepEqual(seen.actions,['next','stop']);
+  // A source route for preparation still does not exist: playback uses the ordinary routes.
+  assert.equal((await s.post(p,'/game-day/api/source/prepare',{})).status,404);
+  for(const r of responses)noPaths(r,f);
+  // Close stops the runtime first, then frees the provider for a new adapter.
+  await s.stop();assert.equal(seen.closes,1);
+  const again=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json'),runtimeFactory}));
+  const p2=await again.page();assert.equal(p2.response.status,200);
+  assert.equal((await again.request('/game-day/api/events',{headers:{Cookie:p2.cookie}})).value.events[0].eventId,id,'the same id after a restart');
 });

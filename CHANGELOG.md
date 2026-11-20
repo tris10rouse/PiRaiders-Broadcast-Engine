@@ -1,5 +1,13 @@
 # PiRaiders engineering changelog
 
+## 2026-11-20 · Approved exchange buttons can be prepared and played on this PC (fourth part, behind the screen)
+
+- On a PC set to read the scheduler's exchange folder, the application now has a playback manager like a local-folder PC. Its event list holds only the buttons this PC approved (same PC setup, same exchange feed); a revoked button leaves the list at once.
+- Each approved button is prepared from machine settings plus the approved button and window: the exchange folder supplies the pictures through the existing checked source reader, never the settings. Preparation, start and every later step still recheck this PC's approval list, so a revocation stops a not-yet-started button.
+- Prepare, start, the playback buttons and Stop use the ordinary Game Day playback routes. Stop never waits on the approval list or the exchange folder.
+- Not yet on the screen: the page still says playback is unavailable on such a PC; the list and buttons are the next part. Cached (offline) startup is not offered yet: online startup only.
+- Tests: 2 new service tests (approved list, profile built from machine policy, real manager prepare/start/next/stop, window change, revocation, a runtime that is never built closes its picture reader) and 1 new HTTP test (prepare, start, next, stop and restart over real HTTP with a synthetic runtime). Removing the machine-setup filter or the reader close each made a test fail.
+
 ## 2026-11-20 · Approving one exchange board button on this PC (third part of the PC selector)
 
 - On a PC set to read the scheduler's exchange folder, a chosen board button now has **Check this button**: the application reads that button's metadata from the exchange again and shows the checked version, the scheduler's production times in Central time, any timing warnings, and whether this PC already approved it.

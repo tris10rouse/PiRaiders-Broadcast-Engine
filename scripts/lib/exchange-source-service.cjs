@@ -7,7 +7,11 @@
 // and the provider the revalidator's hooks. Item 4c adds the PC confirmation:
 // review (inspection plus the saved approval), confirm and revoke, written to
 // this machine's approval store. No journal setup, store setup or source write.
-const fs=require('node:fs/promises'),path=require('node:path');
+// Item 4d adds playback of approved selections: a manager catalog that lists
+// this machine's current confirmations and builds their exchange profiles
+// from machine policy, and a runtime factory that hands each runtime this
+// service's prepared-media driver.
+const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const {isGameDayMachineConfig}=require('./game-day-catalog.cjs');
 const {createExchangeSourceProvider}=require('./exchange-source-provider.cjs');
 const {createApprovalRevalidator}=require('./exchange-approval-policy.cjs');
@@ -213,6 +217,63 @@ function createExchangeSourceService(machine,trusted={}){
     if(closed)throw fault('SOURCE_SERVICE_CLOSED');
     return provider.createPreparedMedia(profile,{authorizeOffline:revalidator.authorizeOffline});
   }
+  // Playback of approved selections (item 4d). The manager's catalog lists
+  // only this machine's current confirmations: same provider, binding and
+  // machine-policy fingerprint. It reads the approval store, never the
+  // source, so a listing works with the exchange folder gone; preparation
+  // reads the source through preparedMedia, and the revalidator still decides
+  // admission at every manager boundary. Profiles come from machine policy
+  // plus the confirmed tuple and window, never from source data.
+  function sha256(text){return crypto.createHash('sha256').update(text,'utf8').digest('hex');}
+  function selectionEventId(tuple){return'sel-'+sha256(canonical({providerId:s.providerId,binding:s.binding,identityTuple:tuple})).slice(0,40);}
+  function approvedName(tuple){
+    // [school year, event key, board key, origin, button label]
+    const text=[tuple[4],tuple[1],tuple[2]].filter(Boolean).join(' · ');
+    return Array.from(text).slice(0,200).join('');
+  }
+  async function approvedEntries(){
+    if(closed)throw fault('SOURCE_SERVICE_CLOSED');
+    const head=await openStore();
+    if(closed)throw fault('SOURCE_SERVICE_CLOSED');
+    if(!head.ok)throw fault(head.code);
+    const binding=canonical(s.binding),entries=[];
+    for(const a of head.approvals){
+      if(!a||a.type!=='confirm'||a.confirmation!==true||a.providerId!==s.providerId||canonical(a.binding)!==binding||
+        a.machinePolicyFingerprint!==revalidator.policyFingerprint||!a.productionWindow)continue;
+      const tuple=ownTuple(a.identityTuple);if(!tuple)continue;
+      entries.push({eventId:selectionEventId(tuple),tuple,productionWindow:a.productionWindow});
+    }
+    // Soonest window first; the manager lists at most 128, so keep the latest.
+    entries.sort((x,y)=>x.productionWindow.start<y.productionWindow.start?-1:x.productionWindow.start>y.productionWindow.start?1:x.eventId<y.eventId?-1:x.eventId>y.eventId?1:0);
+    return entries.slice(-128);
+  }
+  async function listApproved(){
+    const entries=await approvedEntries();
+    return Object.freeze(entries.map(e=>Object.freeze({eventId:e.eventId,displayName:approvedName(e.tuple),status:'available'})));
+  }
+  async function readApproved(eventId){
+    if(typeof eventId!=='string'||!/^sel-[a-f0-9]{40}$/.test(eventId))throw fault('CATALOG_INVALID');
+    const entry=(await approvedEntries()).find(e=>e.eventId===eventId);
+    if(!entry)throw fault('CATALOG_INVALID');
+    const profile=normalizePreparedEventProfile({schemaVersion:1,provider:'exchange-v1',eventId,productionWindow:{...entry.productionWindow},
+      spx:machine.spx,caspar:{...machine.caspar,runtimeDir:path.join(machine.runtimeRoot,eventId)},
+      media:{provider:'exchange-ordered-v1',providerId:s.providerId,binding:{feedId:s.binding.feedId,epoch:s.binding.epoch},identityTuple:[...entry.tuple],
+        cacheDir:machine.cacheRoot,startup:{mode:'source'}},
+      presentation:machine.presentation,rossTalk:machine.rossTalk,output:machine.output});
+    const revision=sha256(canonical({eventId,identityTuple:entry.tuple,productionWindow:profile.productionWindow,policyFingerprint:revalidator.policyFingerprint}));
+    return Object.freeze({profile,descriptor:Object.freeze({eventId,displayName:approvedName(entry.tuple)}),revision});
+  }
+  // Wraps a prepared-event runtime factory: each exchange runtime gets this
+  // service's driver. A runtime that is never built closes its driver here;
+  // a built runtime closes it itself.
+  function preparedRuntimeFactory(base){
+    if(typeof base!=='function')throw fault('SOURCE_SERVICE_OPTIONS_INVALID');
+    return async(profile,options)=>{
+      const media=await preparedMedia(profile);
+      try{return await base(profile,{...options,preparedMedia:media});}
+      catch(error){try{media.close();}catch{}throw error;}
+    };
+  }
   function status(){
     const p=provider.snapshot(),a=revalidator.status();
     return Object.freeze({scope:'exchange-source-service',ready:false,providerId:s.providerId,closed,
@@ -227,6 +288,8 @@ function createExchangeSourceService(machine,trusted={}){
     catalogEventsPage:query=>browse('catalogEventsPage',query),
     catalogSelectionsPage:query=>browse('catalogSelectionsPage',query),
     inspectSelection,reviewSelection,confirmSelection,revokeSelection,preparedMedia,
+    // Pass to createGameDayManager as {catalog} and wrap its runtime factory.
+    playbackCatalog:Object.freeze({list:listApproved,read:readApproved}),preparedRuntimeFactory,
     refreshApprovals:()=>revalidator.refresh(),
     // Pass these to createGameDayManager as {admitCandidate,refreshAdmission}.
     admission:Object.freeze({admitCandidate:revalidator.admitCandidate,refreshAdmission:revalidator.refreshAdmission}),
