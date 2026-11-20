@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-20 (sixteenth run, lock fence 64). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (sixteenth run, lock fences 64–65; 5a-2 merged). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -9,17 +9,19 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | Part | Size | Why that size | Status |
 |---|---|---|---|
 | 5a-1 Synthetic exchange folder and setup step for the proof | S | One builder and Linux tests on code that already exists | merged on 2026-11-20 (#77, `bc679a3`) |
-| 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black, close | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | PR open (`feature/be-081-exchange-activation-windows`, fence 64) |
+| 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black, close | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | merged on 2026-11-20 (#81, `ca9000f`, all 13 checks green on `f8459cd`) |
 | 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | not started |
 | 5b Setup command and cached (offline) startup | L | New operator command, the linked-folder decision, offline pins, proven on Linux and Windows | not started |
 | 5c Diagnostics and recovery | L | Six distinct states on screen and by command, four tested fault recoveries | not started |
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
+| Open failing check: browser test "a late review never lands on another button, and an unset approval list blocks approving" failed with `HELD_ANSWER_NOT_FINISHED` after 15 s on the Linux push run of PR #81's `cf91a8c` (job 136447114406); one browser test also failed on Windows `static-contracts` for `1819e74` (job 136440648349; its name was not in the part of the log read). The same test that hung before #79; the bound now makes it fail by name | fix | Cause unknown; PR #81 does not touch the page or this test, and the test passed on `f8459cd`. Not rerun | recorded |
+| Open failing check: Caspar software proof (`actual-caspar-cef-mixer`) failed at `MANAGED_CEF`, `PROTOCOL_REJECTED`, renderer `DISCONNECTED`, on `cf91a8c` (job 136445042248) | fix | Cause unknown; PR #81 does not touch that proof; passed on `f8459cd`. Not rerun | recorded |
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place.
 
-**Estimate:** remaining sizes 1 S + 4 M + 2 L = 15 sized runs (5a-2 counted in full while its PR is open); pace 1.5 runs per sized run (reconstructed from fences 52–60; this log has 1 merged part at pace 1.0, so the 1.5 stays until 3 merged parts); 15 x 1.5 + 0 open failing checks = **about 23 runs** (down from 26: the three failing-check rows closed on green master runs).
+**Estimate:** remaining sizes 1 S + 3 M + 2 L = 13 sized runs. Pace from every merged part so far: 11 runs for 9 sized runs = 1.22 (fences 52–60: 9 runs for 6 S parts; this log: 5a-1, 1 run for S; 5a-2, 1 run for M). 13 x 1.22 + 2 open failing checks = **about 18 runs** (down from 23: 5a-2 merged in one run and the pace now counts this log's parts; up 2 from the first count of this run because two intermittent failures on PR #81's middle commits were found afterwards).
 
 ## Run log
 
@@ -27,22 +29,24 @@ Closed (fence 64): the console proof's START failure, the Linux browser-suite ha
 |---|---|---|---|
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
 | 2026-11-20 15:22 | 62 | fix merged (#79) | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
-| 2026-11-20 16:51 | 64 | PR open | Master green twice: three failing-check rows closed; 5a-2 Windows job written, Linux route tests green, PR waiting on its Windows checks |
+| 2026-11-20 16:51 | 64 | merged (#81) | Master green twice: three failing-check rows closed. 5a-2: new Windows job; fixed on the PR a CRLF test failure and the proof's refresh racing the page's own refresh (409 `BUSY`); merged with all 13 checks green; afterwards found two intermittent failures on its middle commits (late-review browser test, Caspar CEF proof), recorded at fence 65 |
 
 ## State of master
 
-- Master `8f6f06d` (#80, handoff note; #79 `fb4a140` before it). Items 1 to 4 and part 5a-1 are done. Every check green on `fb4a140` and `8f6f06d`. Details: `CODEX_CHECKPOINT.md`.
+- Master `ca9000f` (#81: the Windows exchange activation proof). Items 1 to 4 and parts 5a-1, 5a-2 are done. On hosted Windows a synthetic exchange button now goes from approval through the real routes to Launch, Next, Previous and Stop with the SDK receiver seeing the pictures in order and then black (job `actual-exchange-activation-private-ndi`, about 35 s of proof). Details: `CODEX_CHECKPOINT.md`.
 - Recorded failures, not rerun, cause unknown unless named: the console proof at START on `79ff344` and `bc679a3`; the NDI negative-control receiver on `f89a8b1`; the browser-suite hang on `4845f49`'s push run; the Caspar software proof on `50bb524` (process listing timed out); the four NDI checks on PR #56's first commit (vendor replaced its installer); the prepared-event proof on `398e336`; a Windows baseline `ETIMEDOUT` on `7acbb00`; the launcher-parent `ETIMEDOUT` on `c29407a`; the full-app `RECEIVER_START_TIMEOUT` on `bca398f`; the Windows job-host test on PR #76's first commit.
 - First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. Finish the 5a-2 PR (`feature/be-081-exchange-activation-windows`): read every check on its final commit. The new job is `actual-exchange-activation-private-ndi` in `full-app-proof.yml`; on failure its stderr line names `phase` and `code` (e.g. `APPROVE`/`SOURCE_REFRESH_FAILED`, `RENDERER_READY`/`APP_RENDERER_READY`, `LAUNCH`/a frame code). Fix a named cause on the same branch; merge only when all checks are green and the whole diff is read. Then a handoff-note PR.
-2. 5a-3: evidence and privacy of that job (only synthetic frames and sanitized JSON retained; a check that fails the job when a retained file names the proof folder, the exchange folder or a private store; `docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md`).
-3. Then 5b, 5c, 5d, 5e, 5f.
+1. Read master's checks on `ca9000f` and on this note's merge; merge this note's PR (`feature/be-082-handoff-5a2`) if green.
+2. The late-review browser test (`tests/browser/game-day-source.browser.cjs`): `HELD_ANSWER_NOT_FINISHED` means a held answer the page asked for was not finished within 15 s. Read that test's held-answer helpers; find why the page's answer can stay unfinished under load (one run). If it is not found in one run, record what was ruled out and go on.
+3. 5a-3: evidence and privacy of the activation job. Today it keeps six received frames and `result.json`, and a failure screenshot of the page on failure. Add a check that fails the job if any retained file names the proof folder, the exchange folder or a private store (reuse the route-answer check in `scripts/exchange-activation-routes.cjs`), decide whether the failure screenshot stays, and write `docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` (what it proves, what it does not).
+4. Then 5b (setup command and cached startup), 5c, 5d, 5e, 5f.
 
 ## Open risks
 
+- In source mode the Game Day page refreshes the catalog by itself when it opens; a second refresh while it runs is refused (`BUSY` or `CATALOG_REFRESH_SUPERSEDED`). Correct, but an operator who clicks Refresh at that moment sees a refusal; the page handles `CATALOG_REFRESH_SUPERSEDED` and may not word `BUSY` well. Not tested on the page.
 - `tests/windows-job-process.integration.test.cjs` ("CreateProcess failure never runs an existing invalid executable") failed once on hosted Windows on the docs-only PR #76's first commit (job 136322153458): the job host did not exit within the test's 10 s. Cause unknown (a slow scan of the just-written file is possible, not shown). Not rerun.
 - **Time.** The 10 s per-picture limit is fixed in code. On a 2-CPU Linux machine the slowest legal pictures found take 5.5 s (dense progressive 4:4:4 JPEG, 14 MB, at the pixel limit) and 3.0 s (16-bit PNG). The stadium PC has never been measured.
 - **Memory.** One 4096 x 4096 JPEG needs about 0.7 GB (4:2:0) to 1.3 GB (four components) of process memory at its peak, one picture at a time. How much memory the stadium PC has is unknown.
