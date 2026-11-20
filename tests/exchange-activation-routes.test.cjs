@@ -93,6 +93,18 @@ test('the proof steps refuse a button the catalog does not list',async t=>{
   await assert.rejects(routes.approveAndActivate(s.client,{identityTuple:built.identityTuple.slice(0,4),window:{}}),{code:'ROUTE_OPTIONS_INVALID'});
 });
 
+test('a refused route names its HTTP status and fixed code, never its text; status keeps only codes and flags',async()=>{
+  const refusing={get:async()=>({status:200,value:{ok:true}}),post:async()=>({status:503,value:{ok:false,code:'SOURCE_ROOT_MISMATCH',detail:'C:\\private\\x'}})};
+  await assert.rejects(routes.approveAndActivate(refusing,{identityTuple:['a','b','c','d','e'],window:{}}),
+    e=>e.code==='SOURCE_REFRESH_FAILED'&&e.routeStatus===503&&e.answerCode==='SOURCE_ROOT_MISMATCH'&&!JSON.stringify(e).includes('private'));
+  const noisy={post:async()=>({status:500,value:{ok:false,code:'not a code: C:\\private'}}),get:async()=>({status:500})};
+  await assert.rejects(routes.approveAndActivate(noisy,{identityTuple:['a','b','c','d','e'],window:{}}),e=>e.answerCode===null&&e.routeStatus===500);
+  const status=routes.sourceStatusCodes({ok:true,status:{scope:'x',providerId:'secret-provider',closed:false,catalog:{available:false,code:'SOURCE_UNAVAILABLE'},
+    provider:{busy:false,closed:false,observationRevision:'abc'},approvals:{read:true,revision:0,code:null,rolledBack:false,closed:false,where:'C:\\private'}}});
+  assert.deepEqual(status,{closed:false,catalog:{available:false,code:'SOURCE_UNAVAILABLE'},provider:{busy:false,closed:false},approvals:{read:true,revision:0,code:null,rolledBack:false,closed:false}});
+  assert.equal(routes.sourceStatusCodes(null),null);
+});
+
 test('the private-path check sees raw and JSON-escaped paths',()=>{
   const p=path.join(os.tmpdir(),'proof','private');
   assert.equal(routes.namesPrivatePath(['{"ok":true}'],[p]),false);

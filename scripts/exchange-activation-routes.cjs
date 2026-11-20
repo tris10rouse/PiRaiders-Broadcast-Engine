@@ -8,8 +8,27 @@
 // session cookie and CSRF token), the Linux test with plain HTTP. Every answer
 // is checked to be path-free by the caller; this module only walks the
 // routes in operator order and stops at the first refusal with a fixed code.
-function fail(code){throw Object.assign(Error(code),{code});}
-function ok(result,code){if(!result||result.status!==200||!result.value||result.value.ok===false)fail(code);return result.value;}
+function fail(code,extra){throw Object.assign(Error(code),{code},extra);}
+const FIXED=/^[A-Z][A-Z0-9_]{0,63}$/;
+// The refused answer's HTTP status and its own fixed code travel with the
+// error (never its text), so a CI failure line names why a route refused.
+function ok(result,code){
+  if(!result||result.status!==200||!result.value||result.value.ok===false){
+    const answerCode=result&&result.value&&typeof result.value.code==='string'&&FIXED.test(result.value.code)?result.value.code:null;
+    fail(code,{routeStatus:result&&Number.isInteger(result.status)?result.status:null,answerCode});
+  }
+  return result.value;
+}
+// Only the fixed-vocabulary parts of the source status answer (codes, flags,
+// numbers), for a failure line. Anything else is dropped.
+function sourceStatusCodes(value){
+  const s=value&&value.status&&typeof value.status==='object'?value.status:value;
+  if(!s||typeof s!=='object')return null;
+  const code=v=>typeof v==='string'&&FIXED.test(v)?v:null,flag=v=>typeof v==='boolean'?v:null,count=v=>Number.isSafeInteger(v)?v:null;
+  const c=s.catalog||{},p=s.provider||{},a=s.approvals||{};
+  return{closed:flag(s.closed),catalog:{available:flag(c.available),code:code(c.code)},provider:{busy:flag(p.busy),closed:flag(p.closed)},
+    approvals:{read:flag(a.read),revision:count(a.revision),code:code(a.code),rolledBack:flag(a.rolledBack),closed:flag(a.closed)}};
+}
 
 // A window that contains `nowMs`: started a minute ago, ends after the proof.
 // Prewarm 0, so the window alone decides when the renderer may start.
@@ -59,4 +78,4 @@ function namesPrivatePath(texts,paths){
   return texts.some(text=>typeof text==='string'&&paths.some(p=>typeof p==='string'&&p.length>0&&(text.includes(p)||text.includes(JSON.stringify(p).slice(1,-1)))));
 }
 
-module.exports={approvalWindow,approveAndActivate,command,namesPrivatePath};
+module.exports={approvalWindow,approveAndActivate,command,namesPrivatePath,sourceStatusCodes};

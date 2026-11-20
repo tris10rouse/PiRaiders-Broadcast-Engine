@@ -113,7 +113,9 @@ async function scenario(location){
       sameMachineOnly:true,windows10Tested:false,lanTransportTested:false,stadiumHardwareTested:false};
   }catch(error){
     if(page)try{await page.screenshot({path:path.join(evidence,'failure-ui.png'),fullPage:true,timeout:5000});}catch{}
-    console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
+    let sourceStatus=null;if(page&&phase==='APPROVE')try{sourceStatus=routes.sourceStatusCodes((await client.get('/game-day/api/source/status')).value);}catch{}
+    console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,
+      routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,sourceStatus,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
       processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),treeCounts:lastTreeCounts||null,
       appCategories:app?[...app.categories]:[],timingsMs:timings}));
     throw Error('EXCHANGE_ACTIVATION_PROOF_FAILED');
