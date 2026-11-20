@@ -93,6 +93,24 @@ test('the proof steps refuse a button the catalog does not list',async t=>{
   await assert.rejects(routes.approveAndActivate(s.client,{identityTuple:built.identityTuple.slice(0,4),window:{}}),{code:'ROUTE_OPTIONS_INVALID'});
 });
 
+test('a refresh while the page\'s own refresh runs is refused; the proof waits for the page\'s refresh and then succeeds',async t=>{
+  const {appRoot,built}=await proofMachine(t),seen={actions:[]};
+  const s=await serve(t,{appRoot,machineFile:built.machineFile,configFile:path.join(appRoot,'config','spx.json'),runtimeFactory:syntheticRuntime(seen)});
+  // Nothing refreshed yet: the wait does not mistake "not read" for settled.
+  await assert.rejects(routes.pageRefreshSettled(s.client,{timeoutMs:600,intervalMs:100}),{code:'PAGE_SOURCE_REFRESH_NOT_SETTLED'});
+  // Two refreshes at once (the page's own and the proof's): not both succeed.
+  // (Up to five tries: on a loaded machine one request can finish before the other arrives.)
+  let both;for(let i=0;i<5;i++){both=await Promise.all([s.client.post('/game-day/api/source/refresh',{}),s.client.post('/game-day/api/source/refresh',{})]);if(both.some(r=>r.status!==200))break;}
+  assert.ok(both.some(r=>r.status===200),'one refresh succeeds');
+  assert.ok(both.some(r=>r.status===409&&['CATALOG_REFRESH_SUPERSEDED','BUSY'].includes(r.value.code)),'the other is refused: '+JSON.stringify(both.map(r=>[r.status,r.value.code])));
+  // The page's refresh in flight; the proof waits for it, then walks the routes.
+  const page=s.client.post('/game-day/api/source/refresh',{});
+  const settled=await routes.pageRefreshSettled(s.client,{timeoutMs:20000,intervalMs:20});
+  assert.equal((await page).status,200);assert.equal(settled.catalog.available,true);
+  const flow=await routes.approveAndActivate(s.client,{identityTuple:built.identityTuple,window:routes.approvalWindow(Date.now())});
+  assert.match(flow.eventId,/^sel-[a-f0-9]{40}$/);
+});
+
 test('a refused route names its HTTP status and fixed code, never its text; status keeps only codes and flags',async()=>{
   const refusing={get:async()=>({status:200,value:{ok:true}}),post:async()=>({status:503,value:{ok:false,code:'SOURCE_ROOT_MISMATCH',detail:'C:\\private\\x'}})};
   await assert.rejects(routes.approveAndActivate(refusing,{identityTuple:['a','b','c','d','e'],window:{}}),

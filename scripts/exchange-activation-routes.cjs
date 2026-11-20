@@ -43,6 +43,21 @@ async function expectation(client,extra){
   return{expectedEventId:state.expectedEventId,expectedSelection:state.expectedSelection,...extra};
 }
 
+// The Game Day page refreshes the source catalog once by itself when it
+// opens in source mode. A second refresh while that one runs is refused
+// (superseded or busy), so the proof waits until the page's own refresh has
+// settled, read from the source status (codes and flags only).
+async function pageRefreshSettled(client,{timeoutMs=30000,intervalMs=200,now=Date.now,sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){
+  const end=now()+timeoutMs;let last=null;
+  while(now()<end){
+    const r=await client.get('/game-day/api/source/status');
+    last=r&&r.status===200?sourceStatusCodes(r.value):null;
+    if(last&&last.provider.busy===false&&(last.catalog.available===true||(last.catalog.code!==null&&last.catalog.code!=='CATALOG_NOT_READ')))return last;
+    await sleep(intervalMs);
+  }
+  fail('PAGE_SOURCE_REFRESH_NOT_SETTLED',{answerCode:last&&last.catalog.code});
+}
+
 // refresh → events → selections → review → approve → approved list →
 // prepare → activate. Returns the path-free ids it used and every answer
 // (for the caller's privacy check).
@@ -78,4 +93,4 @@ function namesPrivatePath(texts,paths){
   return texts.some(text=>typeof text==='string'&&paths.some(p=>typeof p==='string'&&p.length>0&&(text.includes(p)||text.includes(JSON.stringify(p).slice(1,-1)))));
 }
 
-module.exports={approvalWindow,approveAndActivate,command,namesPrivatePath,sourceStatusCodes};
+module.exports={approvalWindow,approveAndActivate,command,namesPrivatePath,sourceStatusCodes,pageRefreshSettled};

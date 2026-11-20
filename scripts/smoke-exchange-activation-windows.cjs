@@ -86,6 +86,8 @@ async function scenario(location){
     browser=await chromium.launch({headless:true,args:['--no-sandbox']});page=await browser.newPage({viewport:{width:1440,height:1000}});
     await page.goto(origin+'/game-day');await page.locator('#connection').filter({hasText:'Connected to application'}).waitFor();
     assert.equal(await page.locator('body').getAttribute('data-mode'),'source','SOURCE_MODE_PAGE');
+    // The page refreshes the source catalog by itself on opening; let that finish first.
+    phase='PAGE_REFRESH';const pageRefresh=await routes.pageRefreshSettled(client);mark('pageRefreshSettled');
     phase='APPROVE';const window=routes.approvalWindow(Date.now());
     const flow=await routes.approveAndActivate(client,{identityTuple:built.identityTuple,window});mark('activated');
     phase='RENDERER_READY';await full.until(async()=>{const value=await state();return value.active&&value.active.eventId===flow.eventId&&value.active.runtime.ready;},'APP_RENDERER_READY',90000);mark('rendererReady');
@@ -107,13 +109,13 @@ async function scenario(location){
     report={event:'exchange-activation-windows-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:toolInfo.provenance,ndiProvenance:ndi.provenance,
       runtimeVersion:probe.info.runtimeVersion,actualCLI:true,sourceMachine:true,syntheticExchangeFolder:true,approvalListSetUpBeforeStart:true,
       routes:['source/refresh','source/events','source/selections','source/review','source/approve','events','prepare','activate','command'],
-      approvalWindowContainsNow:true,prewarmMinutes:window.prewarmMinutes,publishedOrder:built.order.map(p=>p.name),sourceIdentityHash:sourceIdentity,sourceIdentityStable:true,
+      pageOwnRefresh:{catalogAvailable:pageRefresh.catalog.available,code:pageRefresh.catalog.code},approvalWindowContainsNow:true,prewarmMinutes:window.prewarmMinutes,publishedOrder:built.order.map(p=>p.name),sourceIdentityHash:sourceIdentity,sourceIdentityStable:true,
       frames,fullFrameOpaqueBlackBeforeLaunch:true,fullFrameOpaqueBlackAfterStop:true,routeAnswersPathFree:true,closeTookEveryOwnedProcess:true,
       closeReceiverQuiet:{connections:quiet.connections,durationMs:quiet.quietDurationMs},spxConfigUnchanged:true,timingsMs:timings,
       sameMachineOnly:true,windows10Tested:false,lanTransportTested:false,stadiumHardwareTested:false};
   }catch(error){
     if(page)try{await page.screenshot({path:path.join(evidence,'failure-ui.png'),fullPage:true,timeout:5000});}catch{}
-    let sourceStatus=null;if(page&&phase==='APPROVE')try{sourceStatus=routes.sourceStatusCodes((await client.get('/game-day/api/source/status')).value);}catch{}
+    let sourceStatus=null;if(page&&(phase==='APPROVE'||phase==='PAGE_REFRESH'))try{sourceStatus=routes.sourceStatusCodes((await client.get('/game-day/api/source/status')).value);}catch{}
     console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,
       routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,sourceStatus,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
       processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),treeCounts:lastTreeCounts||null,
