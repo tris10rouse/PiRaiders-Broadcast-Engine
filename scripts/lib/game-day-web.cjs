@@ -37,13 +37,19 @@ function id(value){return typeof value==='string'&&value.length<=64&&ID.test(val
 function body(raw,keys){return !!raw&&typeof raw==='object'&&!Array.isArray(raw)&&Object.getPrototypeOf(raw)===Object.prototype&&Reflect.ownKeys(raw).length===keys.length&&keys.every(key=>Object.hasOwn(raw,key))&&Reflect.ownKeys(raw).every(key=>typeof key==='string'&&keys.includes(key));}
 function tuple(raw){return(raw.expectedEventId===null||id(raw.expectedEventId))&&Number.isSafeInteger(raw.expectedSelection)&&raw.expectedSelection>=0;}
 function apiStatus(value){if(value?.ok===true)return 200;switch(value?.code){case'INVALID_REQUEST':return 400;case'STALE_SELECTION':case'STALE_CANDIDATE':case'BUSY':case'WINDOW_ACTIVE':case'CANDIDATE_CLOSED':case'NOT_READY':case'CONTROL_INHIBITED':return 409;case'CATALOG_INVALID':case'PREPARE_FAILED':return 422;default:return 503;}}
-function sourceApiStatus(value){if(value?.ok===true)return 200;switch(value?.code){case'CATALOG_QUERY_INVALID':return 400;case'CATALOG_EVENT_MISSING':return 404;case'CATALOG_REVISION_STALE':case'CATALOG_UNAVAILABLE':case'CATALOG_REFRESH_SUPERSEDED':case'BUSY':return 409;default:return 503;}}
+function sourceApiStatus(value){if(value?.ok===true)return 200;switch(value?.code){case'CATALOG_QUERY_INVALID':case'APPROVAL_REQUEST_INVALID':case'APPROVAL_WINDOW_INVALID':case'SOURCE_SELECTION_INVALID':return 400;case'CATALOG_EVENT_MISSING':return 404;
+ case'CATALOG_REVISION_STALE':case'CATALOG_UNAVAILABLE':case'CATALOG_REFRESH_SUPERSEDED':case'BUSY':case'APPROVAL_INSPECTION_STALE':case'APPROVAL_SELECTION_INELIGIBLE':case'APPROVAL_CONFLICT':return 409;default:return 503;}}
 // Source browsing bodies. The service validates queries itself; these checks
 // only keep the HTTP schema exact before anything reaches it.
 const REVISION=/^[a-f0-9]{64}$/;
 function page(raw){return typeof raw.revision==='string'&&REVISION.test(raw.revision)&&Number.isSafeInteger(raw.offset)&&raw.offset>=0&&Number.isSafeInteger(raw.limit)&&raw.limit>=1&&raw.limit<=64;}
 function eventKey(value){return typeof value==='string'&&value.length>=1&&value.length<=128&&!/[\x00-\x1f\x7f]/.test(value);}
-const SERVICE_KEYS=['refreshCatalog','catalogState','catalogEventsPage','catalogSelectionsPage','status','close'];
+// Confirmation bodies (item 4c): five short strings, an inspection revision,
+// and a window of two instants plus warm-up minutes. The service and the
+// store apply the real tuple and window rules.
+function identityTuple(value){return Array.isArray(value)&&value.length===5&&value.every((v,i)=>Object.hasOwn(value,i)&&typeof v==='string'&&v.length<=200&&!/[\x00-\x1f\x7f]/.test(v));}
+function windowBody(value){return body(value,['start','end','prewarmMinutes'])&&['start','end'].every(k=>typeof value[k]==='string'&&value[k].length<=40)&&Number.isSafeInteger(value.prewarmMinutes)&&value.prewarmMinutes>=0&&value.prewarmMinutes<=60;}
+const SERVICE_KEYS=['refreshCatalog','catalogState','catalogEventsPage','catalogSelectionsPage','reviewSelection','confirmSelection','revokeSelection','status','close'];
 /** Trusted Node adapter: injected manager or source service is never accepted through environment/profile/HTTP. */
 function createGameDayWeb({manager,sourceService,port,appRoot,machineFile,configFile}={}){
  if(!Number.isSafeInteger(port)||port<1||port>65535||typeof appRoot!=='string'||!path.isAbsolute(appRoot)||(manager&&sourceService)||
@@ -134,8 +140,9 @@ function createGameDayWeb({manager,sourceService,port,appRoot,machineFile,config
  router.get('/game-day/api/events',auth,available,(req,res)=>{void Promise.resolve().then(()=>req.gameDayManager.listEvents()).then(value=>{if(!res.destroyed&&!res.writableEnded)res.status(apiStatus(value)).json(value);},()=>send(res,503,'CATALOG_INVALID'));});
  // Source browsing (backlog item 4a). Status is a plain read; refresh and the
  // page reads are POSTs behind the same Origin/CSRF checks as every mutation
- // because the guard refuses query strings. Nothing here approves, prepares,
- // writes the source or touches playback; every answer is path-free.
+ // because the guard refuses query strings. Only approve and revoke (item 4c)
+ // write, and only the approval store; nothing here prepares, writes the
+ // source or touches playback; every answer is path-free.
  router.get('/game-day/api/source/status',auth,backendReady,sourceReady,(req,res)=>{
   try{res.json({ok:true,ready:false,status:req.gameDaySource.status(),catalog:req.gameDaySource.catalogState()});}catch{send(res,500,'STATE_UNAVAILABLE');}
  });
@@ -145,7 +152,13 @@ function createGameDayWeb({manager,sourceService,port,appRoot,machineFile,config
  },auth,backendReady,csrf,express.json({limit:4096,strict:true,inflate:false}));
  const sourceRoutes=[['refresh',[],()=>true,source=>source.refreshCatalog()],
   ['events',['revision','offset','limit'],page,(source,raw)=>source.catalogEventsPage({revision:raw.revision,offset:raw.offset,limit:raw.limit})],
-  ['selections',['revision','eventKey','offset','limit'],raw=>page(raw)&&eventKey(raw.eventKey),(source,raw)=>source.catalogSelectionsPage({revision:raw.revision,eventKey:raw.eventKey,offset:raw.offset,limit:raw.limit})]];
+  ['selections',['revision','eventKey','offset','limit'],raw=>page(raw)&&eventKey(raw.eventKey),(source,raw)=>source.catalogSelectionsPage({revision:raw.revision,eventKey:raw.eventKey,offset:raw.offset,limit:raw.limit})],
+  // PC confirmation (item 4c): review reads the source metadata and the
+  // approval store; approve and revoke write the store, nothing else.
+  ['review',['identityTuple'],raw=>identityTuple(raw.identityTuple),(source,raw)=>source.reviewSelection([...raw.identityTuple])],
+  ['approve',['identityTuple','inspectionRevision','productionWindow'],raw=>identityTuple(raw.identityTuple)&&typeof raw.inspectionRevision==='string'&&REVISION.test(raw.inspectionRevision)&&windowBody(raw.productionWindow),
+   (source,raw)=>source.confirmSelection({identityTuple:[...raw.identityTuple],inspectionRevision:raw.inspectionRevision,productionWindow:{start:raw.productionWindow.start,end:raw.productionWindow.end,prewarmMinutes:raw.productionWindow.prewarmMinutes}})],
+  ['revoke',['identityTuple'],raw=>identityTuple(raw.identityTuple),(source,raw)=>source.revokeSelection({identityTuple:[...raw.identityTuple]})]];
  for(const[name,keys,valid,invoke]of sourceRoutes)router.post('/game-day/api/source/'+name,sourceReady,(req,res)=>{
   if(!body(req.body,keys)||!valid(req.body))return send(res,400,'INVALID_REQUEST');
   void Promise.resolve().then(()=>invoke(req.gameDaySource,req.body)).then(value=>{if(!res.destroyed&&!res.writableEnded)res.status(sourceApiStatus(value)).json(value);},()=>send(res,503,'SOURCE_SERVICE_FAILED'));

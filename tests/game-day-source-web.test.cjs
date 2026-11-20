@@ -92,7 +92,19 @@ test('source routes keep the exact HTTP schema, CSRF and Origin rules',async t=>
   assert.equal((await s.post(p,'/game-day/api/source/refresh',{},{Origin:'https://foreign.invalid'})).value.code,'ORIGIN_DENIED');
   assert.equal((await s.request('/game-day/api/source/refresh',{headers:{Cookie:p.cookie}})).status,405,'refresh is POST only');
   assert.equal((await s.request('/game-day/api/source/status?x=1',{headers:{Cookie:p.cookie}})).status,400,'no query strings');
-  const unknown=await s.post(p,'/game-day/api/source/approve',{});assert.equal(unknown.status,404,'no approval route in this slice');
+  const unknown=await s.post(p,'/game-day/api/source/prepare',{});assert.equal(unknown.status,404,'no source preparation route in this slice');
+  // Item 4c bodies are exact too.
+  const tupleBody=[...m.identityTuple],win={start:'2026-10-23T18:00:00-05:00',end:'2026-10-23T23:45:00-05:00',prewarmMinutes:15};
+  const badApproval=[['review',{}],['review',{identityTuple:tupleBody.slice(0,4)}],['review',{identityTuple:[...tupleBody.slice(0,4),7]}],['review',{identityTuple:[...tupleBody.slice(0,4),'x'.repeat(201)]}],
+    ['review',{identityTuple:[...tupleBody.slice(0,4),'a\u0007b']}],['review',{identityTuple:tupleBody,extra:1}],['revoke',{identityTuple:'2026-2027'}],
+    ['approve',{identityTuple:tupleBody,inspectionRevision:'0'.repeat(64)}],['approve',{identityTuple:tupleBody,inspectionRevision:'Z'.repeat(64),productionWindow:win}],
+    ['approve',{identityTuple:tupleBody,inspectionRevision:'0'.repeat(64),productionWindow:{start:win.start,end:win.end}}],
+    ['approve',{identityTuple:tupleBody,inspectionRevision:'0'.repeat(64),productionWindow:{...win,prewarmMinutes:61}}],
+    ['approve',{identityTuple:tupleBody,inspectionRevision:'0'.repeat(64),productionWindow:{...win,start:'x'.repeat(41)}}],
+    ['approve',{identityTuple:tupleBody,inspectionRevision:'0'.repeat(64),productionWindow:{...win,note:'x'}}]];
+  for(const[name,json]of badApproval){const r=await s.post(p,'/game-day/api/source/'+name,json);assert.equal(r.status,400,name+' '+JSON.stringify(json));assert.deepEqual(r.value,{ok:false,code:'INVALID_REQUEST'});}
+  assert.equal((await s.post(p,'/game-day/api/source/approve',{identityTuple:tupleBody,inspectionRevision:'0'.repeat(64),productionWindow:win},{'X-PiRaiders-CSRF':'f'.repeat(64)})).value.code,'CSRF_DENIED');
+  assert.equal((await s.post(p,'/game-day/api/source/revoke',{identityTuple:tupleBody},{Origin:'https://foreign.invalid'})).value.code,'ORIGIN_DENIED');
   // The retained-root check still applies through HTTP.
   const g=await fixture(t);await g.publish(source());
   const wrongFile=await machineFile(g,{expectedCanonicalRoot:path.join(g.parent,'retained elsewhere')});
@@ -120,7 +132,8 @@ test('a local-folder adapter has no source routes, and the trusted options are e
   assert.ok(!p.response.text.includes('exchange folder'),'no source notice on a local-folder machine');
   assert.ok(p.response.text.includes('<body data-mode="local">')&&!p.response.text.includes('source-section'),'no exchange catalog screen on a local-folder machine');
   const service={refreshCatalog:async()=>{throw Object.assign(Error('C:\\private\\path'),{code:'X'});},catalogState:()=>({available:false,catalog:null}),
-    catalogEventsPage:()=>{throw Error('boom');},catalogSelectionsPage:()=>({ok:false,code:'BUSY'}),status:()=>({ready:false}),close:()=>{}};
+    catalogEventsPage:()=>{throw Error('boom');},catalogSelectionsPage:()=>({ok:false,code:'BUSY'}),
+    reviewSelection:async()=>{throw Error('C:\\private\\review');},confirmSelection:async()=>({ok:false,code:'APPROVAL_CONFLICT'}),revokeSelection:async()=>({ok:false,code:'APPROVAL_MISSING'}),status:()=>({ready:false}),close:()=>{}};
   assert.throws(()=>createGameDayWeb({port:1,appRoot:root,manager,sourceService:service}),{code:'APP_CONFIG_INVALID'});
   assert.throws(()=>createGameDayWeb({port:1,appRoot:root,sourceService:{...service,close:undefined}}),{code:'APP_CONFIG_INVALID'});
   const fake=await serve(t,()=>({sourceService:service,appRoot:root}));const fp=await fake.page();
@@ -128,4 +141,50 @@ test('a local-folder adapter has no source routes, and the trusted options are e
   assert.ok(!thrown.text.includes('private'),'a thrown error never reaches the page');
   assert.deepEqual((await fake.post(fp,'/game-day/api/source/events',{revision:'0'.repeat(64),offset:0,limit:1})).value,{ok:false,code:'SOURCE_SERVICE_FAILED'});
   assert.equal((await fake.post(fp,'/game-day/api/source/selections',{revision:'0'.repeat(64),eventKey:'e',offset:0,limit:1})).status,409);
+  // Item 4c: the confirmation methods are part of the exact service shape.
+  for(const name of ['reviewSelection','confirmSelection','revokeSelection'])
+    assert.throws(()=>createGameDayWeb({port:1,appRoot:root,sourceService:{...service,[name]:undefined}}),{code:'APP_CONFIG_INVALID'});
+  const tupleBody=['2026-2027','EV','BOARD','event','label'];
+  const review=await fake.post(fp,'/game-day/api/source/review',{identityTuple:tupleBody});
+  assert.deepEqual([review.status,review.value],[503,{ok:false,code:'SOURCE_SERVICE_FAILED'}]);assert.ok(!review.text.includes('private'));
+  const windowBody={start:'2026-10-23T18:00:00-05:00',end:'2026-10-23T23:45:00-05:00',prewarmMinutes:15};
+  assert.equal((await fake.post(fp,'/game-day/api/source/approve',{identityTuple:tupleBody,inspectionRevision:'0'.repeat(64),productionWindow:windowBody})).status,409);
+  assert.equal((await fake.post(fp,'/game-day/api/source/revoke',{identityTuple:tupleBody})).status,503);
+});
+
+// Item 4c over real HTTP: review, approve and revoke with the real service
+// and the real approval store on temporary synthetic folders.
+test('a source machine reviews, approves and revokes one selection over HTTP, path-free',async t=>{
+  const {createExchangeApprovalStore}=require('../scripts/lib/exchange-approval-store.cjs');
+  const f=await fixture(t),m=source();await f.publish(m);
+  const file=await machineFile(f),raw=JSON.parse(await fs.readFile(file,'utf8'));
+  const s=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json')}));
+  const p=await s.page(),responses=[];const keep=r=>{responses.push(r.text);return r;};
+  const tupleBody=[...m.identityTuple],win={start:'2026-10-23T18:00:00-05:00',end:'2026-10-23T23:45:00-05:00',prewarmMinutes:20};
+  // No approval store yet: review still shows the selection; nothing can be written.
+  const first=keep(await s.post(p,'/game-day/api/source/review',{identityTuple:tupleBody}));
+  assert.equal(first.status,200,first.text);assert.equal(first.value.approval.read,false);assert.equal(first.value.approval.code,'APPROVAL_MISSING');
+  assert.equal(first.value.inspection.selection.displayLabel,m.button.displayLabel);assert.equal(first.value.admissionEligible,true);
+  const noStore=keep(await s.post(p,'/game-day/api/source/approve',{identityTuple:tupleBody,inspectionRevision:first.value.inspection.revision,productionWindow:win}));
+  assert.equal(noStore.status,503);assert.equal(noStore.value.code,'APPROVAL_MISSING');
+  await fs.mkdir(path.dirname(raw.source.approvalDirectory),{recursive:true});
+  assert.equal((await createExchangeApprovalStore().initialize(raw.source.approvalDirectory,raw.source.approvalStoreId)).ok,true);
+  const review=keep(await s.post(p,'/game-day/api/source/review',{identityTuple:tupleBody}));
+  assert.deepEqual(review.value.approval,{read:true,code:null,revision:0,record:null});
+  const stale=keep(await s.post(p,'/game-day/api/source/approve',{identityTuple:tupleBody,inspectionRevision:'0'.repeat(64),productionWindow:win}));
+  assert.equal(stale.status,409);assert.equal(stale.value.code,'APPROVAL_INSPECTION_STALE');
+  const backwards=keep(await s.post(p,'/game-day/api/source/approve',{identityTuple:tupleBody,inspectionRevision:review.value.inspection.revision,productionWindow:{...win,start:win.end,end:win.start}}));
+  assert.equal(backwards.status,400);assert.equal(backwards.value.code,'APPROVAL_WINDOW_INVALID');
+  const approved=keep(await s.post(p,'/game-day/api/source/approve',{identityTuple:tupleBody,inspectionRevision:review.value.inspection.revision,productionWindow:win}));
+  assert.equal(approved.status,200,approved.text);
+  assert.deepEqual(approved.value,{ok:true,ready:false,changed:true,revision:1,approval:{productionWindow:{start:'2026-10-23T23:00:00.000Z',end:'2026-10-24T04:45:00.000Z',prewarmMinutes:20},current:true,offlinePinned:false}});
+  const status=keep(await s.request('/game-day/api/source/status',{headers:{Cookie:p.cookie}}));
+  assert.equal(status.value.status.approvals.read,true);assert.equal(status.value.status.approvals.revision,1);assert.equal(status.value.status.ready,false);
+  assert.deepEqual(keep(await s.post(p,'/game-day/api/source/review',{identityTuple:tupleBody})).value.approval.record,approved.value.approval);
+  // Playback is still refused on a source machine (item 4d).
+  assert.equal(keep(await s.request('/game-day/api/state',{headers:{Cookie:p.cookie}})).value.code,'SOURCE_PLAYBACK_NOT_READY');
+  const revoked=keep(await s.post(p,'/game-day/api/source/revoke',{identityTuple:tupleBody}));
+  assert.equal(revoked.status,200);assert.deepEqual(revoked.value,{ok:true,ready:false,changed:true,revision:2,approval:null});
+  assert.equal((await createExchangeApprovalStore().open(raw.source.approvalDirectory,raw.source.approvalStoreId)).approvals.length,0,'the store holds the revocation');
+  for(const r of responses)noPaths(r,f);
 });

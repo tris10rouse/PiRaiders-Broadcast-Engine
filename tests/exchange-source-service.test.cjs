@@ -7,7 +7,7 @@ const {createExchangeApprovalStore}=require('../scripts/lib/exchange-approval-st
 const {createExchangeSourceService}=require('../scripts/lib/exchange-source-service.cjs');
 const {isExchangePreparedMedia,admitExchangeCandidate}=require('../scripts/lib/exchange-source-provider.cjs');
 const {createExchangeSourceCoordinator}=require('../scripts/lib/exchange-source-coordinator.cjs');
-const {fixture,source,profileFor,latch,copy}=require('./exchange-provider-fixtures.cjs');
+const {fixture,source,seal,profileFor,latch,copy}=require('./exchange-provider-fixtures.cjs');
 
 async function machineFor(f,{mediaRoot=f.config.sourceRoot,expectedCanonicalRoot=f.config.sourceRoot,edit=raw=>raw}={}){
   const raw={schemaVersion:1,spxConfigFile:'config/spx.json',catalogDirectory:path.join(f.parent,'catalog'),
@@ -184,4 +184,74 @@ test('cached startup through the service rereads approvals and never touches the
   const driver=await service.preparedMedia(profile),prepared=await driver.initial();
   assert.equal(prepared.snapshotDir,staged.prepared.snapshotDir);assert.equal(admitExchangeCandidate(driver.admissionToken(),profile),true);
   driver.close();
+});
+
+// Item 4c: the PC confirmation writes through the service and the manager
+// hooks see it; review, confirm and revoke are path-free.
+test('confirm and revoke write this machine\'s approval store and reach the manager hooks',async t=>{
+  const f=await fixture(t),m=source();await f.publish(m);
+  const machine=await machineFor(f);await approvals(machine);const service=serviceFor(t,machine);
+  const profile=profileFor(f,m),context=Object.freeze({profile}),tuple=[...m.identityTuple];
+  const review=await service.reviewSelection(tuple);noPaths(review,f);
+  assert.equal(review.ok,true,review.code);assert.equal(review.ready,false);assert.equal(review.admissionEligible,true);
+  assert.deepEqual(JSON.parse(JSON.stringify(review.approval)),{read:true,code:null,revision:0,record:null});
+  const revision=review.inspection.revision;
+  // Requests are exact; a bad window or an old inspection writes nothing.
+  for(const bad of [undefined,{identityTuple:tuple,inspectionRevision:revision},{identityTuple:tuple.slice(0,4),inspectionRevision:revision,productionWindow:profile.productionWindow},
+    {identityTuple:tuple,inspectionRevision:'X',productionWindow:profile.productionWindow},{identityTuple:tuple,inspectionRevision:revision,productionWindow:profile.productionWindow,extra:1}])
+    assert.equal((await service.confirmSelection(bad)).code,'APPROVAL_REQUEST_INVALID');
+  for(const window of [{start:profile.productionWindow.end,end:profile.productionWindow.start,prewarmMinutes:15},{start:'2026-11-17T00:00:00Z',end:'2026-11-18T00:00:01Z',prewarmMinutes:15},
+    {start:'2026-11-17 00:00',end:'2026-11-17T23:00:00Z'},{...profile.productionWindow,prewarmMinutes:61},{...profile.productionWindow,other:1}])
+    assert.equal((await service.confirmSelection({identityTuple:tuple,inspectionRevision:revision,productionWindow:window})).code,'APPROVAL_WINDOW_INVALID');
+  assert.equal((await service.confirmSelection({identityTuple:tuple,inspectionRevision:'0'.repeat(64),productionWindow:profile.productionWindow})).code,'APPROVAL_INSPECTION_STALE');
+  assert.equal((await service.reviewSelection(tuple)).approval.revision,0,'nothing was written');
+  assert.equal(await service.admission.refreshAdmission(context),false);
+  // A window given with an offset is saved in normal form and still matches.
+  const confirmed=await service.confirmSelection({identityTuple:tuple,inspectionRevision:revision,productionWindow:{start:'2026-11-16T18:00:00-06:00',end:'2026-11-17T17:00:00-06:00',prewarmMinutes:15}});
+  assert.equal(confirmed.ok,true,confirmed.code);assert.equal(confirmed.changed,true);assert.equal(confirmed.revision,1);noPaths(confirmed,f);
+  assert.deepEqual(JSON.parse(JSON.stringify(confirmed.approval)),{productionWindow:{start:'2026-11-17T00:00:00.000Z',end:'2026-11-17T23:00:00.000Z',prewarmMinutes:15},current:true,offlinePinned:false});
+  assert.equal(service.admission.admitCandidate(context),true,'the write was reread at once');
+  assert.equal(await service.admission.refreshAdmission(context),true);
+  assert.equal(await service.admission.refreshAdmission({profile:{...profile,productionWindow:{...profile.productionWindow,prewarmMinutes:10}}}),false,'only the confirmed window');
+  const again=await service.confirmSelection({identityTuple:tuple,inspectionRevision:revision,productionWindow:profile.productionWindow});
+  assert.equal(again.ok,true);assert.equal(again.changed,false,'the same confirmation adds no record');assert.equal(again.revision,1);
+  assert.equal((await service.reviewSelection(tuple)).approval.record.current,true);
+  // Revoke never reads the source: it works with the folder gone.
+  await fs.rename(f.config.sourceRoot,path.join(f.parent,'disconnected-source'));
+  assert.equal((await service.reviewSelection(tuple)).code,'SOURCE_UNAVAILABLE');
+  assert.equal((await service.confirmSelection({identityTuple:tuple,inspectionRevision:revision,productionWindow:profile.productionWindow})).code,'SOURCE_UNAVAILABLE');
+  const revoked=await service.revokeSelection({identityTuple:tuple});
+  assert.equal(revoked.ok,true,revoked.code);assert.equal(revoked.changed,true);assert.equal(revoked.approval,null);assert.equal(revoked.revision,2);
+  assert.equal(service.admission.admitCandidate(context),false,'revocation withdraws admission at once');
+  assert.equal((await service.revokeSelection({identityTuple:tuple})).changed,false,'nothing left to revoke');
+  assert.equal((await service.revokeSelection({identityTuple:tuple,extra:1})).code,'APPROVAL_REQUEST_INVALID');
+  service.close();
+  for(const value of [await service.reviewSelection(tuple),await service.confirmSelection({identityTuple:tuple,inspectionRevision:revision,productionWindow:profile.productionWindow}),await service.revokeSelection({identityTuple:tuple})])
+    assert.equal(value.code,'SOURCE_SERVICE_CLOSED');
+});
+
+test('confirmation refuses an ineligible event, a missing store, a moved machine policy and a second writer',async t=>{
+  const f=await fixture(t),m=source();m.event.eligibility={eligible:false,reasonCodes:['CANCELLED']};seal(m);await f.publish(m);
+  const machine=await machineFor(f),tuple=[...m.identityTuple],profile=profileFor(f,m);
+  const entered=latch(),release=latch(),store=createExchangeApprovalStore();
+  const slow={open:(...a)=>store.open(...a),append:async(...a)=>{entered.release();await release.promise;return store.append(...a);}};
+  const service=serviceFor(t,machine,{approvalStore:slow});
+  const missing=await service.reviewSelection(tuple);assert.equal(missing.ok,true);
+  assert.deepEqual(JSON.parse(JSON.stringify(missing.approval)),{read:false,code:'APPROVAL_MISSING',record:null},'the store is set up explicitly, never by the screen');
+  assert.equal((await service.revokeSelection({identityTuple:tuple})).code,'APPROVAL_MISSING');
+  await fs.mkdir(path.dirname(machine.source.approvalDirectory),{recursive:true});
+  assert.equal((await store.initialize(machine.source.approvalDirectory,machine.source.approvalStoreId)).ok,true);
+  const revision=missing.inspection.revision;
+  assert.equal((await service.confirmSelection({identityTuple:tuple,inspectionRevision:revision,productionWindow:profile.productionWindow})).code,'APPROVAL_SELECTION_INELIGIBLE');
+  // A record saved under another machine policy is shown as not current and admits nothing.
+  const head=await store.open(machine.source.approvalDirectory,machine.source.approvalStoreId);
+  assert.equal((await store.append(machine.source.approvalDirectory,{expectedStoreId:machine.source.approvalStoreId,expectedRevision:head.revision,expectedHeadSha256:head.headSha256,
+    approval:confirmFor(service,machine,profile,{machinePolicyFingerprint:'e'.repeat(64)})})).ok,true);
+  assert.equal((await service.reviewSelection(tuple)).approval.record.current,false);
+  assert.equal(await service.admission.refreshAdmission({profile}),false);
+  // One write at a time: the second waits for nothing and changes nothing.
+  const first=service.revokeSelection({identityTuple:tuple});await entered.promise;
+  assert.equal((await service.revokeSelection({identityTuple:tuple})).code,'BUSY');
+  release.release();const done=await first;assert.equal(done.ok,true,done.code);assert.equal(done.changed,true);
+  assert.equal((await service.reviewSelection(tuple)).approval.record,null);
 });

@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-20 (ninth run, lock fence 55). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (tenth run, lock fence 56). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## State of master
 
@@ -12,18 +12,18 @@ Last updated 2026-11-20 (ninth run, lock fence 55). Keep this to one screen. His
 - **Exact approval revalidation** (BE-006 slice 3a, PR #63, merged as `fe0812c`): one module fingerprints the machine's source policy and decides saved approvals exactly, rereading the store before each new event is published, started and acknowledged. Not used by the application yet. All 12 checks on the PR and all 9 on master after the merge were green.
 - **Source catalog service** (BE-006 slice 3b, PR #65, merged as `f9d8e46`): one object built from the machine configuration owns the provider and the approval check. All 6 check groups on master after the merge were green.
 - **Source catalog routes** (item 4a, PR #66, merged as `ff92534` by the eighth run, fence 54): the web part builds the source service on a source machine and serves status, refresh, events-page and selections-page routes; playback routes there answer `SOURCE_PLAYBACK_NOT_READY`. All 12 checks on its final commit and all 6 check groups on master after the merge green. Still recorded, not rerun: the prepared-event proof failure on `398e336` (cause unknown) and one Windows baseline `ETIMEDOUT` on `7acbb00`.
-- **Source catalog screen** (item 4b, PR #67, merged as `ac88976`): on a source machine the Game Day page shows **Exchange events** instead of the local list: auto-read on open, school year and counts, events and an event's board buttons 25 per page, a read-only review of one button, stale/unavailable/busy states with a refresh button. Local machines unchanged. All 12 checks on its final commit `15c7d66` green; read the master checks after the merge at the start of the next run.
+- **Source catalog screen** (item 4b, PR #67, merged as `ac88976`): on a source machine the Game Day page shows **Exchange events** instead of the local list: auto-read on open, school year and counts, events and an event's board buttons 25 per page, a read-only review of one button, stale/unavailable/busy states with a refresh button. Local machines unchanged. All 12 checks on `15c7d66` and all 6 check groups on master after the merge green.
+- **Review and approval** (item 4c, branch `feature/be-006-source-approval`, PR_LINE): the service reviews (fresh inspection plus the saved approval), confirms (re-inspects; refuses a changed revision or an ineligible event) and revokes (never reads the source) in this machine's approval store; routes `source/review`, `source/approve`, `source/revoke`; the chosen button gets **Check this button** and a two-step confirmation. Store setup is a setup step (item 5), never a screen action. Online confirmations only. Design: `EXCHANGE_SOURCE_SERVICE.md` › Review and approval.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
-- The selector screen, approval and playback on a source machine are still not built. First evaluation release: NOT READY. No Windows artifact exists.
+- Preparation and playback on a source machine are still not built. First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
 Item 4 is split into 4a–4d in the backlog's top section (success criteria there).
 
-1. Confirm the checks on master after PR #67 and this note are green. If a Windows process listing times out again, make the test-side `processTable` callers repeat a timed-out listing a bounded number of times and record each attempt, as the Caspar proof already does (its own increment and PR).
-2. 4c: inspection, confirm and revoke routes and the confirmation screen (build on `#source-choice` in the view; decide first-time approval store setup there).
-3. 4d: preparation and playback of an approved selection on a source machine.
-4. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
+1. NEXT_ONE
+2. 4d: preparation and playback of an approved selection on a source machine (a manager whose catalog lists approved selections, `preparedMedia` and the service's admission hooks). If a Windows process listing times out again, make the test-side `processTable` callers repeat a timed-out listing a bounded number of times and record each attempt (its own increment and PR).
+3. Real Windows exchange activation; then setup (approval store setup step, offline pins), diagnostics and recovery; close and startup proofs; the four-hour soak.
 
 ## Open risks
 
@@ -34,7 +34,8 @@ Item 4 is split into 4a–4d in the backlog's top section (success criteria ther
 - The NDI, console, prepared-event and full-app proofs still make a single process listing at their captures and can fail the way the Caspar proof did.
 - This sandbox cannot run `npm ci` exactly: one locked package (the spreadsheet reader) comes from a host the sandbox blocks. Local Linux runs use the registry's 0.18.5 as a stand-in, with `package.json` and the lock file restored afterwards; the stand-in lacks `set_fs`, so add a no-op `set_fs` export to the local copy or the 7 real-SPX startup tests fail. GitHub's checks are the authority.
 - The source reader refuses a linked source root (`UNSAFE_INPUT`), although `SOURCE_MACHINE_POLICY.md` allows "a configured alias". The service's root check accepts one; the reader then refuses it. Whether the stadium PC's Drive folder is reached through a link is unknown; decide when setup is written.
-- The browser suite's new file `tests/browser/game-day-source.browser.cjs` is in `npm run test:browser`; locally it needs `PIRAIDERS_BROWSER_EXECUTABLE=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`.
+- The browser suite's file `tests/browser/game-day-source.browser.cjs` is in `npm run test:browser`; locally it needs `PIRAIDERS_BROWSER_EXECUTABLE=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`, and no `--test-timeout` (that flag times out the whole file).
+- The approval screen's window inputs use the PC's own clock; the confirmation shows Central time. If the stadium PC is not set to Central time the operator sees both; not tested on Windows.
 - Two old Codex branches are not in master and have no pull request: `feature/be-008-extracted-app-output` (Nov 15) and `feature/windows-development-bundle` (Nov 13). Not reviewed; do not merge them blind.
 - Twelve proposals for the fixture pack and contract wait on the scheduler side (`FIXTURE_RESULTS_FOR_SCHEDULER.md`). Proposal 11 (JPEG limit cases in the pack) still stands after the fix. The Engine changes no schema and no contract text on its own.
 - Nothing has been tested on Windows 10, the stadium PC, a synced folder, NDI over a network or the board.

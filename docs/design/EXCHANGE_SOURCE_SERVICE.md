@@ -57,3 +57,28 @@ The view renders `<body data-mode="source">` and an **Exchange events** section 
 - **Problems:** a status poll that sees a different revision, or a page answering `CATALOG_REVISION_STALE` / `CATALOG_UNAVAILABLE`, empties the lists and shows a message with a refresh button; `CATALOG_EVENT_MISSING` empties only the event's buttons; `BUSY` keeps the lists. A failed refresh (`SOURCE_UNAVAILABLE`, `SOURCE_ROOT_MISMATCH`, …) shows no catalog. Superseded refreshes defer to the newest one through status.
 - Stop and the playback controls are not touched; with no playback state they stay disabled on a source machine.
 - Tests: `tests/browser/game-day-source.browser.cjs` (6 tests, desktop and 390 px). Removing the stale check, the busy rule or the newest-request guard each made a test fail.
+
+## Review and approval (backlog item 4c, 2026-11-20)
+
+The service now writes PC confirmations to this machine's approval store (`EXCHANGE_APPROVAL_STORE.md`); the revalidator (`EXCHANGE_APPROVAL_POLICY.md`) stays the only place that decides admission. One store object serves both.
+
+- `reviewSelection(tuple, {signal}?)`: checks the source root, inspects the selection (metadata only) and reads the store. Returns `{ok:true, ready:false, admissionEligible, inspection, approval}`; `approval` is `{read:true, code:null, revision, record}` or `{read:false, code, record:null}` (for example `APPROVAL_MISSING` before setup). `record` is `null` or `{productionWindow, current, offlinePinned}`; `current` is false for a record saved under another machine-policy fingerprint, which admits nothing.
+- `confirmSelection({identityTuple, inspectionRevision, productionWindow})`: exact request (`APPROVAL_REQUEST_INVALID`); window normalised with the production-window rules (`APPROVAL_WINDOW_INVALID`); then a fresh inspection: a different inspection revision is `APPROVAL_INSPECTION_STALE`, an ineligible event `APPROVAL_SELECTION_INELIGIBLE`, a source problem its own code. Only then one `confirm` record is appended with this machine's policy fingerprint, provider, binding, tuple, the normalised window and `offline:null`. The same confirmation again adds nothing (`changed:false`).
+- `revokeSelection({identityTuple})`: appends a `revoke`; never reads the source. Nothing to revoke is `changed:false`.
+- One write at a time per service (`BUSY`); the store's expected revision and head turn a writer elsewhere into `APPROVAL_CONFLICT`. After every write attempt the revalidator rereads the store, so a revocation withdraws admission at once. A write during a manager admission reread overtakes that reread, which then denies (fails closed).
+- Results are path-free: codes, the inspection, the record's window and two flags.
+- Store setup stays explicit: no screen or route creates the store (decision: part of the setup increment, item 5). Cached-startup pins (`offline`) are not written here.
+
+| Route | Body | Calls |
+|---|---|---|
+| `POST /game-day/api/source/review` | `{identityTuple}` | `reviewSelection` |
+| `POST /game-day/api/source/approve` | `{identityTuple, inspectionRevision, productionWindow:{start, end, prewarmMinutes}}` | `confirmSelection` |
+| `POST /game-day/api/source/revoke` | `{identityTuple}` | `revokeSelection` |
+
+The HTTP layer keeps the bodies exact (tuple: 5 strings of at most 200 UTF-16 units without control characters; revision 64 lowercase hex; start and end strings of at most 40; warm-up an integer 0–60) behind the same guard and CSRF as the other source routes. Status codes: request, window and selection-shape codes 400; `APPROVAL_INSPECTION_STALE`, `APPROVAL_SELECTION_INELIGIBLE`, `APPROVAL_CONFLICT` and `BUSY` 409; everything else (including `APPROVAL_MISSING`) 503.
+
+**Screen.** The chosen button's panel has **Check this button** (review), then shows the checked version, the scheduler's times in Central time, timing warnings in plain words and the saved approval. The window form is prefilled from the scheduler's broadcast window on this PC's clock (warm-up 15), validated on the page, and needs a second **Confirm approval** that states the button, board, event and window in Central time. **Revoke approval…** has the same confirmation. A late review or write answer for an older choice, catalog or review is dropped; a stale answer clears the review so the operator checks again. With no approval list, an unreadable list or an ineligible event the form is not offered. Playback controls and Stop are untouched.
+
+Tests: `tests/exchange-source-service.test.cjs` (2 new), `tests/game-day-source-web.test.cjs` (1 new, exact bodies), `tests/browser/game-day-source.browser.cjs` (3 new, desktop and 390 px). Removing the inspection-revision check, the eligibility check, the reread after a write, the one-writer rule or the `current` flag each made a test fail.
+
+Not done here: preparation and playback of an approved selection on a source machine (item 4d); store setup and cached-startup pins (later work); no Windows, stadium PC or synced-folder evidence.

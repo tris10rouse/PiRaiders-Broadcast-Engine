@@ -27,7 +27,7 @@ function catalog(){
     const key='EV-'+pad(i);
     events.push({eventKey:key,displayName:'Synthetic event '+pad(i),eventDate:'2026-10-'+pad(i),eventType:'Synthetic',homeSchool:'Synthetic',venue:'Synthetic field',
       playbackArea:'Stadium Playback',boardOnly:false,eventBoard:{boardKey:'BOARD-MAIN',displayName:'Synthetic main board'},eligibility:{eligible:true,reasonCodes:[]},timingProposal:null,selectionCount:i===2?30:1});
-    selections[key]=Array.from({length:i===2?30:1},(_,n)=>({selectionId:'sel-'+pad(i)+'-'+pad(n),identityTuple:{eventKey:key,n},origin:'event',targetBoardKey:n%2?'BOARD-SIDE':'BOARD-MAIN',
+    selections[key]=Array.from({length:i===2?30:1},(_,n)=>({selectionId:'sel-'+pad(i)+'-'+pad(n),identityTuple:['2026-2027',key,n%2?'BOARD-SIDE':'BOARD-MAIN','event','Synthetic button '+pad(n)],origin:'event',targetBoardKey:n%2?'BOARD-SIDE':'BOARD-MAIN',
       displayLabel:n===0&&i===2?'Synthetic button with a deliberately long label that has to wrap on a narrow phone screen':'Synthetic button '+pad(n),templateButtonKey:null,labelShared:false,
       generation:'gen-'+pad(i)+'-'+pad(n),generationSequence:1,playbackFingerprint:'d'.repeat(64),metadataFingerprint:'b'.repeat(64),manifestState:n===3?'incomplete':'complete',occurrenceCount:n+1}));
   }
@@ -35,7 +35,9 @@ function catalog(){
 }
 async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
   const data=catalog();
-  const model={revision:'a'.repeat(64),sequence:7,available:false,statusHidden:false,refreshCode,pageCode:null,hold:null,requests:[]};
+  const model={revision:'a'.repeat(64),sequence:7,available:false,statusHidden:false,refreshCode,pageCode:null,hold:null,requests:[],
+    // Item 4c: review, approve and revoke.
+    inspectionRevision:'f'.repeat(64),eligible:true,approvalRead:true,approvals:new Map(),storeRevision:0,reviewHold:null,timing:true};
   const summary=()=>({scope:'source-catalog-metadata',ready:false,revision:model.revision,feedId:'synthetic-feed',epoch:1,schoolYear:'2026-2027',catalogSequence:model.sequence,eventCount:data.events.length});
   const html=await exphbs.create({extname:'.handlebars'}).render(VIEW,{csrfToken:'c'.repeat(64),sourceMode:true},{layout:false});
   const server=http.createServer(async(req,res)=>{try{
@@ -62,17 +64,36 @@ async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
       if(!rows)return answer(404,{ok:false,ready:false,code:'CATALOG_EVENT_MISSING'});
       const page={ok:true,...summary(),offset:body.offset,limit:body.limit,total:rows.length,nextOffset:body.offset+body.limit<rows.length?body.offset+body.limit:null};
       return answer(200,route==='source/events'?{...page,events:rows.slice(body.offset,body.offset+body.limit)}:{...page,eventKey:body.eventKey,selections:rows.slice(body.offset,body.offset+body.limit)});}
+    if(route==='source/review'&&req.method==='POST'){
+      const hold=model.reviewHold;if(hold&&body.identityTuple[4]===hold.label){model.reviewHold=null;hold.entered.resolve();await hold.release.promise;}
+      const key=JSON.stringify(body.identityTuple),row=Object.values(data.selections).flat().find(x=>JSON.stringify(x.identityTuple)===key);
+      if(!row)return answer(503,{ok:false,ready:false,code:'SOURCE_SELECTION_MISSING'});
+      const broadcastWindow=model.timing?{startsAt:'2026-10-23T18:00:00-05:00',endsAt:'2026-10-23T23:45:00-05:00',startSource:'event_type_lead_tail',endSource:'event_type_fixed_end'}:{startsAt:null,endsAt:null,startSource:'missing',endSource:'missing'};
+      return answer(200,{ok:true,ready:false,admissionEligible:model.eligible,
+        inspection:{ready:false,revision:model.inspectionRevision,selection:{selectionId:row.selectionId,identityTuple:row.identityTuple,displayLabel:row.displayLabel,targetBoardKey:row.targetBoardKey,generation:row.generation,manifestState:row.manifestState,occurrenceCount:row.occurrenceCount},
+          event:{eventKey:body.identityTuple[1],displayName:'Synthetic',eventDate:'2026-10-23'},timingProposal:{available:model.timing,broadcastWindow,reviewFlags:model.timing?[]:['INSTANTS_UNAVAILABLE'],operatorConfirmationRequired:true,ready:false},
+          sourceTicks:{onBoardAll:false,eventBoardLoaded:false,loadedForYear:null},timeZone:'America/Chicago'},
+        approval:model.approvalRead?{read:true,code:null,revision:model.storeRevision,record:model.approvals.get(key)||null}:{read:false,code:'APPROVAL_MISSING',record:null}});}
+    if(route==='source/approve'&&req.method==='POST'){
+      if(body.inspectionRevision!==model.inspectionRevision)return answer(409,{ok:false,ready:false,code:'APPROVAL_INSPECTION_STALE'});
+      const w=body.productionWindow,record={productionWindow:{start:new Date(w.start).toISOString(),end:new Date(w.end).toISOString(),prewarmMinutes:w.prewarmMinutes},current:true,offlinePinned:false};
+      model.approvals.set(JSON.stringify(body.identityTuple),record);model.storeRevision++;
+      return answer(200,{ok:true,ready:false,changed:true,revision:model.storeRevision,approval:record});}
+    if(route==='source/revoke'&&req.method==='POST'){
+      const changed=model.approvals.delete(JSON.stringify(body.identityTuple));if(changed)model.storeRevision++;
+      return answer(200,{ok:true,ready:false,changed,revision:model.storeRevision,approval:null});}
     answer(503,{ok:false,code:'SOURCE_PLAYBACK_NOT_READY'});
   }catch{res.statusCode=500;res.end(JSON.stringify({ok:false,code:'FIXTURE_FAILED'}));}});
   server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
-  const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce'}),page=await context.newPage();const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
-  t.after(async()=>{model.hold?.release.resolve();await context.close();await new Promise(resolve=>server.close(resolve));assert.deepEqual(pageErrors,[]);});
+  const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',timezoneId:'America/Chicago'}),page=await context.newPage();const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
+  t.after(async()=>{model.hold?.release.resolve();model.reviewHold?.release.resolve();await context.close();await new Promise(resolve=>server.close(resolve));assert.deepEqual(pageErrors,[]);});
   await page.goto(origin+'/game-day');
   return{page,model,data};
 }
 // Only the source routes are used: nothing prepares, activates, plays or asks for playback state.
-function onlySource(model){
-  for(const r of model.requests)assert.match(r.route,/^source\/(status|refresh|events|selections)$/,r.method+' '+r.route);
+// Review, approve and revoke (item 4c) only where a test lets the operator use them.
+function onlySource(model,{approvals=false}={}){
+  for(const r of model.requests)assert.match(r.route,approvals?/^source\/(status|refresh|events|selections|review|approve|revoke)$/:/^source\/(status|refresh|events|selections)$/,r.method+' '+r.route);
   for(const r of model.requests.filter(r=>r.method==='POST'))assert.equal(r.csrf,'c'.repeat(64),'every POST carries the page token');
 }
 const summaryText=page=>page.locator('#source-summary').textContent();
@@ -82,7 +103,7 @@ test('source machine: refresh, page through events and board buttons, and review
   await page.getByText('School year 2026-2027 · 30 events · catalog 7',{exact:true}).waitFor();
   assert.equal(await page.locator('#source-events > li').count(),25,'first page of events');
   assert.equal(await page.locator('#event-section, .event-section:not(.source-section)').first().isVisible(),false,'the local event list is not shown');
-  assert.equal(await page.locator('#active-detail').textContent(),'Playback on this PC needs an approved exchange selection. Approval is not built yet.');
+  assert.equal(await page.locator('#active-detail').textContent(),'Playback on this PC needs an approved exchange selection. Preparing it on this PC is not built yet.');
   assert.equal(await page.locator('#stop').isDisabled(),true);assert.equal(await page.locator('#launch').isDisabled(),true);
   await page.getByRole('button',{name:'Show more events'}).click();
   await page.locator('#source-events > li').nth(29).waitFor();assert.equal(await page.locator('#source-events > li').count(),30);
@@ -103,7 +124,8 @@ test('source machine: refresh, page through events and board buttons, and review
   assert.equal(await page.locator('#source-choice-pictures').textContent(),'4 pictures · Incomplete');
   await page.locator('#source-selections button').nth(0).click();
   assert.equal(await page.locator('#source-choice-board').textContent(),'Synthetic main board','the event board shows its name');
-  assert.match(await page.locator('#source-choice').textContent(),/not built yet\. Nothing is prepared and output is unchanged/);
+  assert.match(await page.locator('#source-check-note').textContent(),/Approving prepares and plays nothing; output is unchanged/);
+  assert.equal(await page.locator('#source-review').isVisible(),false,'nothing is checked until the operator asks');
   await page.screenshot({path:path.join(evidence,'game-day-source-desktop.png'),fullPage:true});
   // A refresh of an unchanged catalog keeps the operator's place.
   await page.getByRole('button',{name:'Refresh from exchange',exact:true}).click();
@@ -215,4 +237,121 @@ test('source machine end to end: the real web adapter and source service list a 
   assert.equal(await page.getByText('Connected to application',{exact:true}).count(),1);
   for(const text of await Promise.all(answers))for(const p of [f.parent,f.config.sourceRoot,f.config.cacheDir,f.config.journalDir])assert.equal(text.includes(p)||text.includes(JSON.stringify(p).slice(1,-1)),false,'no private path reaches the page');
   assert.deepEqual(pageErrors,[]);
+});
+
+// Item 4c: review one button, approve it for a confirmed window and revoke it.
+async function chooseFirstButton(page){
+  await page.getByText('School year 2026-2027 · 30 events · catalog 7',{exact:true}).waitFor();
+  await page.locator('#source-events button').nth(1).click();await page.locator('#source-selections > li').nth(24).waitFor();
+  await page.locator('#source-selections button').nth(0).click();
+}
+test('source machine: check a button, confirm a production window, then revoke the approval',async t=>{
+  const {page,model}=await scripted(t);
+  await chooseFirstButton(page);
+  await page.getByRole('button',{name:'Check this button'}).click();
+  await page.waitForFunction(()=>document.activeElement?.id==='source-review-heading');
+  assert.equal(await page.locator('#source-review-version').textContent(),'gen-02-00');
+  assert.equal(await page.locator('#source-review-times').textContent(),'Fri, Oct 23, 2026, 6:00 PM to Fri, Oct 23, 2026, 11:45 PM Central time');
+  assert.equal(await page.locator('#source-review-approval').textContent(),'Not approved on this PC');
+  assert.equal(await page.locator('#source-window-start').inputValue(),'2026-10-23T18:00','the scheduler’s window is offered');
+  assert.equal(await page.locator('#source-window-end').inputValue(),'2026-10-23T23:45');
+  assert.equal(await page.locator('#source-window-prewarm').inputValue(),'15');
+  assert.equal(await page.locator('#source-revoke').isVisible(),false,'nothing to revoke');
+  // A backwards window is refused on the page; nothing is sent.
+  await page.locator('#source-window-end').fill('2026-10-23T17:00');
+  await page.getByRole('button',{name:'Approve for this window…'}).click();
+  await page.getByText('The end must be after the start, and the window at most 24 hours long.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#source-window-end').getAttribute('aria-invalid'),'true');
+  assert.equal(await page.evaluate(()=>document.activeElement?.id),'source-window-end');
+  await page.locator('#source-window-end').fill('2026-10-23T23:45');await page.locator('#source-window-prewarm').fill('75');
+  await page.getByRole('button',{name:'Approve for this window…'}).click();
+  await page.getByText('Enter a warm-up of 0 to 60 whole minutes.',{exact:true}).waitFor();
+  await page.locator('#source-window-prewarm').fill('20');
+  // Confirm step: cancel sends nothing and returns focus.
+  await page.getByRole('button',{name:'Approve for this window…'}).click();
+  await page.waitForFunction(()=>document.activeElement?.id==='source-confirm-text');
+  const ask=await page.locator('#source-confirm-text').textContent();
+  assert.match(ask,/^Approve “Synthetic button with a deliberately long label that has to wrap on a narrow phone screen” on Synthetic main board for Synthetic event 02: Fri, Oct 23, 2026, 6:00 PM to Fri, Oct 23, 2026, 11:45 PM Central time, warm-up 20 minutes\. /);
+  assert.equal(await page.locator('#source-approve').isDisabled(),true,'one decision at a time');
+  await page.getByRole('button',{name:'Cancel'}).click();
+  assert.equal(await page.evaluate(()=>document.activeElement?.id),'source-approve');
+  assert.equal(model.requests.filter(r=>r.route==='source/approve').length,0,'cancel sends nothing');
+  await page.getByRole('button',{name:'Approve for this window…'}).click();
+  await page.screenshot({path:path.join(evidence,'game-day-source-confirm.png'),fullPage:true});
+  await page.getByRole('button',{name:'Confirm approval'}).click();
+  await page.getByText('Approved for this PC. Nothing is prepared or played yet.',{exact:true}).waitFor();
+  const sent=model.requests.filter(r=>r.route==='source/approve');
+  assert.deepEqual(sent.map(r=>r.body),[{identityTuple:['2026-2027','EV-02','BOARD-MAIN','event','Synthetic button 00'],inspectionRevision:'f'.repeat(64),
+    productionWindow:{start:'2026-10-23T23:00:00.000Z',end:'2026-10-24T04:45:00.000Z',prewarmMinutes:20}}],'the confirmed window, in UTC, with the checked revision');
+  assert.equal(await page.locator('#source-review-approval').textContent(),'Approved for Fri, Oct 23, 2026, 6:00 PM to Fri, Oct 23, 2026, 11:45 PM Central time, warm-up 20 minutes');
+  assert.equal(await page.locator('#stop').isDisabled(),true,'playback controls are untouched');
+  // Revoke, with its own confirmation.
+  await page.getByRole('button',{name:'Revoke approval…'}).click();
+  assert.match(await page.locator('#source-confirm-text').textContent(),/^Revoke the approval for “Synthetic button with a deliberately long label/);
+  await page.locator('#source-confirm-yes').click();
+  await page.getByText('Approval revoked on this PC.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#source-review-approval').textContent(),'Not approved on this PC');
+  assert.equal(await page.locator('#source-revoke').isVisible(),false);
+  // The scheduler changed the button after the check: nothing is saved and a new check is needed.
+  model.inspectionRevision='e'.repeat(64);
+  await page.getByRole('button',{name:'Approve for this window…'}).click();await page.getByRole('button',{name:'Confirm approval'}).click();
+  await page.getByText('The scheduler changed this button since it was checked. Nothing was saved. Check it again before approving.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#source-window').isVisible(),false,'the old review cannot be approved again');
+  assert.equal(await page.locator('#source-check').textContent(),'Check this button');
+  assert.equal(model.approvals.size,0);
+  onlySource(model,{approvals:true});
+  assert.ok(!model.requests.some(r=>/^(command|prepare|activate|discard|state|events)$/.test(r.route)),'no playback route');
+});
+
+test('source machine: a late review never lands on another button, and an unset approval list blocks approving',async t=>{
+  const {page,model}=await scripted(t);
+  await chooseFirstButton(page);
+  const hold={label:'Synthetic button 00',entered:deferred(),release:deferred()};model.reviewHold=hold;
+  await page.getByRole('button',{name:'Check this button'}).click();await hold.entered.promise;
+  assert.equal(await page.locator('#source-check').textContent(),'Checking…');
+  await page.locator('#source-selections button').nth(1).click();
+  assert.equal(await page.locator('#source-check').textContent(),'Check this button','a new choice starts unchecked');
+  // The second button is checked while the first button's answer is still held.
+  await page.getByRole('button',{name:'Check this button'}).click();
+  await page.locator('#source-review-version').getByText('gen-02-01',{exact:true}).waitFor();
+  await page.locator('#source-window-prewarm').fill('30');
+  const late=page.waitForResponse(r=>r.url().endsWith('/source/review')&&r.request().postDataJSON()?.identityTuple?.[4]==='Synthetic button 00');
+  hold.release.resolve();await(await late).finished();
+  await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,200)));
+  assert.equal(await page.locator('#source-review-version').textContent(),'gen-02-01','the first button’s late review is dropped');
+  assert.equal(await page.locator('#source-window-prewarm').inputValue(),'30','and does not reset the form');
+  assert.equal(await page.locator('#source-choice-button').textContent(),'Synthetic button 01');
+  // No approval list on this PC: the review shows it and offers no approval.
+  model.approvalRead=false;model.timing=false;
+  await page.getByRole('button',{name:'Check again'}).click();
+  await page.getByText('Approvals are not set up on this PC yet',{exact:true}).waitFor();
+  assert.equal(await page.locator('#source-window').isVisible(),false);assert.equal(await page.locator('#source-revoke').isVisible(),false);
+  assert.equal(await page.locator('#source-review-times').textContent(),'Not given by the scheduler');
+  assert.equal(await page.locator('#source-review-flags').textContent(),'Some scheduler times are missing: enter the window yourself.');
+  // An ineligible event can be reviewed, not approved.
+  model.approvalRead=true;model.eligible=false;
+  await page.getByRole('button',{name:'Check again'}).click();
+  await page.getByText(/^The scheduler marks this event as not eligible, so it cannot be approved\./).waitFor();
+  assert.equal(await page.locator('#source-window').isVisible(),false);
+  // A changed catalog withdraws the review with the lists.
+  model.eligible=true;await page.getByRole('button',{name:'Check again'}).click();await page.locator('#source-window').waitFor();
+  model.revision='b'.repeat(64);
+  await page.getByText('The exchange catalog changed since this list was read. Refresh to see the current events.',{exact:true}).waitFor({timeout:10000});
+  assert.equal(await page.locator('#source-review').isVisible(),false);assert.equal(await page.locator('#source-choice').isVisible(),false);
+  assert.equal(model.requests.filter(r=>r.route==='source/approve'||r.route==='source/revoke').length,0);
+  onlySource(model,{approvals:true});
+});
+
+test('source machine at 390 px: the approval review and confirmation fit without sideways scrolling',async t=>{
+  const {page,model}=await scripted(t,{width:390,height:844});
+  await chooseFirstButton(page);
+  await page.getByRole('button',{name:'Check this button'}).click();await page.locator('#source-window').waitFor();
+  await page.getByRole('button',{name:'Approve for this window…'}).click();await page.locator('#source-confirm').waitFor();
+  const widths=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,
+    widest:Math.max(...[...document.querySelectorAll('#source-section *')].map(e=>e.getBoundingClientRect().right))}));
+  assert.ok(widths.scroll<=widths.client,'no horizontal page scroll: '+JSON.stringify(widths));
+  assert.ok(widths.widest<=widths.client,'nothing in the source section is cut off: '+JSON.stringify(widths));
+  for(const id of ['#source-window-start','#source-confirm-yes','#source-confirm-no'])assert.ok((await page.locator(id).boundingBox()).height>=42,'touch target '+id);
+  await page.screenshot({path:path.join(evidence,'game-day-source-confirm-390.png'),fullPage:true});
+  onlySource(model,{approvals:true});
 });
