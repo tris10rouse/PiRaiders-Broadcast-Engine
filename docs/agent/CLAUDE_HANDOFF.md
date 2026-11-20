@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-20 (seventeenth run, lock fence 67; late-review browser test cause found, fix PR #83). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (seventeenth run, lock fence 67; late-review browser test cause found and fixed, #83 merged). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -16,13 +16,13 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
-| Open failing check: browser tests "a late review…" and "a late answer for an earlier event…" failed `HELD_ANSWER_NOT_FINISHED` (Linux push run of `cf91a8c`, job 136447114406; probably also the unnamed Windows `static-contracts` failure on `1819e74`, job 136440648349, not shown) | fix | **Cause found (fence 67):** reproduced locally under load (8 copies on 2 busy CPUs: 7 failures). Chromium's DevTools reported the fully read late answer as failed (`net::ERR_ABORTED`) while the page read every body without an error and Resource Timing recorded the whole download; Playwright's `response.finished()` then never settled. Test-only fix: wait on the browser's Resource Timing record. After: 16 of 16 copies green under the same load. Page code unchanged | PR #83 open |
+| Open failing check: browser tests "a late review…" and "a late answer for an earlier event…" failed `HELD_ANSWER_NOT_FINISHED` (Linux push run of `cf91a8c`, job 136447114406; probably also the unnamed Windows `static-contracts` failure on `1819e74`, job 136440648349, not shown) | fix | **Cause found (fence 67):** reproduced locally under load (8 copies on 2 busy CPUs: 7 failures). Chromium's DevTools reported the fully read late answer as failed (`net::ERR_ABORTED`) while the page read every body without an error and Resource Timing recorded the whole download; Playwright's `response.finished()` then never settled. Test-only fix: wait on the browser's Resource Timing record. After: 16 of 16 copies green under the same load. Page code unchanged | fixed: merged on 2026-11-20 (#83, all 11 checks green; NDI and Caspar proofs not triggered by a test-only change) |
 | Open failing check: full-app proof (`actual-full-app-private-ndi`) failed in SETUP with `RECEIVER_START_TIMEOUT` on master `ca9000f` (job 136463119504, 22 s in, no evidence kept); second time after `bca398f`. Passed on `ee9b12a` | fix | Cause unknown; the SDK receiver did not report started within the proof's bound. Recurring, so it needs its own look (read `scripts/smoke-full-app-windows.cjs`'s receiver start and its bound). Not rerun | recorded |
 | Open failing check: Caspar software proof (`actual-caspar-cef-mixer`) failed at `MANAGED_CEF`, `PROTOCOL_REJECTED`, renderer `DISCONNECTED`, on `cf91a8c` (job 136445042248) | fix | Cause unknown; PR #81 does not touch that proof; passed on `f8459cd`. Not rerun | recorded |
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place.
 
-**Estimate:** remaining sizes 1 S + 3 M + 2 L = 13 sized runs. Pace from every merged part so far: 11 runs for 9 sized runs = 1.22 (no part merged this run). 13 x 1.22 + 2 open failing checks (full-app receiver start, Caspar CEF; the late-review row closes when #83 merges) = **about 18 runs** (unchanged: the late-review row is fixed, the full-app `RECEIVER_START_TIMEOUT` on `ca9000f` is a new row).
+**Estimate:** remaining sizes 1 S + 3 M + 2 L = 13 sized runs. Pace from every merged part so far: 11 runs for 9 sized runs = 1.22 (no part merged this run). 13 x 1.22 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 18 runs** (unchanged: the late-review row is fixed and closed, the full-app `RECEIVER_START_TIMEOUT` on `ca9000f` is a new row).
 
 ## Run log
 
@@ -31,17 +31,17 @@ Closed (fence 64): the console proof's START failure, the Linux browser-suite ha
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
 | 2026-11-20 15:22 | 62 | fix merged (#79) | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
 | 2026-11-20 16:51 | 64–66 | merged (#81, #82) | Master green twice: three failing-check rows closed. 5a-2: new Windows job; fixed on the PR a CRLF test failure and the proof's refresh racing the page's own refresh (409 `BUSY`); merged with all 13 checks green; afterwards found two intermittent failures on its middle commits (late-review browser test, Caspar CEF proof), recorded at fence 65 |
-| 2026-11-20 18:22 | 67 | fix, PR #83 open | Master `ee9b12a` green on every check; `ca9000f` had the full-app `RECEIVER_START_TIMEOUT` (recorded). Late-review browser test: cause found and fixed in the test (see the table)
+| 2026-11-20 18:22 | 67 | fix merged (#83) | Master `ee9b12a` green on every check; `ca9000f` had the full-app `RECEIVER_START_TIMEOUT` (recorded). Late-review browser test: cause found and fixed in the test (see the table)
 
 ## State of master
 
-- Master `ee9b12a` (#82, docs; every check green). `ca9000f` (#81: the Windows exchange activation proof). Items 1 to 4 and parts 5a-1, 5a-2 are done. On hosted Windows a synthetic exchange button now goes from approval through the real routes to Launch, Next, Previous and Stop with the SDK receiver seeing the pictures in order and then black (job `actual-exchange-activation-private-ndi`, about 35 s of proof). Details: `CODEX_CHECKPOINT.md`.
+- Master: #83's merge (test and docs only) on `ee9b12a` (#82, every check green). `ca9000f` (#81: the Windows exchange activation proof). Items 1 to 4 and parts 5a-1, 5a-2 are done. On hosted Windows a synthetic exchange button now goes from approval through the real routes to Launch, Next, Previous and Stop with the SDK receiver seeing the pictures in order and then black (job `actual-exchange-activation-private-ndi`, about 35 s of proof). Details: `CODEX_CHECKPOINT.md`.
 - Recorded failures, not rerun, cause unknown unless named: the console proof at START on `79ff344` and `bc679a3`; the NDI negative-control receiver on `f89a8b1`; the browser-suite hang on `4845f49`'s push run; the Caspar software proof on `50bb524` (process listing timed out); the four NDI checks on PR #56's first commit (vendor replaced its installer); the prepared-event proof on `398e336`; a Windows baseline `ETIMEDOUT` on `7acbb00`; the launcher-parent `ETIMEDOUT` on `c29407a`; the full-app `RECEIVER_START_TIMEOUT` on `bca398f`; the Windows job-host test on PR #76's first commit.
 - First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. PR #83 (`feature/be-083-late-answer-wait`): read every check on its final commit; merge if all green after reading the whole diff (test and docs only).
+1. Read master's checks on #83's merge commit; a red one is recorded (cause or "cause unknown"), not rerun.
 2. 5a-3: evidence and privacy of the activation job. Today it keeps six received frames and `result.json`, and a failure screenshot of the page on failure. Add a check that fails the job if any retained file names the proof folder, the exchange folder or a private store (reuse the route-answer check in `scripts/exchange-activation-routes.cjs`), decide whether the failure screenshot stays, and write `docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` (what it proves, what it does not).
 3. If the full-app `RECEIVER_START_TIMEOUT` recurs (third time), look at the receiver start before 5b.
 4. Then 5b (setup command and cached startup), 5c, 5d, 5e, 5f.
