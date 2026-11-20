@@ -1,5 +1,11 @@
 # PiRaiders engineering changelog
 
+## 2026-11-20 · A made-up exchange folder for the Windows proof of exchange playback (first step of item 5a)
+
+- New proof-only builder: it writes a made-up exchange folder (three full-screen pictures, red, green and blue, PNG and JPEG, always in that order), the Engine's own record of which feed it trusts, an empty approval list (the setup step an operator will run), and a PC settings file that points at all of it.
+- Tests show the Engine's real reader, review, approval and preparation accept that folder through the ordinary Game Day routes, the prepared copy plays the pictures in the published order, nothing can be approved before the approval list is set up, and no answer names a private folder.
+- Nothing changes in the application itself. Not yet: the Windows run with real Caspar and NDI output (next step), anything on the stadium PC or the board.
+
 ## 2026-11-20 · Approved exchange buttons can be prepared and played from the Game Day page (fourth part, the screen)
 
 - On a PC set to read the scheduler's exchange folder, the Game Day page now shows **Approved board buttons** under **Exchange events**, with playback beside both (one column on a phone). The list holds only the buttons this PC approved, named "button label · event · board"; **Prepare selected button**, **Activate event**, the playback buttons and **Stop** work as on a local-folder PC, through the same routes.

@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Fourteenth Claude run (fence 61): item 5a split; 5a-1 the synthetic exchange folder for the Windows proof. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Start:** master `79ff344`, no open pull requests, lock idle (fence 60 released). Master's checks after PR #76: 5 of 6 groups green; the console proof failed at START (`ASSERTION_OR_COMPONENT`, job 136337968115) on a docs-only commit. Cause unknown; not rerun.
+- **5a split** into 5a-1 (builder and Linux proof), 5a-2 (the Windows job), 5a-3 (evidence and privacy), with success criteria in the backlog's top section. The handoff now carries the "Road to the evaluation build" table and the run log.
+- **5a-1** (`feature/be-007-exchange-activation-fixture`): `scripts/exchange-activation-fixture.cjs` and `tests/exchange-activation-fixture.test.cjs` (4 tests). The order check fails when the expected order is swapped. Local: Linux 942 tests, 915 pass, 27 Windows-only skips, 0 fail (local stand-in for the blocked package); browser 56/56. No product code changed.
+
 ## 2026-11-20 · Thirteenth Claude run (fence 60): PR #74 merged; the stalled-renderer Stop failure. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Start:** master `e2d49ab`, PR #74 open (one Windows push-run check red on each of its first two commits). Lock fence 59 was taken and released within 14 s before this run (no other change seen).
