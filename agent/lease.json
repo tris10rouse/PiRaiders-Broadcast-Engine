@@ -6,7 +6,7 @@
   "task": "Finish PR for BE-006 4d-2 source playback screen",
   "workBranch": "feature/be-006-source-playback-screen",
   "acquiredAt": "2026-11-20T12:52:21.000Z",
-  "lastHeartbeat": "2026-11-20T13:38:59.000Z",
-  "expiresAt": "2026-11-20T15:08:59.000Z",
+  "lastHeartbeat": "2026-11-20T13:39:28.000Z",
+  "expiresAt": "2026-11-20T15:09:28.000Z",
   "releasedAt": null
 }
