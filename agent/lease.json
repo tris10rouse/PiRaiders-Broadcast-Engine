@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261120T125219000Z",
+  "status": "idle",
+  "owner": null,
   "fence": 60,
-  "task": "Finish PR for BE-006 4d-2 source playback screen",
-  "workBranch": "feature/be-006-source-playback-screen",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-20T12:52:21.000Z",
-  "lastHeartbeat": "2026-11-20T14:09:41.000Z",
-  "expiresAt": "2026-11-20T15:39:41.000Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-20T14:10:12.000Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-20T14:10:12.000Z"
 }
