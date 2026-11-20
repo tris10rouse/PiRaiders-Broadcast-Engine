@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-20 (twelfth run, lock fence 58). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (thirteenth run, lock fence 60). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## State of master
 
@@ -9,15 +9,17 @@ Last updated 2026-11-20 (twelfth run, lock fence 58). Keep this to one screen. H
 - Merged since the takeover, each with all checks green on its final commit and on master after it (details in `CODEX_CHECKPOINT.md`): large JPEGs on the exchange path (#59) and from a local folder (#61), total bytes once per picture (#60), exact approval revalidation (#63), the source catalog service (#65), its routes (#66), its screen (#67), review and approval (#69), playback of approved selections behind the screen (#71, `4f408dd`), and the bounded retry of the launcher-parent process listing (#72). Recorded, not rerun: the prepared-event proof failure on `398e336` (cause unknown), a Windows baseline `ETIMEDOUT` on `7acbb00`, and the launcher-parent `ETIMEDOUT` on `c29407a` (job 136222818361).
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
 - The checks on master after PR #71 and PR #73 were all green, 6 of 6 groups each (`4f408dd`, `e2d49ab`).
-- **Playback screen on a source machine** (item 4d-2, PR #74, branch `feature/be-006-source-playback-screen`, open, not merged; checks in the twelfth-run entry of `CODEX_CHECKPOINT.md`): **Approved board buttons** under Exchange events, playback beside both; prepare, activate, commands and Stop through the ordinary routes; the list rereads after approve/revoke; a revoked prepared button cannot be activated (`ADMISSION_DENIED`, plain words). Design: `EXCHANGE_SOURCE_SERVICE.md` › Playback screen. With it merged, item 4 is complete.
+- **Playback screen on a source machine** (item 4d-2, PR #74, merged as `bca398f` by the thirteenth run; all 10 checks on its final commit `21e3c74` green, both earlier commits had one red Windows check, recorded below): **Approved board buttons** under Exchange events, playback beside both; prepare, activate, commands and Stop through the ordinary routes; the list rereads after approve/revoke; a revoked prepared button cannot be activated (`ADMISSION_DENIED`, plain words). Design: `EXCHANGE_SOURCE_SERVICE.md` › Playback screen. **Item 4 is complete.**
+- **Stalled program page during Stop** (PR #75, branch `feature/be-002-manager-browser-warmup`, test only): the red Windows check on #74 (`HANDLER_FAILED`, `CANCELLED`) is a program page that stalls longer than the 2.5 s presentation heartbeat while painting Stop's black (reproduced on Linux; the failing runs were the first browser test on a cold VM, 5.2 s and 8.6 s against 1.9 s). The manager browser file now warms Chromium first (`BROWSER_WARMUP_MS` in the log) and pins the answer with a new stall test. Merge state: the thirteenth-run entry of `CODEX_CHECKPOINT.md`.
 - First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-Item 4 (the PC selector, approval and playback screens) is split into 4a–4d in the backlog's top section; all parts are built.
+Item 5 is split into 5a–5f with success criteria in the backlog's top section.
 
-1. PR #74 (4d-2) is open and NOT merged: one Windows check is red on its final commit (Stop answered `HANDLER_FAILED`, see Open risks). First find and fix why the priority Stop handler rejects in that test (separate branch and PR if the cause is outside #74, as PR #72 was), then update #74 from master and merge it only with every check green.
-2. Item 5, too big for one run: first write its success criteria and split it into run-sized parts in the backlog's top section (suggested: 5a real Windows exchange activation proof in CI with a synthetic exchange folder; 5b approval-list setup step and offline pins for cached startup; 5c diagnostics and recovery; 5d close and startup proofs; 5e the four-hour soak; 5f the evaluation-ready Windows artifact built by CI).
+1. If PR #75 is still open: read its checks; merge only with every check on its final commit green; if the manager file fails again, read `BROWSER_WARMUP_MS` and the Stop answer in the log before changing anything. Then confirm the checks on master after #74 and #75.
+2. 5a: the Windows exchange activation proof in CI (synthetic exchange folder, real routes, real Caspar/CEF/NDI frames, then black). Read `docs/design/FULL_APP_WINDOWS_PROOF.md` and `.github/workflows/full-app-proof.yml` first; a new job beside them, not a change to their assertions.
+3. Then 5b setup and cached startup, 5c diagnostics and recovery, 5d close and startup proofs, 5e the four-hour soak, 5f the evaluation-ready artifact.
 
 ## Open risks
 
@@ -28,7 +30,7 @@ Item 4 (the PC selector, approval and playback screens) is split into 4a–4d in
 - The NDI, console, prepared-event and full-app proofs and `windows-production-window.test.cjs` still make a single process listing at their captures and can fail the way the Caspar proof and the launcher-parent test did; the production-window test runs against a deadline, so a retry there needs care.
 - The web adapter closes the source machine's manager before its service; no test covers that order.
 - The approved list shows the manager's names (`button label · event key · board key`), not the catalog's event and board names; the page cannot map a `sel-` id back to a tuple. Changing that means the manager carrying friendlier names.
-- **Stop can fail on hosted Windows.** On both commits of PR #74 the push run of `static-contracts (windows-latest)` failed in `game-day-manager.browser.cjs` ("pending initial factory excludes old direct TCP Reload…"): the manager's priority Stop answered `HANDLER_FAILED` (runtime ready, `lastError` `CANCELLED`, preparation held). The pull-request runs and master passed. The PR does not touch that test or the manager. Find why the Stop callback rejects before merging anything.
+- **A stalled program page fails Stop.** On hosted Windows (PR #74's first two commits, push runs, jobs 136283857459 and 136291022984) Stop answered `HANDLER_FAILED` because the program page stalled past the 2.5 s heartbeat; the page blacks itself on the disconnect, and the operator sees Stop refused. That is the intended fail-closed answer, but if the stadium PC's renderer ever stalls that long, Stop will be reported as failed while the output is black. The warm-up in PR #75 is a mitigation of the CI symptom, not a fix of slow renderers; no timing constant was changed.
 - The source browser file hung once locally (late-review test) before held answers were released on failure; the failing assertion was not seen.
 - This sandbox cannot run `npm ci` exactly: one locked package (the spreadsheet reader) comes from a host the sandbox blocks. Local Linux runs use the registry's 0.18.5 as a stand-in, with `package.json` and the lock file restored afterwards; the stand-in lacks `set_fs`, so add a no-op `set_fs` export to the local copy or the 7 real-SPX startup tests fail. GitHub's checks are the authority.
 - The source reader refuses a linked source root (`UNSAFE_INPUT`), although `SOURCE_MACHINE_POLICY.md` allows "a configured alias". The service's root check accepts one; the reader then refuses it. Whether the stadium PC's Drive folder is reached through a link is unknown; decide when setup is written.

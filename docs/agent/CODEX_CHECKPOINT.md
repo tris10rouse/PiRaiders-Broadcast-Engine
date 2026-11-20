@@ -1,5 +1,12 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Thirteenth Claude run (fence 60): PR #74 merged; the stalled-renderer Stop failure. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Start:** master `e2d49ab`, PR #74 open (one Windows push-run check red on each of its first two commits). Lock fence 59 was taken and released within 14 s before this run (no other change seen).
+- **Cause found** of #74's red check (`game-day-manager.browser.cjs`, Stop `HANDLER_FAILED`, `CANCELLED`): a program page stalling past the presentation heartbeat (1 s ping + 1.5 s timeout) while painting Stop's black is disconnected and the host cancels the unverified black. Reproduced on Linux by stalling the page: 1.5 s and 2 s pass, 2.6 s and 3 s give exactly that answer (`INVALIDATE DISCONNECTED`). CPU throttling alone did not reproduce it. The failing runs took 5.2 s and 8.6 s for a test that passes in 1.9 s, as the first browser test on a cold VM.
+- **PR #74:** its final commit `21e3c74` then had all 10 checks green (both CI runs and the four proofs); whole diff read; merged as `bca398f`. Item 4 complete.
+- **PR #75** (`feature/be-002-manager-browser-warmup`, test only): Chromium warm-up before the manager tests (`BROWSER_WARMUP_MS`), the same Stop diagnostics line as #74, and a new test pinning the stalled-renderer answer (fails with the stall set to 0). Master merged in; docs here, handoff and backlog (item 5 split into 5a–5f). Local: syntax 183 files; Linux 938 tests, 911 pass, 27 Windows-only skips, 0 fail (local stand-in for the blocked package); browser 54/54. Checks: see the handoff.
+
 ## 2026-11-20 · Twelfth Claude run (fence 58): the playback screen on a source machine (item 4d-2). Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master** `e2d49ab` at the start; all 6 check groups on it (after PR #73) and on `4f408dd` (after PR #71) green. No open pull requests.

@@ -16,7 +16,16 @@ async function until(fn,label){const end=Date.now()+15000;while(!await fn()){if(
 function deferred(){let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};}
 const req=(manager,extra={})=>{const s=manager.snapshot();return{expectedEventId:s.expectedEventId,expectedSelection:s.expectedSelection,...extra};};
 let browser;
-before(async()=>{browser=await chromium.launch({headless:true,...(process.env.PIRAIDERS_BROWSER_EXECUTABLE?{executablePath:process.env.PIRAIDERS_BROWSER_EXECUTABLE}:{}),args:['--no-sandbox']});});
+before(async()=>{browser=await chromium.launch({headless:true,...(process.env.PIRAIDERS_BROWSER_EXECUTABLE?{executablePath:process.env.PIRAIDERS_BROWSER_EXECUTABLE}:{}),args:['--no-sandbox']});
+ // This file runs first in `npm run test:browser`, on a cold hosted VM. A renderer that stalls past the
+ // presentation heartbeat (1 s ping + 1.5 s timeout) during Stop makes Stop answer HANDLER_FAILED (see the
+ // stall test below), so pay Chromium's first-page cost here, outside every timed assertion, and report it.
+ const began=Date.now(),context=await browser.newContext({viewport:{width:640,height:360}});
+ try{const page=await context.newPage();await page.setContent('<body style="margin:0;background:#000"></body>');
+  await page.evaluate(()=>new Promise(resolve=>{let frames=0;const tick=()=>{if(++frames>=10)resolve();else requestAnimationFrame(tick);};requestAnimationFrame(tick);}));await page.screenshot();}
+ finally{await context.close();}
+ console.log('BROWSER_WARMUP_MS '+(Date.now()-began));
+});
 after(()=>browser?.close());
 async function port(){const server=net.createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const value=server.address().port;await new Promise(resolve=>server.close(resolve));return value;}
 async function pixels(page,rgb){const png=PNG.sync.read(await page.screenshot()),offset=(Math.floor(png.height/2)*png.width+Math.floor(png.width/2))*4;assert.ok(rgb.every((value,index)=>Math.abs(png.data[offset+index]-value)<=6),'REAL_CHROMIUM_PIXELS');}
@@ -60,4 +69,17 @@ test('actual old TCP staging flight survives rewind/close as a retained manager 
  const f=await fixture(t),m=f.manager;await f.activateAlpha();const page=await f.prewarm(),wire=await f.connect();await wire.command(1);await pixels(page,[240,20,20]);f.state.holdOld=true;wire.send(5);await until(()=>f.state.oldEntered,'OLD_RELOAD_HELD');
  f.state.now=f.initial;assert.equal((await m.prepare('beta',req(m))).code,'BUSY');assert.equal(f.state.factory.length,1);const closing=m.close();assert.equal((await closing).ok,true);assert.equal(m.snapshot().physicalBarrier,true,'CLOSED_RUNTIME_KEEPS_ACTUAL_STAGE_REFERENCE');
  f.state.oldGate.resolve();await until(()=>!m.snapshot().physicalBarrier,'OLD_STAGE_SETTLED');assert.equal(m.snapshot().closed,true);assert.equal(f.state.factory.length,1);assert.equal(f.state.children.length,1);
+});
+
+// 2026-11-20: the hosted Windows failure of the first test above. A program page that stalls longer than the
+// presentation heartbeat while it paints Stop's black loses its connection; the host cancels the unverified
+// black, so Stop answers HANDLER_FAILED with CANCELLED, and the page blacks itself on the disconnect.
+test('a program page that stalls past the heartbeat during Stop answers not ok and still ends black',{timeout:45000},async t=>{
+ const f=await fixture(t),m=f.manager;await f.activateAlpha();const page=await f.prewarm(),wire=await f.connect();await wire.command(1);await pixels(page,[240,20,20]);
+ // One-shot: the next black (Stop's) blocks the page's main thread for 4 s, longer than the 2.5 s heartbeat.
+ await page.evaluate(()=>{const r=window.piraidersRenderer,black=r.black;let armed=true;r.black=function(){const value=black.apply(this,arguments);if(armed){armed=false;const end=Date.now()+4000;while(Date.now()<end);}return value;};});
+ const stopped=await m.dispatch('stop',req(m));
+ assert.deepEqual(stopped,{ok:false,code:'HANDLER_FAILED'},'STOP_ANSWER '+JSON.stringify(stopped));
+ assert.equal(m.snapshot().active.runtime.lastError,'CANCELLED');assert.equal(m.snapshot().active.runtime.ready,false,'NO_VERIFIED_RENDERER');
+ await pixels(page,[0,0,0]);
 });
