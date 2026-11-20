@@ -4,9 +4,9 @@
   "owner": "claude-20261120T152229Z",
   "fence": 62,
   "task": "BE item 5 (Windows evaluation build)",
-  "workBranch": null,
+  "workBranch": "feature/be-002-console-failure-kind",
   "acquiredAt": "2026-11-20T15:22:29.000Z",
-  "lastHeartbeat": "2026-11-20T15:22:29.000Z",
-  "expiresAt": "2026-11-20T16:52:29.000Z",
+  "lastHeartbeat": "2026-11-20T15:25:16.000Z",
+  "expiresAt": "2026-11-20T16:55:16.000Z",
   "releasedAt": null
 }
