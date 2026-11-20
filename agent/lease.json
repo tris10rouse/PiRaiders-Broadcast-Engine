@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 62,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-20T15:22:29.000Z",
-  "lastHeartbeat": "2026-11-20T16:20:55.000Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-20T16:20:55.000Z"
+  "status": "active",
+  "owner": "claude-20261120T163609Z",
+  "fence": 63,
+  "task": "merge handoff note #80",
+  "workBranch": "docs/handoff-after-79",
+  "acquiredAt": "2026-11-20T16:36:09.000Z",
+  "lastHeartbeat": "2026-11-20T16:36:09.000Z",
+  "expiresAt": "2026-11-20T17:06:09.000Z",
+  "releasedAt": null
 }
