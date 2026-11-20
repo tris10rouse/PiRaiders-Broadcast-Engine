@@ -43,7 +43,8 @@ test('a source machine serves path-free catalog pages behind the page token and 
   const f=await fixture(t),m=source();await f.publish(m);
   const file=await machineFile(f),s=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json')}));
   const p=await s.page();assert.equal(p.response.status,200);assert.match(p.token,/^[a-f0-9]{64}$/);
-  assert.match(p.response.text,/read events from the scheduler’s exchange folder/,'source mode says the selection screen is not built');
+  assert.match(p.response.text,/read events from the scheduler’s exchange folder/,'source mode says approval and playback are not built');
+  assert.match(p.response.text,/<body data-mode="source">/);assert.match(p.response.text,/id="source-section"/,'the exchange catalog screen (item 4b)');
   const responses=[];const keep=r=>{responses.push(r.text);return r;};
   // Playback has no manager on a source machine yet.
   for(const url of ['/game-day/api/state','/game-day/api/events'])assert.deepEqual(keep(await s.request(url,{headers:{Cookie:p.cookie}})).value,{ok:false,code:'SOURCE_PLAYBACK_NOT_READY'});
@@ -117,6 +118,7 @@ test('a local-folder adapter has no source routes, and the trusted options are e
   assert.equal((await s.request('/game-day/api/state',{headers:{Cookie:p.cookie}})).status,200,'local playback is unchanged');
   assert.equal((await s.post(p,'/game-day/api/command',{action:'stop',expectedEventId:null,expectedSelection:0})).status,200);assert.deepEqual(calls,['stop']);
   assert.ok(!p.response.text.includes('exchange folder'),'no source notice on a local-folder machine');
+  assert.ok(p.response.text.includes('<body data-mode="local">')&&!p.response.text.includes('source-section'),'no exchange catalog screen on a local-folder machine');
   const service={refreshCatalog:async()=>{throw Object.assign(Error('C:\\private\\path'),{code:'X'});},catalogState:()=>({available:false,catalog:null}),
     catalogEventsPage:()=>{throw Error('boom');},catalogSelectionsPage:()=>({ok:false,code:'BUSY'}),status:()=>({ready:false}),close:()=>{}};
   assert.throws(()=>createGameDayWeb({port:1,appRoot:root,manager,sourceService:service}),{code:'APP_CONFIG_INVALID'});

@@ -46,3 +46,14 @@
 - A local-folder machine has no source routes (404); its playback routes are unchanged. Closing the web adapter closes the service and frees the provider for the next adapter.
 - Not here: inspection, approval, revocation (item 4c) and preparation of an approved selection (item 4d).
 - Tests: `tests/game-day-source-web.test.cjs`, 4 tests over real HTTP with the real view and the real service on temporary synthetic folders. Removing the source-mode check, the body schema, the playback refusal or the page's source mode each made at least one test fail.
+
+## Catalog screen (backlog item 4b, 2026-11-20)
+
+The view renders `<body data-mode="source">` and an **Exchange events** section (`#source-section`) only for a source machine; CSS hides the local event list there. `static/js/piraiders-game-day.js` then uses only the four source routes:
+
+- **Load:** `GET source/status`; if a catalog is already browsable it adopts that revision, otherwise it posts one refresh. The status poll (every 3 s) is the connection check; the local `state` and `events` routes are never called.
+- **Lists:** events, then the chosen event's selections, 25 per page (`limit: 25`, below the service's 64) with "Show more". Each list keeps only its newest request; an answer for an older request, another event or an older refresh is dropped. Rows are checked for shape and length before they are drawn; text goes in with `textContent` only.
+- **Review:** choosing a selection shows event, board (the event board's display name when the keys match, else the board key), button label, picture count with manifest state, and generation. No approval, inspection or preparation request exists in this slice.
+- **Problems:** a status poll that sees a different revision, or a page answering `CATALOG_REVISION_STALE` / `CATALOG_UNAVAILABLE`, empties the lists and shows a message with a refresh button; `CATALOG_EVENT_MISSING` empties only the event's buttons; `BUSY` keeps the lists. A failed refresh (`SOURCE_UNAVAILABLE`, `SOURCE_ROOT_MISMATCH`, …) shows no catalog. Superseded refreshes defer to the newest one through status.
+- Stop and the playback controls are not touched; with no playback state they stay disabled on a source machine.
+- Tests: `tests/browser/game-day-source.browser.cjs` (6 tests, desktop and 390 px). Removing the stale check, the busy rule or the newest-request guard each made a test fail.

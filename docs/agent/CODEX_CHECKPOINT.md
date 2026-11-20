@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Ninth Claude run (fence 55): the exchange catalog screen (item 4b). Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master** `ff92534` (PR #66 merged by the eighth run, fence 54; all 6 check groups on master after the merge green). No open pull requests at the start.
+- **4b** on `feature/be-006-source-catalog-screen`: on a source machine the Game Day page shows an **Exchange events** section (view, `static/js/piraiders-game-day.js`, CSS) that uses only the four source routes: auto-read, events and an event's board buttons 25 per page, a read-only review, stale/unavailable/busy states, newest-request-only lists. Local machines unchanged. Design: `EXCHANGE_SOURCE_SERVICE.md` › Catalog screen.
+- **Tests:** 6 new browser tests (`tests/browser/game-day-source.browser.cjs`, added to `npm run test:browser`), one end to end with the real web adapter and service; the HTTP test checks the screen only appears in source mode. Removing the stale check, the busy rule or the newest-request guard each made a test fail. Local Linux: syntax 183 files; 932 tests, 905 pass, 27 Windows-only skips, 0 fail (local stand-in for the blocked package); browser 50/50 with the sandbox's Chromium.
+
 ## 2026-11-20 · Seventh Claude run (fence 53): source catalog routes (item 4a). Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master** `f9d8e46` (PR #65 merged by the sixth run; all 6 check groups on master after the merge green). No open pull requests at the start.
