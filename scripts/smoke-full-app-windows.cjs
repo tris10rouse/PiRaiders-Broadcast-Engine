@@ -193,4 +193,6 @@ async function main(){
  try{await scenario(location);}finally{if(location.extracted){try{verifyOriginalInventory(location.inventory);}finally{await fs.rm(location.work,{recursive:true,force:true,maxRetries:10,retryDelay:100});}}}
 }
 if(require.main===module)main().catch(()=>{console.error('FULL_APP_PROOF_FAILED');process.exitCode=1;});
-module.exports={ownedCaspar,processCaptureDeadline,capturePinnedTree,captureOwnedCaspar,privateText,startedNoEarlierThan,fixedFailure};
+module.exports={ownedCaspar,processCaptureDeadline,capturePinnedTree,captureOwnedCaspar,privateText,startedNoEarlierThan,fixedFailure,
+ // Reused unchanged by the exchange activation proof (scripts/smoke-exchange-activation-windows.cjs).
+ normalized,until,freePort,filesUnder,settledChild,killApplication,cleanupCaptured,receiver,application};

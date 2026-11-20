@@ -1,5 +1,10 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Sixteenth Claude run (fence 64): part 5a-2, the Windows exchange activation job. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Start:** master `8f6f06d`, no open PR, lock idle (fence 63 released). Every check green on master `fb4a140` and `8f6f06d`: the console START failure, the browser-suite hang and the NDI negative-control failure rows are closed (two master runs in a row green; causes of the earlier failures still unknown).
+- **5a-2** (`feature/be-081-exchange-activation-windows`): `scripts/exchange-activation-routes.cjs` (refresh, events, selections, review, approve, approved list, prepare, activate, commands; fixed codes; a private-path check) and `scripts/smoke-exchange-activation-windows.cjs` (real `piraiders-app.cjs --no-browser` on the 5a-1 folder; Launch on the page, Next over RossTalk, Next and Previous over the command route, Stop on the page; the SDK receiver must see black, red, green, blue, green, black; close takes the captured tree and the receiver goes quiet). New job `actual-exchange-activation-private-ndi` in `full-app-proof.yml`; the full-app proof's helpers are exported unchanged. Linux: `tests/exchange-activation-routes.test.cjs` runs the same route steps on the real web adapter.
+
 ## 2026-11-20 · Fifteenth Claude run (fence 62): the console proof's failure line. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Start:** master `bc679a3`, PR #78 (handoff note) open with every check green; merged as `f89a8b1` after reading its whole diff. Lock idle (fence 61 released).
