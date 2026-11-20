@@ -106,7 +106,8 @@ test('the Windows proof refuses to run anywhere but Windows',{skip:process.platf
 });
 
 test('the workflow runs the exchange activation proof as its own Windows job beside the full-app proof',async()=>{
-  const yml=await fs.readFile(path.join(ROOT,'.github','workflows','full-app-proof.yml'),'utf8');
+  // A Windows checkout may turn line endings into CRLF.
+  const yml=(await fs.readFile(path.join(ROOT,'.github','workflows','full-app-proof.yml'),'utf8')).replace(/\r\n/g,'\n');
   const jobs=yml.split(/\n  (?=[a-z-]+:\n)/);
   const job=jobs.find(j=>j.startsWith('actual-exchange-activation-private-ndi:'));assert.ok(job,'job present');
   assert.match(job,/runs-on: windows-latest/);assert.match(job,/node scripts\/smoke-exchange-activation-windows\.cjs/);
