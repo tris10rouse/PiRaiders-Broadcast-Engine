@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261120T053807Z",
+  "status": "idle",
+  "owner": null,
   "fence": 54,
-  "task": "BE-006-merge-pr66",
-  "workBranch": "feature/be-006-source-catalog-routes",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-20T05:38:08.000Z",
-  "lastHeartbeat": "2026-11-20T05:38:08.000Z",
-  "expiresAt": "2026-11-20T07:08:08.000Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-20T05:38:23.000Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-20T05:38:23.000Z"
 }
