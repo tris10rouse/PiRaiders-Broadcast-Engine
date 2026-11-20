@@ -12,6 +12,7 @@ Last updated 2026-11-20 (thirteenth run, lock fence 60). Keep this to one screen
 - **Playback screen on a source machine** (item 4d-2, PR #74, merged as `bca398f` by the thirteenth run; all 10 checks on its final commit `21e3c74` green, both earlier commits had one red Windows check, recorded below): **Approved board buttons** under Exchange events, playback beside both; prepare, activate, commands and Stop through the ordinary routes; the list rereads after approve/revoke; a revoked prepared button cannot be activated (`ADMISSION_DENIED`, plain words). Design: `EXCHANGE_SOURCE_SERVICE.md` › Playback screen. **Item 4 is complete.**
 - **Stalled program page during Stop** (PR #75, merged as `c2fd7e0`; all 10 checks on its final commit `14729b2` green, warm-up 331 ms on hosted Windows; test only): the red Windows check on #74 (`HANDLER_FAILED`, `CANCELLED`) is a program page that stalls longer than the 2.5 s presentation heartbeat while painting Stop's black (reproduced on Linux; the failing runs were the first browser test on a cold VM, 5.2 s and 8.6 s against 1.9 s). The manager browser file now warms Chromium first (`BROWSER_WARMUP_MS` in the log) and pins the answer with a new stall test.
 - Master after #74 (`bca398f`): 8 of 9 green; `actual-full-app-private-ndi` FAILED in setup, `RECEIVER_START_TIMEOUT` (the NDI test receiver did not start within its fixed 20 s; job 136309239242), before any application code ran. The same proof passed on #74's and #75's final commits. Cause unknown. Not rerun.
+- Master after #75 (`c2fd7e0`): all 9 checks green, the full-app proof included.
 - First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
@@ -24,6 +25,7 @@ Item 5 is split into 5a–5f with success criteria in the backlog's top section.
 
 ## Open risks
 
+- `tests/windows-job-process.integration.test.cjs` ("CreateProcess failure never runs an existing invalid executable") failed once on hosted Windows on the docs-only PR #76's first commit (job 136322153458): the job host did not exit within the test's 10 s. Cause unknown (a slow scan of the just-written file is possible, not shown). Not rerun.
 - **Time.** The 10 s per-picture limit is fixed in code. On a 2-CPU Linux machine the slowest legal pictures found take 5.5 s (dense progressive 4:4:4 JPEG, 14 MB, at the pixel limit) and 3.0 s (16-bit PNG). The stadium PC has never been measured.
 - **Memory.** One 4096 x 4096 JPEG needs about 0.7 GB (4:2:0) to 1.3 GB (four components) of process memory at its peak, one picture at a time. How much memory the stadium PC has is unknown.
 - The NDI checks run on runtime 6.4.0.2. Add the winget manifest commit to `docs/design/WINDOWS_NDI_PROOF.md` when one exists; a different hash there is a failure, not a detail.
