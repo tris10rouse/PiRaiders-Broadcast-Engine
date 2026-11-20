@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-20 (fifteenth run, lock fence 62). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (sixteenth run, lock fence 64). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -9,18 +9,17 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | Part | Size | Why that size | Status |
 |---|---|---|---|
 | 5a-1 Synthetic exchange folder and setup step for the proof | S | One builder and Linux tests on code that already exists | merged on 2026-11-20 (#77, `bc679a3`) |
-| 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | not started |
+| 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black, close | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | PR open (`feature/be-081-exchange-activation-windows`, fence 64) |
 | 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | not started |
 | 5b Setup command and cached (offline) startup | L | New operator command, the linked-folder decision, offline pins, proven on Linux and Windows | not started |
 | 5c Diagnostics and recovery | L | Six distinct states on screen and by command, four tested fault recoveries | not started |
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
-| Open failing check: console proof failed at START on master `79ff344` and again on `bc679a3` (passed on PR #77's `abe8904` between them, so intermittent) | fix | Cause unknown: the failure line said only `ASSERTION_OR_COMPONENT`. Step 1 (fence 62): the line now names the step, its elapsed time and a fixed error kind | step 1 merged on 2026-11-20 (#79, `fb4a140`); watch master |
-| Open failing check: browser suite hung on Linux, push run of PR #79's first commit `4845f49` (job 136389005230): sat 16 min after "check a button, confirm a production window, then revoke" until the 20-minute job limit; the same hang happened locally today; the same commit's pull-request run passed | fix | The next test waits on a held answer with no bound. Step 1 (fence 62, in PR #79): every test in that file has a 2-minute bound and each held-answer wait fails by name after 15 s | step 1 merged on 2026-11-20 (#79, `fb4a140`); watch master |
-| Open failing check: NDI proof on master `f89a8b1` (docs only, job 136388517018): RECEIVER, the negative-control receiver exited 1 with `NDI_PROBE_FAILED_RUNTIME_PATH` | fix | Cause unknown; passed on PR #79 minutes later. Not rerun | recorded |
 
-**Estimate:** remaining sizes 1 S + 4 M + 2 L = 15 sized runs; pace 1.5 runs per sized run (reconstructed from lock fences 52–60: 9 runs for 6 merged S parts, 3b to 4d-2; this log so far: 1 run for 1 merged S part, pace 1.0; the reconstructed 1.5 stays until this log has 3 merged parts); 15 x 1.5 + 3 open failing checks = **about 26 runs** (up from 24: two intermittent failures were found this run).
+Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place.
+
+**Estimate:** remaining sizes 1 S + 4 M + 2 L = 15 sized runs (5a-2 counted in full while its PR is open); pace 1.5 runs per sized run (reconstructed from fences 52–60; this log has 1 merged part at pace 1.0, so the 1.5 stays until 3 merged parts); 15 x 1.5 + 0 open failing checks = **about 23 runs** (down from 26: the three failing-check rows closed on green master runs).
 
 ## Run log
 
@@ -28,19 +27,19 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 |---|---|---|---|
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
 | 2026-11-20 15:22 | 62 | fix merged (#79) | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
+| 2026-11-20 16:51 | 64 | PR open | Master green twice: three failing-check rows closed; 5a-2 Windows job written, Linux route tests green, PR waiting on its Windows checks |
 
 ## State of master
 
-- Master `fb4a140` (#79: proof failure line and browser-test bounds; no product code). Items 1 to 4 and part 5a-1 are done (takeover PRs #56 to #58, then #59 to #77; each merged with every check green on its final commit). Details: `CODEX_CHECKPOINT.md`.
-- **`actual-private-console` FAILED at START, `ASSERTION_OR_COMPONENT`, no captures, about 20 s into its step, on master `79ff344` (job 136337968115) and `bc679a3` (job 136373177232).** It passed on `c2fd7e0` and on PR #77's `abe8904` in between. Cause unknown; not rerun. A message that is not a fixed code (a PowerShell query killed at its 15 s timeout, for example) is reported only as that word, so PR #79 adds the step, its elapsed time and a fixed error kind to the failure line.
-- Recorded failures, not rerun, cause unknown unless named: the Caspar software proof on `50bb524` (process listing timed out); the four NDI checks on PR #56's first commit (vendor replaced its installer); the prepared-event proof on `398e336`; a Windows baseline `ETIMEDOUT` on `7acbb00`; the launcher-parent `ETIMEDOUT` on `c29407a`; the full-app `RECEIVER_START_TIMEOUT` on `bca398f` (job 136309239242); the Windows job-host test on PR #76's first commit (job 136322153458).
+- Master `8f6f06d` (#80, handoff note; #79 `fb4a140` before it). Items 1 to 4 and part 5a-1 are done. Every check green on `fb4a140` and `8f6f06d`. Details: `CODEX_CHECKPOINT.md`.
+- Recorded failures, not rerun, cause unknown unless named: the console proof at START on `79ff344` and `bc679a3`; the NDI negative-control receiver on `f89a8b1`; the browser-suite hang on `4845f49`'s push run; the Caspar software proof on `50bb524` (process listing timed out); the four NDI checks on PR #56's first commit (vendor replaced its installer); the prepared-event proof on `398e336`; a Windows baseline `ETIMEDOUT` on `7acbb00`; the launcher-parent `ETIMEDOUT` on `c29407a`; the full-app `RECEIVER_START_TIMEOUT` on `bca398f`; the Windows job-host test on PR #76's first commit.
 - First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. PR #79 merged as `fb4a140` (all 12 checks green on `a99caad`). Read master's checks on `fb4a140` and on this note: a console failure now names its step and kind, a browser-suite stall fails by name (`HELD_REVIEW_NOT_ASKED` or a test timeout: the page ignored a click under load). Fix a named cause (one run) before 5a-2. A row whose check passes on two master runs in a row is closed. Merge this note's PR if green.
-2. 5a-2: the Windows job. Start from `scripts/smoke-full-app-windows.cjs` (`application()`, `receiver()`, the capture helpers) and `buildExchangeActivationFixture` (machine parts: Caspar, output NDI, renderer profile, RossTalk as the full-app proof writes them). A new job beside `actual-full-app-private-ndi`, not a change to its assertions. Approve with a window that contains now (the proof's own clock), prewarm 0.
-3. Then 5a-3, 5b, 5c, 5d, 5e, 5f.
+1. Finish the 5a-2 PR (`feature/be-081-exchange-activation-windows`): read every check on its final commit. The new job is `actual-exchange-activation-private-ndi` in `full-app-proof.yml`; on failure its stderr line names `phase` and `code` (e.g. `APPROVE`/`SOURCE_REFRESH_FAILED`, `RENDERER_READY`/`APP_RENDERER_READY`, `LAUNCH`/a frame code). Fix a named cause on the same branch; merge only when all checks are green and the whole diff is read. Then a handoff-note PR.
+2. 5a-3: evidence and privacy of that job (only synthetic frames and sanitized JSON retained; a check that fails the job when a retained file names the proof folder, the exchange folder or a private store; `docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md`).
+3. Then 5b, 5c, 5d, 5e, 5f.
 
 ## Open risks
 
