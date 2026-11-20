@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Seventeenth Claude run (fence 67): the late-review browser test. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Start:** master `ee9b12a` (#82), no open PR, lock idle (fence 66 released). Every check green on `ee9b12a`. On `ca9000f` the full-app proof failed in SETUP with `RECEIVER_START_TIMEOUT` (job 136463119504; second time after `bca398f`); recorded, cause unknown, not rerun.
+- **Late-review test (`HELD_ANSWER_NOT_FINISHED`):** reproduced locally with 8 copies of the two late-answer tests on 2 busy CPUs (7 failures in 8 copies). Instrumented: the late answer's response arrived, then DevTools reported the request failed `net::ERR_ABORTED`; the page's fetch and body reads saw no error, and Resource Timing held the complete download. Playwright's `response.finished()` never settled after that report. The same report appeared for status and state polls. Cause: the test's signal, not the page.
+- **Fix (PR #83, test and docs only):** the two tests wait for the browser's Resource Timing list to hold one more finished answer for the route (`moreFinished`), after the late response itself arrived; the buffer is raised to 10000 entries; a new test shows the wait fails by name within its bound while the answer is held and counts the released answer once. After: 16 of 16 copies green under the same load. Linux: `npm run check` 188 files; `npm test` 954 (927 pass, 27 Windows-only skips, 0 fail); `npm run test:browser` 58/58.
+
 ## 2026-11-20 · Sixteenth Claude run (fence 64): part 5a-2, the Windows exchange activation job. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Start:** master `8f6f06d`, no open PR, lock idle (fence 63 released). Every check green on master `fb4a140` and `8f6f06d`: the console START failure, the browser-suite hang and the NDI negative-control failure rows are closed (two master runs in a row green; causes of the earlier failures still unknown).

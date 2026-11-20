@@ -11,6 +11,17 @@ const nodeTest=require('node:test'),{before,after}=nodeTest;
 const TEST_TIMEOUT_MS=120000;
 const test=(name,fn)=>nodeTest.test(name,{timeout:TEST_TIMEOUT_MS},fn);
 function within(promise,ms,code){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(code)),ms);})]).finally(()=>clearTimeout(timer));}
+// A held late answer is "finished" when the browser's own Resource Timing list
+// holds one more completed answer for its route. Playwright's response.finished()
+// is not used: under load (fence 67, 8 copies on 2 busy CPUs) Chromium's DevTools
+// reported fully read answers as failed (net::ERR_ABORTED) while the page read
+// every body without an error and Resource Timing recorded the whole download;
+// finished() then never settled and the test failed HELD_ANSWER_NOT_FINISHED.
+const finishedAnswers=(page,route)=>page.evaluate(r=>performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname==='/game-day/api/'+r).length,route);
+async function moreFinished(page,route,count,ms=15000){
+  try{await page.waitForFunction(([r,n])=>performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname==='/game-day/api/'+r).length>n,[route,count],{timeout:ms});}
+  catch{throw Error('HELD_ANSWER_NOT_FINISHED');}
+}
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
 const http=require('node:http');
@@ -99,6 +110,8 @@ async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
   const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',timezoneId:'America/Chicago'}),page=await context.newPage();const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
   // A held answer is released even when a test fails, so the server can close.
   t.after(async()=>{model.hold?.release.resolve();model.reviewHold?.release.resolve();for(const hold of model.held)hold.release.resolve();await context.close();await new Promise(resolve=>server.close(resolve));assert.deepEqual(pageErrors,[]);});
+  // Resource Timing keeps 250 entries by default; the status poll must not crowd out a late answer.
+  await context.addInitScript(()=>performance.setResourceTimingBufferSize(10000));
   await page.goto(origin+'/game-day');
   return{page,model,data};
 }
@@ -200,7 +213,8 @@ test('source machine: a late answer for an earlier event never replaces the newe
   await page.getByText('Synthetic event 03 · 2026-10-03 · Synthetic · Synthetic field · 1 board button',{exact:true}).waitFor();
   await page.locator('#source-selections > li').first().waitFor();
   const late=page.waitForResponse(r=>r.url().endsWith('/source/selections')&&r.request().postDataJSON()?.eventKey==='EV-02');
-  hold.release.resolve();await within((await late).finished(),15000,"HELD_ANSWER_NOT_FINISHED");
+  const done=await finishedAnswers(page,'source/selections');
+  hold.release.resolve();await within(late,15000,'HELD_ANSWER_NOT_ANSWERED');await moreFinished(page,'source/selections',done);
   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,200)));
   assert.equal(await page.locator('#source-selections > li').count(),1,'only EV-03’s one button');
   assert.equal(await page.locator('#source-selections button').first().getAttribute('data-selection-id'),'sel-03-00');
@@ -338,7 +352,8 @@ test('source machine: a late review never lands on another button, and an unset 
   await page.locator('#source-review-version').getByText('gen-02-01',{exact:true}).waitFor();
   await page.locator('#source-window-prewarm').fill('30');
   const late=page.waitForResponse(r=>r.url().endsWith('/source/review')&&r.request().postDataJSON()?.identityTuple?.[4]==='Synthetic button 00');
-  hold.release.resolve();await within((await late).finished(),15000,"HELD_ANSWER_NOT_FINISHED");
+  const done=await finishedAnswers(page,'source/review');
+  hold.release.resolve();await within(late,15000,'HELD_ANSWER_NOT_ANSWERED');await moreFinished(page,'source/review',done);
   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,200)));
   assert.equal(await page.locator('#source-review-version').textContent(),'gen-02-01','the first button’s late review is dropped');
   assert.equal(await page.locator('#source-window-prewarm').inputValue(),'30','and does not reset the form');
@@ -483,4 +498,16 @@ test('source machine end to end at 390 px: the same flow fits without sideways s
 test('a held answer the page never asks for fails by name instead of hanging the suite',async()=>{
   const started=Date.now();await assert.rejects(within(new Promise(()=>{}),50,'HELD_REVIEW_NOT_ASKED'),/^Error: HELD_REVIEW_NOT_ASKED$/);
   assert.ok(Date.now()-started<5000);assert.equal(await within(Promise.resolve('asked'),50,'UNUSED'),'asked');
+});
+test('a held answer that never finishes fails by name, and a finished one is counted by the browser',async t=>{
+  const {page,model}=await scripted(t);
+  await page.getByText('School year 2026-2027 · 30 events · catalog 7',{exact:true}).waitFor();
+  const hold={eventKey:'EV-02',entered:deferred(),release:deferred()};model.hold=hold;
+  const done=await finishedAnswers(page,'source/selections');
+  await page.locator('#source-events button').nth(1).click();await within(hold.entered.promise,15000,'HELD_SELECTIONS_NOT_ASKED');
+  const started=Date.now();await assert.rejects(moreFinished(page,'source/selections',done,300),/^Error: HELD_ANSWER_NOT_FINISHED$/);
+  assert.ok(Date.now()-started<5000,'the wait is bounded');
+  hold.release.resolve();await moreFinished(page,'source/selections',done);
+  assert.equal(await finishedAnswers(page,'source/selections'),done+1,'the released answer is counted once');
+  await page.locator('#source-selections > li').first().waitFor();
 });
