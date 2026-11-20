@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 61,
-  "task": null,
+  "status": "active",
+  "owner": "claude-20261120T152229Z",
+  "fence": 62,
+  "task": "BE item 5 (Windows evaluation build)",
   "workBranch": null,
-  "acquiredAt": "2026-11-20T14:44:20.000Z",
-  "lastHeartbeat": "2026-11-20T15:13:22.000Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-20T15:13:22.000Z"
+  "acquiredAt": "2026-11-20T15:22:29.000Z",
+  "lastHeartbeat": "2026-11-20T15:22:29.000Z",
+  "expiresAt": "2026-11-20T16:52:29.000Z",
+  "releasedAt": null
 }
