@@ -7,6 +7,7 @@
 - Prepare, start, the playback buttons and Stop use the ordinary Game Day playback routes. Stop never waits on the approval list or the exchange folder.
 - Not yet on the screen: the page still says playback is unavailable on such a PC; the list and buttons are the next part. Cached (offline) startup is not offered yet: online startup only.
 - Tests: 2 new service tests (approved list, profile built from machine policy, real manager prepare/start/next/stop, window change, revocation, a runtime that is never built closes its picture reader) and 1 new HTTP test (prepare, start, next, stop and restart over real HTTP with a synthetic runtime). Removing the machine-setup filter or the reader close each made a test fail.
+
 ## 2026-11-20 · A slow Windows process listing no longer fails one test outright
 
 - GitHub's hosted Windows test run failed twice (Nov 20) in the test that checks the launcher's child processes are removed when the launcher dies: the one-time process listing taken before the launcher is killed took longer than its 15-second limit (`spawnSync powershell.exe ETIMEDOUT`).
