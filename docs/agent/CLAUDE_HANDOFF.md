@@ -1,27 +1,43 @@
 # Claude handoff
 
-Last updated 2026-11-20 (thirteenth run, lock fence 60). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (fourteenth run, lock fence 61). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+
+## Road to the evaluation build
+
+Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/planning/IMPLEMENTATION_BACKLOG.md` (top section).
+
+| Part | Size | Why that size | Status |
+|---|---|---|---|
+| 5a-1 Synthetic exchange folder and setup step for the proof | S | One builder and Linux tests on code that already exists | PR open (#77) |
+| 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | not started |
+| 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | not started |
+| 5b Setup command and cached (offline) startup | L | New operator command, the linked-folder decision, offline pins, proven on Linux and Windows | not started |
+| 5c Diagnostics and recovery | L | Six distinct states on screen and by command, four tested fault recoveries | not started |
+| 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
+| 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
+| 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
+| Open failing check: console proof on master `79ff344` | fix | Cause unknown; one run if it fails again | recorded |
+
+**Estimate:** remaining sizes 2 S + 4 M + 2 L = 16 sized runs; pace 1.5 runs per sized run (reconstructed from lock fences 52–60: 9 runs for 6 merged S parts, 3b to 4d-2; replaced by this log's own numbers once parts merge here); 16 x 1.5 + 1 open failing check = **about 25 runs**.
+
+## Run log
+
+| Date (UTC) | Fence | Outcome | Part |
+|---|---|---|---|
+| 2026-11-20 14:44 | 61 | PR open | 5a split into 5a-1..5a-3; 5a-1 PR #77 |
 
 ## State of master
 
-- The takeover is finished (PRs #56, #57, #58, all merged on Nov 19). The checks that ran on master after each of the three merges were all green, 6 of 6 groups each (`9bc27ca`, `6014793`, `975fecd`).
-- Still recorded as failed, not rerun: the Caspar software proof on `50bb524` (its own process listing timed out; why it was that slow is unknown), and the four NDI checks on PR #56's first commit (the vendor replaced its installer).
-- Merged since the takeover, each with all checks green on its final commit and on master after it (details in `CODEX_CHECKPOINT.md`): large JPEGs on the exchange path (#59) and from a local folder (#61), total bytes once per picture (#60), exact approval revalidation (#63), the source catalog service (#65), its routes (#66), its screen (#67), review and approval (#69), playback of approved selections behind the screen (#71, `4f408dd`), and the bounded retry of the launcher-parent process listing (#72). Recorded, not rerun: the prepared-event proof failure on `398e336` (cause unknown), a Windows baseline `ETIMEDOUT` on `7acbb00`, and the launcher-parent `ETIMEDOUT` on `c29407a` (job 136222818361).
-- Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
-- The checks on master after PR #71 and PR #73 were all green, 6 of 6 groups each (`4f408dd`, `e2d49ab`).
-- **Playback screen on a source machine** (item 4d-2, PR #74, merged as `bca398f` by the thirteenth run; all 10 checks on its final commit `21e3c74` green, both earlier commits had one red Windows check, recorded below): **Approved board buttons** under Exchange events, playback beside both; prepare, activate, commands and Stop through the ordinary routes; the list rereads after approve/revoke; a revoked prepared button cannot be activated (`ADMISSION_DENIED`, plain words). Design: `EXCHANGE_SOURCE_SERVICE.md` › Playback screen. **Item 4 is complete.**
-- **Stalled program page during Stop** (PR #75, merged as `c2fd7e0`; all 10 checks on its final commit `14729b2` green, warm-up 331 ms on hosted Windows; test only): the red Windows check on #74 (`HANDLER_FAILED`, `CANCELLED`) is a program page that stalls longer than the 2.5 s presentation heartbeat while painting Stop's black (reproduced on Linux; the failing runs were the first browser test on a cold VM, 5.2 s and 8.6 s against 1.9 s). The manager browser file now warms Chromium first (`BROWSER_WARMUP_MS` in the log) and pins the answer with a new stall test.
-- Master after #74 (`bca398f`): 8 of 9 green; `actual-full-app-private-ndi` FAILED in setup, `RECEIVER_START_TIMEOUT` (the NDI test receiver did not start within its fixed 20 s; job 136309239242), before any application code ran. The same proof passed on #74's and #75's final commits. Cause unknown. Not rerun.
-- Master after #75 (`c2fd7e0`): all 9 checks green, the full-app proof included.
+- Master `79ff344`. Items 1 to 4 are done (takeover PRs #56 to #58, then #59 to #75; each merged with every check green on its final commit). Details: `CODEX_CHECKPOINT.md`.
+- **Master after PR #76 (`79ff344`, docs only): 5 of 6 groups green; `actual-private-console` FAILED at its START phase, `ASSERTION_OR_COMPONENT`, no captures (job 136337968115).** The same proof passed on `c2fd7e0` just before. Cause unknown. Not rerun.
+- Recorded failures, not rerun, cause unknown unless named: the Caspar software proof on `50bb524` (process listing timed out); the four NDI checks on PR #56's first commit (vendor replaced its installer); the prepared-event proof on `398e336`; a Windows baseline `ETIMEDOUT` on `7acbb00`; the launcher-parent `ETIMEDOUT` on `c29407a`; the full-app `RECEIVER_START_TIMEOUT` on `bca398f` (job 136309239242); the Windows job-host test on PR #76's first commit (job 136322153458).
 - First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-Item 5 is split into 5a–5f with success criteria in the backlog's top section.
-
-1. Confirm the checks on master after PR #75 and this note. If the manager browser file fails again, read `BROWSER_WARMUP_MS` and the Stop answer in the log before changing anything.
-2. 5a: the Windows exchange activation proof in CI (synthetic exchange folder, real routes, real Caspar/CEF/NDI frames, then black). Read `docs/design/FULL_APP_WINDOWS_PROOF.md` and `.github/workflows/full-app-proof.yml` first; a new job beside them, not a change to their assertions.
-3. Then 5b setup and cached startup, 5c diagnostics and recovery, 5d close and startup proofs, 5e the four-hour soak, 5f the evaluation-ready artifact.
+1. PR #77 (5a-1): read its checks; merge if all green and the whole diff is read.
+2. 5a-2: the Windows job. Start from `scripts/smoke-full-app-windows.cjs` (`application()`, `receiver()`, the capture helpers) and `buildExchangeActivationFixture` (machine parts: Caspar, output NDI, renderer profile, RossTalk as the full-app proof writes them). A new job beside `actual-full-app-private-ndi`, not a change to its assertions. Approve with a window that contains now (the proof's own clock), prewarm 0.
+3. Then 5a-3, 5b, 5c, 5d, 5e, 5f.
 
 ## Open risks
 
