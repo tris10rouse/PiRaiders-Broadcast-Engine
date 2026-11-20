@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261120T0752Z",
   "fence": 56,
-  "task": "BE-006 4c source approval",
+  "task": "BE-006 4c PR #69",
   "workBranch": "feature/be-006-source-approval",
   "acquiredAt": "2026-11-20T07:52:09.000Z",
-  "lastHeartbeat": "2026-11-20T08:31:27.000Z",
-  "expiresAt": "2026-11-20T10:01:27.000Z",
+  "lastHeartbeat": "2026-11-20T08:39:05.000Z",
+  "expiresAt": "2026-11-20T10:09:05.000Z",
   "releasedAt": null
 }
