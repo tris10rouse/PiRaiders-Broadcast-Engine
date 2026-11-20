@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-20 (tenth run, lock fence 56). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (eleventh run, lock fence 57). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## State of master
 
@@ -15,14 +15,16 @@ Last updated 2026-11-20 (tenth run, lock fence 56). Keep this to one screen. His
 - **Source catalog screen** (item 4b, PR #67, merged as `ac88976`): on a source machine the Game Day page shows **Exchange events** instead of the local list: auto-read on open, school year and counts, events and an event's board buttons 25 per page, a read-only review of one button, stale/unavailable/busy states with a refresh button. Local machines unchanged. All 12 checks on `15c7d66` and all 6 check groups on master after the merge green.
 - **Review and approval** (item 4c, branch `feature/be-006-source-approval`, PR #69, merged as `986cbd8`; all 12 checks on its final commit `9ac8307` green; read the master checks after the merge at the start of the next run): the service reviews (fresh inspection plus the saved approval), confirms (re-inspects; refuses a changed revision or an ineligible event) and revokes (never reads the source) in this machine's approval store; routes `source/review`, `source/approve`, `source/revoke`; the chosen button gets **Check this button** and a two-step confirmation. Store setup is a setup step (item 5), never a screen action. Online confirmations only. Design: `EXCHANGE_SOURCE_SERVICE.md` › Review and approval.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
-- Preparation and playback on a source machine are still not built. First evaluation release: NOT READY. No Windows artifact exists.
+- **Playback of approved selections, backend** (item 4d-1, PR #71, merged as `4f408dd`; all 12 checks on its final commit `deaefb7` green; read the master checks after the merge at the start of the next run): on a source machine the manager's catalog is this PC's current approvals (`sel-` + 40 hex ids, store read only), profiles come from machine policy plus the confirmed tuple and window (online startup), each runtime gets the service's driver; the ordinary playback routes prepare, start, play and stop. Design: `EXCHANGE_SOURCE_SERVICE.md` › Playback of approved selections.
+- **Process listing retry** (PR #72, merged as `a51630f`; all 10 checks green): the launcher-parent test repeats a timed-out pre-kill listing at most twice and reports each attempt. Recorded, not rerun: that test failed with `ETIMEDOUT` on PR #71's first commit `c29407a` (job 136222818361), as on PR #66.
+- The source machine's screen still says playback is unavailable (item 4d-2). First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-Item 4 is split into 4a–4d in the backlog's top section (success criteria there).
+Item 4 is split into 4a–4d in the backlog's top section (success criteria there); 4d into 4d-1 (done) and 4d-2.
 
-1. Confirm the checks on master after PR #69 and this note are green.
-2. 4d: preparation and playback of an approved selection on a source machine (a manager whose catalog lists approved selections, `preparedMedia` and the service's admission hooks). If a Windows process listing times out again, make the test-side `processTable` callers repeat a timed-out listing a bounded number of times and record each attempt (its own increment and PR).
+1. Confirm the checks on master after PR #71 and this note are green.
+2. 4d-2: the screen. In source mode list the approved buttons (`GET events`) and offer Prepare, Start, the playback controls and Stop through the ordinary routes; reword the source notice; browser tests at desktop and 390 px, including a revocation while prepared. Labels: the catalog's names when browsable, else the manager's display name.
 3. Real Windows exchange activation; then setup (approval store setup step, offline pins), diagnostics and recovery; close and startup proofs; the four-hour soak.
 
 ## Open risks
@@ -31,7 +33,8 @@ Item 4 is split into 4a–4d in the backlog's top section (success criteria ther
 - **Memory.** One 4096 x 4096 JPEG needs about 0.7 GB (4:2:0) to 1.3 GB (four components) of process memory at its peak, one picture at a time. How much memory the stadium PC has is unknown.
 - The NDI checks run on runtime 6.4.0.2. Add the winget manifest commit to `docs/design/WINDOWS_NDI_PROOF.md` when one exists; a different hash there is a failure, not a detail.
 - The prepared-event proof failed once at the offline crash restart on PR #66's first commit, cause unknown; if it fails again, read its evidence artifact (`prepared-event-private-ndi-evidence`) from a place that can download it.
-- The NDI, console, prepared-event and full-app proofs still make a single process listing at their captures and can fail the way the Caspar proof did.
+- The NDI, console, prepared-event and full-app proofs and `windows-production-window.test.cjs` still make a single process listing at their captures and can fail the way the Caspar proof and the launcher-parent test did; the production-window test runs against a deadline, so a retry there needs care.
+- The web adapter closes the source machine's manager before its service; no test covers that order.
 - This sandbox cannot run `npm ci` exactly: one locked package (the spreadsheet reader) comes from a host the sandbox blocks. Local Linux runs use the registry's 0.18.5 as a stand-in, with `package.json` and the lock file restored afterwards; the stand-in lacks `set_fs`, so add a no-op `set_fs` export to the local copy or the 7 real-SPX startup tests fail. GitHub's checks are the authority.
 - The source reader refuses a linked source root (`UNSAFE_INPUT`), although `SOURCE_MACHINE_POLICY.md` allows "a configured alias". The service's root check accepts one; the reader then refuses it. Whether the stadium PC's Drive folder is reached through a link is unknown; decide when setup is written.
 - The browser suite's file `tests/browser/game-day-source.browser.cjs` is in `npm run test:browser`; locally it needs `PIRAIDERS_BROWSER_EXECUTABLE=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`, and no `--test-timeout` (that flag times out the whole file).
