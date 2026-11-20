@@ -1,5 +1,11 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Fifteenth Claude run (fence 62): the console proof's failure line. Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Start:** master `bc679a3`, PR #78 (handoff note) open with every check green; merged as `f89a8b1` after reading its whole diff. Lock idle (fence 61 released).
+- **Console proof failed again** on master `bc679a3` (job 136373177232): START, `ASSERTION_OR_COMPONENT`, no captures, about 20 s, same as on `79ff344`; it passed on PR #77's `abe8904` between them. Not rerun.
+- **Fix step 1** (`feature/be-002-console-failure-kind`, PR #79): the failure line keeps its code and adds `step` (the proof's own label, e.g. `LISTENER_QUERY`, `PROCESS_CAPTURE`, `AMCP_VERSION`), `stepElapsedMs`, a fixed `kind` (`CHILD_KILLED`, `ETIMEDOUT`, `CHILD_EXIT`, `ASSERTION`, `PARSE`, `PROGRAM`, `OTHER`, `NON_ERROR`; `failureKind` in `scripts/ndi-proof-diagnostics.cjs`) and the process-capture counts. No message, command, path or URL. Tests use real child timeouts and exits. Local: Linux 944 tests, 917 pass, 27 Windows-only skips, 0 fail; browser suite: 10 source-machine tests passed, then the run hung locally past 10 minutes (known local hang in that file; no browser code changed).
+
 ## 2026-11-20 · Fourteenth Claude run (fence 61): item 5a split; 5a-1 the synthetic exchange folder for the Windows proof. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Start:** master `79ff344`, no open pull requests, lock idle (fence 60 released). Master's checks after PR #76: 5 of 6 groups green; the console proof failed at START (`ASSERTION_OR_COMPONENT`, job 136337968115) on a docs-only commit. Cause unknown; not rerun.

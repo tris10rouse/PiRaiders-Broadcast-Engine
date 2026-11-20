@@ -9,7 +9,8 @@ const {setTimeout:wait}=require('node:timers/promises');
 const {performance}=require('node:perf_hooks');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
-const {processTable:table,observeTree,identityReason,captureProcessTree}=require('./windows-process-evidence.cjs');
+const {processTable:table,observeTree,identityReason,identityCaptureDiagnostics,captureProcessTree}=require('./windows-process-evidence.cjs');
+const {failureKind}=require('./ndi-proof-diagnostics.cjs');
 const {configuration,checkPixels}=require('./smoke-caspar-windows.cjs');
 const {spawnSupervisedProcess,JOB_HOST}=require('./lib/windows-job-process.cjs');
 const {CasparConsole}=require('./lib/caspar-console.cjs');
@@ -22,6 +23,19 @@ function checkConsolePixels(bytes,rgb){
     const png=PNG.sync.read(bytes);
     for(let i=0;i<png.data.length;i+=4)if(png.data[i]>12||png.data[i+1]>12||png.data[i+2]>12||png.data[i+3]<250)throw Error('BLACK_PIXELS');
   }
+}
+// Fixed-schema failure line. An uncoded failure keeps ASSERTION_OR_COMPONENT as
+// its code and adds a fixed-vocabulary kind and the proof's own step label, so
+// a recurrence says which action failed and how (for example a PowerShell query
+// killed at its timeout) without any message, command, path or URL.
+const AMCP_VERBS=new Set(['VERSION','PLAY','CLEAR','ADD']);
+function amcpStep(value){const verb=String(value).split(' ',1)[0];return 'AMCP_'+(AMCP_VERBS.has(verb)?verb:'OTHER');}
+function consoleFailureReport({phase,step,stepElapsedMs,error,processEvidence=null,processChecks={},processUnknownObservations={},captures=[]}){
+  const code=error&&typeof error.message==='string'&&/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT';
+  return {event:'caspar-console-fixed-failure',phase,step:typeof step==='string'&&/^[A-Z_]{1,40}$/.test(step)?step:'UNKNOWN',
+    stepElapsedMs:Number.isFinite(stepElapsedMs)?Math.max(0,Math.min(600000,Math.floor(stepElapsedMs))):null,
+    processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),
+    processCaptureDiagnostics:identityCaptureDiagnostics(error),code,kind:failureKind(error),captures};
 }
 function consoleConfiguration(){return configuration(5250).replace(/<controllers>.*?<\/controllers>/,'<controllers/>');}
 function ps(source){return JSON.parse(execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$ErrorActionPreference='Stop'; "+source],{encoding:'utf8',windowsHide:true,timeout:15000,maxBuffer:1024*1024}));}
@@ -40,7 +54,8 @@ async function main(){
   const sourceDir=path.join(root,'console-source');await fs.mkdir(sourceDir);
   await fs.writeFile(path.join(sourceDir,'01.png'),PNG.sync.write(image([240,20,20])));await fs.writeFile(path.join(sourceDir,'02.jpg'),jpeg.encode(image([20,20,240]),95).data);
   const snapshot=await stageSnapshot({sourceDir,cacheDir:path.join(root,'console-snapshots'),quietMs:0});await fs.rm(sourceDir,{recursive:true});
-  let now=Date.now(),runtime,session,activeHost,activeClient,phase='START',token,report,captureCount=0;
+  let now=Date.now(),runtime,session,activeHost,activeClient,phase='START',step='SETUP',stepAt=performance.now(),token,report,captureCount=0;
+  function at(name){step=name;stepAt=performance.now();}
   const end=now+3600000,hosts=new Set(),clients=new Set(),captures=[],listenerProbe=net.createServer();
   function contained(exe,args,options){
     const isCaspar=exe.toLowerCase().endsWith('casparcg.exe');
@@ -49,34 +64,34 @@ async function main(){
     if(isCaspar){activeHost=child;activeClient=new CasparConsole(child,{timeoutMs:60000});clients.add(activeClient);}
     return child;
   }
-  async function request(value,status=202){return activeClient.request(value,{status});}
+  async function request(value,status=202){at(amcpStep(value));return activeClient.request(value,{status});}
   async function capture(name,rgb){
     for(let attempt=0;attempt<8;attempt++){
-      const stem='console-'+name+'-'+captureCount++,file=path.join(bin,'media',stem+'.png');await request('ADD 1 IMAGE "'+stem+'"');
+      const stem='console-'+name+'-'+captureCount++,file=path.join(bin,'media',stem+'.png');await request('ADD 1 IMAGE "'+stem+'"');at('CAPTURE_PIXELS');
       try{await until(async()=>{try{const b=await fs.readFile(file);assert.ok(b.length<16*1024*1024);checkConsolePixels(b,rgb);return true;}catch{return false;}},'CAPTURE_PIXELS',5000);await fs.copyFile(file,path.join(evidence,name+'.png'));captures.push(name);return;}catch{await wait(200);}
     }throw Error('CAPTURE_PIXELS');
   }
   const hostIdentities=new WeakMap();
-  async function ownedRoot(host=activeHost){assert.ok(host.exitCode===null&&host.signalCode===null,'OWNED_HOST_LIVE');const captured=await captureProcessTree(host.pid,{deadline:performance.now()+15000,expectedParentPid:process.pid,expectedImage:JOB_HOST,expectedRoot:hostIdentities.get(host)||null});hostIdentities.set(host,captured.root);assert.equal(activeHost,host,'OWNED_HOST_UNCHANGED');assert.ok(host.exitCode===null&&host.signalCode===null,'OWNED_HOST_LIVE');const matches=captured.currentTree.filter(r=>r.ParentProcessId===host.pid&&typeof r.ExecutablePath==='string'&&path.normalize(r.ExecutablePath).toLowerCase()===path.join(bin,'casparcg.exe').toLowerCase());assert.equal(matches.length,1,'OWNED_CASPAR_ROOT');return{tree:captured.tree,pid:matches[0].ProcessId};}
-  async function noAmcpListener(){const{pid}=await ownedRoot(),rows=listeners();assert.ok(rows.some(r=>r.OwningProcess===process.pid),'LISTENER_ENUM_POSITIVE_CONTROL');assert.ok(!rows.some(r=>r.OwningProcess===pid),'OWNED_ROOT_TCP_LISTENER');}
+  async function ownedRoot(host=activeHost){at('PROCESS_CAPTURE');assert.ok(host.exitCode===null&&host.signalCode===null,'OWNED_HOST_LIVE');const captured=await captureProcessTree(host.pid,{deadline:performance.now()+15000,expectedParentPid:process.pid,expectedImage:JOB_HOST,expectedRoot:hostIdentities.get(host)||null});hostIdentities.set(host,captured.root);assert.equal(activeHost,host,'OWNED_HOST_UNCHANGED');assert.ok(host.exitCode===null&&host.signalCode===null,'OWNED_HOST_LIVE');const matches=captured.currentTree.filter(r=>r.ParentProcessId===host.pid&&typeof r.ExecutablePath==='string'&&path.normalize(r.ExecutablePath).toLowerCase()===path.join(bin,'casparcg.exe').toLowerCase());assert.equal(matches.length,1,'OWNED_CASPAR_ROOT');return{tree:captured.tree,pid:matches[0].ProcessId};}
+  async function noAmcpListener(){const{pid}=await ownedRoot();at('LISTENER_QUERY');const rows=listeners();assert.ok(rows.some(r=>r.OwningProcess===process.pid),'LISTENER_ENUM_POSITIVE_CONTROL');assert.ok(!rows.some(r=>r.OwningProcess===pid),'OWNED_ROOT_TCP_LISTENER');}
   try{
     await new Promise((resolve,reject)=>listenerProbe.listen(0,'127.0.0.1',resolve).once('error',reject));
     runtime=new LauncherRuntime({productionWindow:{start:new Date(now-1000).toISOString(),end:new Date(end).toISOString(),prewarmMinutes:0},services:[{name:'spx',command:process.execPath,args:['-e','setInterval(()=>{},1000)']},{name:'casparcg',command:path.join(bin,'casparcg.exe'),args:[config,'--log-severity=disable','--disable-logging'],cwd:bin}]},{clock:()=>now,supervisorOptions:{spawnProcess:contained,maxRestarts:1,restartDelayMs:100}});
-    await runtime.start();await request('VERSION',201);await noAmcpListener();await request('PLAY 1-10 RED');await capture('mixer-red',[255,0,0]);await request('CLEAR 1');
-    phase='CEF';session=await createRossTalkSession({presentation:{snapshotDir:snapshot.snapshotDir,commandTimeoutMs:20000,controllerOptions:{mode:'manual'}},rossTalk:{host:'127.0.0.1',port:0,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',8:'stop'},acknowledgements:true},canControl:()=>runtime.allowed(),resolvePreparedSnapshot:async()=>snapshot.snapshotDir},{allowEphemeral:true});await session.start();
-    const url=session.getProgramURL();token=new URL(url).hash.split('=')[1];await request('PLAY 1-10 [HTML] "'+url+'"');await until(()=>session.snapshot().presentation.renderer.ready,'CEF_READY',60000);await capture('prepared-black',[0,0,0]);
+    at('RUNTIME_START');await runtime.start();await request('VERSION',201);await noAmcpListener();await request('PLAY 1-10 RED');await capture('mixer-red',[255,0,0]);await request('CLEAR 1');
+    phase='CEF';at('ROSSTALK_SESSION');session=await createRossTalkSession({presentation:{snapshotDir:snapshot.snapshotDir,commandTimeoutMs:20000,controllerOptions:{mode:'manual'}},rossTalk:{host:'127.0.0.1',port:0,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',8:'stop'},acknowledgements:true},canControl:()=>runtime.allowed(),resolvePreparedSnapshot:async()=>snapshot.snapshotDir},{allowEphemeral:true});await session.start();
+    const url=session.getProgramURL();token=new URL(url).hash.split('=')[1];await request('PLAY 1-10 [HTML] "'+url+'"');at('CEF_WAIT');await until(()=>session.snapshot().presentation.renderer.ready,'CEF_READY',60000);await capture('prepared-black',[0,0,0]);
     // Real loopback RossTalk, actual managed browser, private console AMCP.
-    const{command}=require('./smoke-caspar-windows.cjs'),port=session.address().port;
+    const{command:rossTalk}=require('./smoke-caspar-windows.cjs'),command=(...args)=>{at('ROSSTALK_COMMAND');return rossTalk(...args);},port=session.address().port;
     await command(port,'GPI 1',{prefix:'OK ',timeoutMs:30000});await capture('launch-red',[240,20,20]);await command(port,'GPI 2',{prefix:'OK ',timeoutMs:30000});await capture('next-blue',[20,20,240]);await command(port,'GPI 8',{prefix:'OK ',timeoutMs:30000});await capture('stop-black',[0,0,0]);
     phase='RECOVERY';const oldHost=activeHost,oldEpoch=session.snapshot().presentation.renderer.epoch,{tree:oldTree,pid}=await ownedRoot(oldHost);
-    execFileSync('taskkill.exe',['/PID',String(pid),'/F'],{stdio:'ignore',windowsHide:true,timeout:15000});await until(()=>activeHost!==oldHost,'CONSOLE_RESTART',20000);await request('VERSION',201);await noAmcpListener();await until(()=>treeGone(oldTree),'OLD_TREE',10000);await until(()=>!session.snapshot().presentation.renderer.connected,'OLD_RENDERER',10000);
+    at('TASKKILL');execFileSync('taskkill.exe',['/PID',String(pid),'/F'],{stdio:'ignore',windowsHide:true,timeout:15000});await until(()=>activeHost!==oldHost,'CONSOLE_RESTART',20000);await request('VERSION',201);await noAmcpListener();await until(()=>treeGone(oldTree),'OLD_TREE',10000);await until(()=>!session.snapshot().presentation.renderer.connected,'OLD_RENDERER',10000);
     await request('PLAY 1-10 [HTML] "'+session.getProgramURL()+'"');await until(()=>session.snapshot().presentation.renderer.ready,'RESTART_CEF',60000);assert.notEqual(session.snapshot().presentation.renderer.epoch,oldEpoch);assert.equal(session.snapshot().presentation.controller.state,'stopped');await capture('restart-black',[0,0,0]);await command(port,'GPI 1',{prefix:'OK ',timeoutMs:30000});await capture('restart-launch-red',[240,20,20]);
-    phase='WINDOW_END';const{tree:ending}=await ownedRoot();now=end;await runtime.reconcile();assert.equal(runtime.sender,null);await until(()=>treeGone(ending),'WINDOW_TREE',10000);
-    for(const file of await filesUnder(bin))if(/\.(?:log|txt|json|config)$/i.test(file)){if((await fs.stat(file)).size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');const b=await fs.readFile(file);if(b.includes(Buffer.from(token))||b.includes(Buffer.from(token,'utf16le')))throw Error('PRIVATE_URL_PERSISTED');}
+    phase='WINDOW_END';const{tree:ending}=await ownedRoot();now=end;at('WINDOW_RECONCILE');await runtime.reconcile();assert.equal(runtime.sender,null);await until(()=>treeGone(ending),'WINDOW_TREE',10000);
+    at('LOG_SCAN');for(const file of await filesUnder(bin))if(/\.(?:log|txt|json|config)$/i.test(file)){if((await fs.stat(file)).size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');const b=await fs.readFile(file);if(b.includes(Buffer.from(token))||b.includes(Buffer.from(token,'utf16le')))throw Error('PRIVATE_URL_PERSISTED');}
     report={event:'caspar-private-console-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,provenance:tools.provenance,actualConsoleAMCP:true,utf16Input:true,correlatedStatus:true,emptyTcpControllers:true,listenerEnumerationPositiveControl:true,noOwnedRootTcpListenerBeforeAndAfterRestart:true,actualManagedCEF:true,fullFrameOpaqueBlackVerified:true,actualMixedImages:captures,realRossTalk:true,rootCrashRecovery:true,freshStoppedEpoch:true,windowEndTreeGone:true,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,windowClock:'injected-policy-clock-with-real-processes',persistentSPXStandIn:true,ndiTested:false,windows10Tested:false,stadiumHardwareTested:false};
-  }catch(error){console.error(JSON.stringify({event:'caspar-console-fixed-failure',phase,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),code:/^[A-Z_]{1,64}$/.test(error.message)?error.message:'ASSERTION_OR_COMPONENT',captures}));throw Error('CONSOLE_PROOF_FAILED');}
+  }catch(error){console.error(JSON.stringify(consoleFailureReport({phase,step,stepElapsedMs:performance.now()-stepAt,error,processEvidence,processChecks,processUnknownObservations,captures})));throw Error('CONSOLE_PROOF_FAILED');}
   finally{const results=await Promise.allSettled([runtime?.close(),session?.close()]);for(const client of clients)client.close();for(const child of hosts)child.stdin?.end();if(listenerProbe.listening)await new Promise((resolve,reject)=>listenerProbe.close(error=>error?reject(error):resolve()));if(results.some(r=>r.status==='rejected'))throw Error('CONSOLE_PROOF_CLEANUP');}
   await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }
 if(require.main===module)main().catch(()=>{console.error('CONSOLE_PROOF_FAILED');process.exitCode=1;});
-module.exports={consoleConfiguration,checkConsolePixels};
+module.exports={consoleConfiguration,checkConsolePixels,consoleFailureReport,amcpStep};

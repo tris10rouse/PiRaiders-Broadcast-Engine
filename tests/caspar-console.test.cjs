@@ -30,3 +30,18 @@ test('Console proof rejects a single leftover overlay pixel anywhere in black ou
   const corner=(1920*1080-1)*4;data[corner]=255;assert.throws(()=>checkConsolePixels(encode(),[0,0,0]),/BLACK_PIXELS/);data[corner]=0;data[corner+3]=0;assert.throws(()=>checkConsolePixels(encode(),[0,0,0]),/BLACK_PIXELS/);
   const config=consoleConfiguration();assert.match(config,/<controllers\/>/);assert.doesNotMatch(config,/<tcp>/);assert.match(config,/<log-path disabled="true">/);
 });
+
+test('Console proof failure line names the step and kind of an uncoded failure without its message',()=>{
+  const {consoleFailureReport,amcpStep}=require('../scripts/smoke-caspar-console-windows.cjs');
+  const secret='http://127.0.0.1:1234/private#piraiders='+'A'.repeat(43);
+  assert.equal(amcpStep('PLAY 1-10 [HTML] "'+secret+'"'),'AMCP_PLAY');assert.equal(amcpStep('VERSION'),'AMCP_VERSION');assert.equal(amcpStep(secret),'AMCP_OTHER');
+  const killed=Object.assign(Error('Command failed: powershell.exe '+secret),{killed:true,signal:'SIGTERM',code:null,stderr:secret});
+  const report=consoleFailureReport({phase:'START',step:'LISTENER_QUERY',stepElapsedMs:15012.7,error:killed});
+  assert.equal(report.code,'ASSERTION_OR_COMPONENT');assert.equal(report.kind,'CHILD_KILLED');assert.equal(report.step,'LISTENER_QUERY');assert.equal(report.stepElapsedMs,15012);
+  assert.doesNotMatch(JSON.stringify(report),/private|piraiders|127\.0|powershell/i);
+  const coded=consoleFailureReport({phase:'CEF',step:'CEF_WAIT',stepElapsedMs:60000,error:Error('CEF_READY'),captures:['mixer-red']});
+  assert.equal(coded.code,'CEF_READY');assert.equal(coded.kind,'OTHER');assert.deepEqual(coded.captures,['mixer-red']);
+  const odd=consoleFailureReport({phase:'START',step:secret,stepElapsedMs:-5,error:null});
+  assert.equal(odd.step,'UNKNOWN');assert.equal(odd.stepElapsedMs,0);assert.equal(odd.code,'ASSERTION_OR_COMPONENT');assert.equal(odd.kind,'NON_ERROR');
+  assert.equal(consoleFailureReport({phase:'START',step:'SETUP',stepElapsedMs:NaN,error:Error('x')}).stepElapsedMs,null);
+});
