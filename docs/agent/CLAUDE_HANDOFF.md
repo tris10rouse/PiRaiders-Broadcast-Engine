@@ -10,15 +10,14 @@ Last updated 2026-11-20 (sixth run, lock fence 52). Keep this to one screen. His
 - **Total bytes counted once per picture** (PR #60, merged as `98717c2`): all 9 checks on master after the merge were green.
 - **Large JPEGs from a local folder** (PR #61, merged as `125b76e`): the older local-folder path has the same 384 MB heap cap and 512 MB budget. All 12 checks on the PR and all 9 on master after the merge were green.
 - **Exact approval revalidation** (BE-006 slice 3a, PR #63, merged as `fe0812c`): one module fingerprints the machine's source policy and decides saved approvals exactly, rereading the store before each new event is published, started and acknowledged. Not used by the application yet. All 12 checks on the PR and all 9 on master after the merge were green.
-- **Source catalog service** (BE-006 slice 3b, branch `feature/be-006-source-catalog-service`, PR in progress): one object built from the machine configuration owns the provider and the approval check, checks the retained source spelling before every source read, and hands out catalog pages only after its own newest refresh. Not used by the application yet. PR state: see the checkpoint.
+- **Source catalog service** (BE-006 slice 3b, PR #65): one object built from the machine configuration owns the provider and the approval check, checks the retained source spelling before every source read, and hands out catalog pages only after its own newest refresh. Not used by the application yet. All 12 checks green on the first commit `dc489d4`; merged only after the checks on its final commit (this note) are green. If PR #65 is still open, read its checks first.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
 - The source PC service, selector and approval screen are still not enabled. First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. Finish PR for slice 3b (read its checks; merge if all green).
-2. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
-3. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
+1. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
+2. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
 
 ## Open risks
 
