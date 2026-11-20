@@ -29,3 +29,20 @@
 ## Tests
 
 `tests/exchange-source-service.test.cjs`, 8 tests on real temporary source, journal, cache and approval folders with synthetic data: construction and one owner per machine; pages only after a refresh, full labels, no paths; root mismatch, a redirected root withdrawing a good view, a disconnected source; a link alias; superseded refreshes before and inside the provider, and close; manager hooks rereading approvals, including revocation; cached startup with the source disconnected that rereads approvals by itself. Each guard (root check, browsing gate, entry withdrawal, both supersession checks, the cached-startup reread) was removed in turn and at least one test failed every time.
+
+## Routes (backlog item 4a, 2026-11-20)
+
+`scripts/lib/game-day-web.cjs` now builds this service when the loaded machine has a `source` section, instead of failing with `APP_CONFIG_INVALID`. A source machine has no playback manager yet (item 4d), so `GET /game-day/api/state`, `GET /game-day/api/events` and every playback POST answer `503 SOURCE_PLAYBACK_NOT_READY`. The page renders (it issues the CSRF token the source routes need) with a fixed notice that the selection screen is not built; the screen is item 4b.
+
+| Route | Body | Calls |
+|---|---|---|
+| `GET /game-day/api/source/status` | none | `{ok:true, ready:false, status: status(), catalog: catalogState()}` |
+| `POST /game-day/api/source/refresh` | `{}` exactly | `refreshCatalog()` |
+| `POST /game-day/api/source/events` | `{revision, offset, limit}` exactly | `catalogEventsPage` |
+| `POST /game-day/api/source/selections` | `{revision, eventKey, offset, limit}` exactly | `catalogSelectionsPage` |
+
+- Same guard as every Game Day route: loopback peer, exact Host and Origin, Fetch Metadata, the SPX login policy, no query strings. The POSTs also need the session's CSRF header and JSON of at most 4 KiB. The page reads are POSTs only because the guard refuses query strings.
+- The HTTP layer keeps the body schema exact (revision 64 lowercase hex, offset a safe integer ≥ 0, limit 1–64, event key 1–128 UTF-16 units without control characters) and leaves the real query rules to the service. Status codes: `CATALOG_QUERY_INVALID` 400, `CATALOG_EVENT_MISSING` 404, `CATALOG_REVISION_STALE`, `CATALOG_UNAVAILABLE`, `CATALOG_REFRESH_SUPERSEDED` and `BUSY` 409, everything else 503. A thrown service error becomes `503 SOURCE_SERVICE_FAILED`; its message never reaches the page.
+- A local-folder machine has no source routes (404); its playback routes are unchanged. Closing the web adapter closes the service and frees the provider for the next adapter.
+- Not here: inspection, approval, revocation (item 4c) and preparation of an approved selection (item 4d).
+- Tests: `tests/game-day-source-web.test.cjs`, 4 tests over real HTTP with the real view and the real service on temporary synthetic folders. Removing the source-mode check, the body schema, the playback refusal or the page's source mode each made at least one test fail.

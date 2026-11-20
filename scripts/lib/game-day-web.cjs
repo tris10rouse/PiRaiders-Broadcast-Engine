@@ -6,6 +6,7 @@ const {randomBytes,timingSafeEqual,createHmac}=require('node:crypto');
 const {canonicalAddress}=require('./rosstalk-protocol.cjs');
 const {loadGameDayMachineConfig,createLocalEventCatalog}=require('./game-day-catalog.cjs');
 const {createGameDayManager}=require('./game-day-manager.cjs');
+const {createExchangeSourceService}=require('./exchange-source-service.cjs');
 const ASSETS=Object.freeze({'/css/piraiders-game-day.css':['static/css/piraiders-game-day.css','text/css'],'/js/piraiders-game-day.js':['static/js/piraiders-game-day.js','application/javascript']});
 const ACTIONS=new Set(['launch','next','previous','toggle-auto','auto','manual','reload','stop']);
 const ID=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -36,24 +37,38 @@ function id(value){return typeof value==='string'&&value.length<=64&&ID.test(val
 function body(raw,keys){return !!raw&&typeof raw==='object'&&!Array.isArray(raw)&&Object.getPrototypeOf(raw)===Object.prototype&&Reflect.ownKeys(raw).length===keys.length&&keys.every(key=>Object.hasOwn(raw,key))&&Reflect.ownKeys(raw).every(key=>typeof key==='string'&&keys.includes(key));}
 function tuple(raw){return(raw.expectedEventId===null||id(raw.expectedEventId))&&Number.isSafeInteger(raw.expectedSelection)&&raw.expectedSelection>=0;}
 function apiStatus(value){if(value?.ok===true)return 200;switch(value?.code){case'INVALID_REQUEST':return 400;case'STALE_SELECTION':case'STALE_CANDIDATE':case'BUSY':case'WINDOW_ACTIVE':case'CANDIDATE_CLOSED':case'NOT_READY':case'CONTROL_INHIBITED':return 409;case'CATALOG_INVALID':case'PREPARE_FAILED':return 422;default:return 503;}}
-/** Trusted Node adapter: injected manager is never accepted through environment/profile/HTTP. */
-function createGameDayWeb({manager,port,appRoot,machineFile,configFile}={}){
- if(!Number.isSafeInteger(port)||port<1||port>65535||typeof appRoot!=='string'||!path.isAbsolute(appRoot)||
-  (!manager&&(typeof machineFile!=='string'||machineFile.length>4096||/[\x00-\x1f\x7f]/.test(machineFile)||!path.isAbsolute(machineFile))))throw failure('APP_CONFIG_INVALID');
+function sourceApiStatus(value){if(value?.ok===true)return 200;switch(value?.code){case'CATALOG_QUERY_INVALID':return 400;case'CATALOG_EVENT_MISSING':return 404;case'CATALOG_REVISION_STALE':case'CATALOG_UNAVAILABLE':case'CATALOG_REFRESH_SUPERSEDED':case'BUSY':return 409;default:return 503;}}
+// Source browsing bodies. The service validates queries itself; these checks
+// only keep the HTTP schema exact before anything reaches it.
+const REVISION=/^[a-f0-9]{64}$/;
+function page(raw){return typeof raw.revision==='string'&&REVISION.test(raw.revision)&&Number.isSafeInteger(raw.offset)&&raw.offset>=0&&Number.isSafeInteger(raw.limit)&&raw.limit>=1&&raw.limit<=64;}
+function eventKey(value){return typeof value==='string'&&value.length>=1&&value.length<=128&&!/[\x00-\x1f\x7f]/.test(value);}
+const SERVICE_KEYS=['refreshCatalog','catalogState','catalogEventsPage','catalogSelectionsPage','status','close'];
+/** Trusted Node adapter: injected manager or source service is never accepted through environment/profile/HTTP. */
+function createGameDayWeb({manager,sourceService,port,appRoot,machineFile,configFile}={}){
+ if(!Number.isSafeInteger(port)||port<1||port>65535||typeof appRoot!=='string'||!path.isAbsolute(appRoot)||(manager&&sourceService)||
+  (!manager&&!sourceService&&(typeof machineFile!=='string'||machineFile.length>4096||/[\x00-\x1f\x7f]/.test(machineFile)||!path.isAbsolute(machineFile))))throw failure('APP_CONFIG_INVALID');
  if(manager&&!['snapshot','listEvents','prepare','activate','discardCandidate','dispatch','close'].every(key=>typeof manager[key]==='function'))throw failure('APP_CONFIG_INVALID');
+ if(sourceService&&!SERVICE_KEYS.every(key=>typeof sourceService[key]==='function'))throw failure('APP_CONFIG_INVALID');
  const startupSecret=process.env.PIRAIDERS_APP_STARTUP_SECRET;
  if(startupSecret!==undefined&&!TOKEN.test(startupSecret))throw failure('APP_CONFIG_INVALID');
  const startupKey=startupSecret===undefined?null:Buffer.from(startupSecret,'hex');
  const origin=new URL('http://127.0.0.1:'+port).origin,host=new URL(origin).host;
- let owned=manager||null,closed=false,closePromise=null;
- const ready=manager?Promise.resolve(manager):loadGameDayMachineConfig(machineFile,{appRoot,nodeExecutable:process.execPath}).then(async machine=>{
+ // One owned backend per web adapter: a playback manager for a local-folder
+ // machine, or the source catalog service for a source machine. A source
+ // machine has no manager yet (backlog item 4d): its playback routes answer
+ // SOURCE_PLAYBACK_NOT_READY and only the source browsing routes work.
+ const backend=(managerValue,sourceValue)=>Object.freeze({manager:managerValue||null,source:sourceValue||null,
+  close:managerValue?()=>managerValue.close():()=>{sourceValue.close();return{ok:true};}});
+ let owned=manager||sourceService?backend(manager,sourceService):null,closed=false,closePromise=null;
+ const ready=owned?Promise.resolve(owned):loadGameDayMachineConfig(machineFile,{appRoot,nodeExecutable:process.execPath}).then(async machine=>{
   if(typeof configFile!=='string'||!path.isAbsolute(configFile))throw failure('APP_CONFIG_INVALID');
   // CWD/configfileref and __dirname can name the same file through Windows8.3
   // or directory aliases. Compare observed canonical paths without rewriting it.
   const [expectedConfig,actualConfig]=await Promise.all([fs.realpath(path.join(appRoot,machine.spxConfigFile)),fs.realpath(configFile)]);
   const normalize=value=>process.platform==='win32'?value.toLowerCase():value;
   if(normalize(expectedConfig)!==normalize(actualConfig))throw failure('APP_CONFIG_INVALID');
-  owned=createGameDayManager({catalog:createLocalEventCatalog(machine),sourceRoot:machine.mediaRoot,privateRoots:[machine.cacheRoot,machine.runtimeRoot,machine.catalogDirectory]});
+  owned=machine.source?backend(null,createExchangeSourceService(machine)):backend(createGameDayManager({catalog:createLocalEventCatalog(machine),sourceRoot:machine.mediaRoot,privateRoots:[machine.cacheRoot,machine.runtimeRoot,machine.catalogDirectory]}),null);
   if(closed){
    let stopping;try{stopping=owned.close();}catch{stopping=Promise.reject(failure('CLOSE_FAILED'));}
    void Promise.resolve(stopping).then(value=>{if(value?.ok===false)closePromise=null;},()=>{closePromise=null;});return null;
@@ -97,30 +112,49 @@ function createGameDayWeb({manager,port,appRoot,machineFile,configFile}={}){
   if(!general.password)return res.redirect('/');
   if(req.session.user===user)return next();return res.redirect('/login');
  }
- async function available(req,res,next){const value=await ready;if(closed||!value)return send(res,503,closed?'CLOSED':'APP_CONFIG_INVALID');req.gameDayManager=value;next();}
+ async function backendReady(req,res,next){const value=await ready;if(closed||!value)return send(res,503,closed?'CLOSED':'APP_CONFIG_INVALID');req.gameDayBackend=value;next();}
+ function managerReady(req,res,next){if(!req.gameDayBackend.manager)return send(res,503,'SOURCE_PLAYBACK_NOT_READY');req.gameDayManager=req.gameDayBackend.manager;next();}
+ function sourceReady(req,res,next){if(!req.gameDayBackend.source)return send(res,404,'NOT_FOUND');req.gameDaySource=req.gameDayBackend.source;next();}
+ const available=[backendReady,managerReady];
  function csrf(req,res,next){
   const expected=req.session.piraidersGameDayCsrf,value=req.headers['x-piraiders-csrf'];
   if(countHeader(req,'x-piraiders-csrf')!==1||typeof expected!=='string'||!TOKEN.test(expected)||typeof value!=='string'||!TOKEN.test(value)||!timingSafeEqual(Buffer.from(value),Buffer.from(expected)))return send(res,403,'CSRF_DENIED');
   next();
  }
- router.get('/game-day',pageAuth,available,(req,res)=>{
+ // A source machine gets the page too (its CSRF token guards the source
+ // routes), marked sourceMode; its selection screen is backlog item 4b.
+ router.get('/game-day',pageAuth,backendReady,(req,res)=>{
   if(typeof req.session.piraidersGameDayCsrf!=='string'||!TOKEN.test(req.session.piraidersGameDayCsrf))req.session.piraidersGameDayCsrf=randomBytes(32).toString('hex');
-  res.render('view-game-day',{layout:false,csrfToken:req.session.piraidersGameDayCsrf});
+  res.render('view-game-day',{layout:false,csrfToken:req.session.piraidersGameDayCsrf,sourceMode:!!req.gameDayBackend.source});
  });
- for(const [url,[file,type]]of Object.entries(ASSETS))router.get(url,auth,available,(req,res)=>{
+ for(const [url,[file,type]]of Object.entries(ASSETS))router.get(url,auth,backendReady,(req,res)=>{
   res.type(type).sendFile(path.join(appRoot,file),{cacheControl:false,dotfiles:'deny'},error=>{if(error&&!res.headersSent)send(res,404,'NOT_FOUND');});
  });
  router.get('/game-day/api/state',auth,available,(req,res)=>{try{res.json({ok:true,state:req.gameDayManager.snapshot()});}catch{send(res,500,'STATE_UNAVAILABLE');}});
  router.get('/game-day/api/events',auth,available,(req,res)=>{void Promise.resolve().then(()=>req.gameDayManager.listEvents()).then(value=>{if(!res.destroyed&&!res.writableEnded)res.status(apiStatus(value)).json(value);},()=>send(res,503,'CATALOG_INVALID'));});
+ // Source browsing (backlog item 4a). Status is a plain read; refresh and the
+ // page reads are POSTs behind the same Origin/CSRF checks as every mutation
+ // because the guard refuses query strings. Nothing here approves, prepares,
+ // writes the source or touches playback; every answer is path-free.
+ router.get('/game-day/api/source/status',auth,backendReady,sourceReady,(req,res)=>{
+  try{res.json({ok:true,ready:false,status:req.gameDaySource.status(),catalog:req.gameDaySource.catalogState()});}catch{send(res,500,'STATE_UNAVAILABLE');}
+ });
  router.use('/game-day/api',(req,res,next)=>{
   if(req.method!=='POST')return send(res,405,'METHOD_NOT_ALLOWED');
   if(!req.is('application/json'))return send(res,415,'JSON_REQUIRED');next();
- },auth,available,csrf,express.json({limit:4096,strict:true,inflate:false}));
+ },auth,backendReady,csrf,express.json({limit:4096,strict:true,inflate:false}));
+ const sourceRoutes=[['refresh',[],()=>true,source=>source.refreshCatalog()],
+  ['events',['revision','offset','limit'],page,(source,raw)=>source.catalogEventsPage({revision:raw.revision,offset:raw.offset,limit:raw.limit})],
+  ['selections',['revision','eventKey','offset','limit'],raw=>page(raw)&&eventKey(raw.eventKey),(source,raw)=>source.catalogSelectionsPage({revision:raw.revision,eventKey:raw.eventKey,offset:raw.offset,limit:raw.limit})]];
+ for(const[name,keys,valid,invoke]of sourceRoutes)router.post('/game-day/api/source/'+name,sourceReady,(req,res)=>{
+  if(!body(req.body,keys)||!valid(req.body))return send(res,400,'INVALID_REQUEST');
+  void Promise.resolve().then(()=>invoke(req.gameDaySource,req.body)).then(value=>{if(!res.destroyed&&!res.writableEnded)res.status(sourceApiStatus(value)).json(value);},()=>send(res,503,'SOURCE_SERVICE_FAILED'));
+ });
  const mutations=[['prepare',['eventId','expectedEventId','expectedSelection'],raw=>id(raw.eventId), (value,raw)=>value.prepare(raw.eventId,{expectedEventId:raw.expectedEventId,expectedSelection:raw.expectedSelection})],
   ['activate',['candidateId','expectedEventId','expectedSelection'],raw=>typeof raw.candidateId==='string'&&/^[a-f0-9]{48}$/.test(raw.candidateId),(value,raw)=>value.activate(raw)],
   ['discard',['candidateId','expectedEventId','expectedSelection'],raw=>typeof raw.candidateId==='string'&&/^[a-f0-9]{48}$/.test(raw.candidateId),(value,raw)=>value.discardCandidate(raw)],
   ['command',['action','expectedEventId','expectedSelection'],raw=>typeof raw.action==='string'&&ACTIONS.has(raw.action),(value,raw)=>value.dispatch(raw.action,{expectedEventId:raw.expectedEventId,expectedSelection:raw.expectedSelection})]];
- for(const[name,keys,valid,invoke]of mutations)router.post('/game-day/api/'+name,(req,res)=>{
+ for(const[name,keys,valid,invoke]of mutations)router.post('/game-day/api/'+name,managerReady,(req,res)=>{
   if(!body(req.body,keys)||!tuple(req.body)||!valid(req.body))return send(res,400,'INVALID_REQUEST');
   void Promise.resolve().then(()=>invoke(req.gameDayManager,req.body)).then(value=>{if(!res.destroyed&&!res.writableEnded)res.status(apiStatus(value)).json(value);},()=>send(res,503,'OPERATION_FAILED'));
  });

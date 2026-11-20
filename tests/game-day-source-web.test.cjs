@@ -1,0 +1,129 @@
+'use strict';
+// BE-006 item 4a: the source browsing routes of the Game Day web adapter on a
+// loader-made source machine. Real HTTP, the real view, the real source
+// service on temporary folders; every identity, label and path is synthetic.
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),http=require('node:http'),crypto=require('node:crypto');
+const express=require('express'),session=require('express-session'),exphbs=require('express-handlebars');
+const {createGameDayWeb}=require('../scripts/lib/game-day-web.cjs');
+const {fixture,source,copy}=require('./exchange-provider-fixtures.cjs');
+const VIEWS=path.join(__dirname,'..','views');
+
+async function machineFile(f,{expectedCanonicalRoot=f.config.sourceRoot}={}){
+  await fs.mkdir(path.join(f.parent,'config'),{recursive:true});await fs.writeFile(path.join(f.parent,'config','spx.json'),'{}');
+  const raw={schemaVersion:1,spxConfigFile:'config/spx.json',catalogDirectory:path.join(f.parent,'catalog'),
+    mediaRoot:f.config.sourceRoot,cacheRoot:f.config.cacheDir,runtimeRoot:path.join(f.parent,'runtime'),
+    caspar:{executable:path.join(f.parent,'components','casparcg.exe'),cwd:path.join(f.parent,'components')},output:{type:'none'},
+    rossTalk:{host:'127.0.0.1',port:7788,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',8:'stop'}},
+    source:{providerId:'approved-feed',journalDirectory:f.config.journalDir,journalStoreId:f.config.storeId,
+      approvalDirectory:path.join(f.parent,'private','approvals'),approvalStoreId:crypto.randomUUID(),
+      expectedCanonicalRoot,binding:copy(f.config.binding)}};
+  const file=path.join(f.parent,'machine-'+crypto.randomUUID()+'.json');await fs.writeFile(file,JSON.stringify(raw));return file;
+}
+async function serve(t,options,{username='',password=''}={}){
+  const prior=global.config;global.config={general:{username,password}};
+  const app=express();app.engine('handlebars',exphbs.engine({extname:'.handlebars'}));app.set('view engine','handlebars');app.set('views',VIEWS);
+  const server=http.createServer(app);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port,origin='http://127.0.0.1:'+port;
+  const web=createGameDayWeb({port,...options(port)});
+  app.use(web.guard);app.use(session({secret:'synthetic-source-web',resave:false,saveUninitialized:false}));app.use(web.router);
+  let stopped=false;const stop=async()=>{if(stopped)return;stopped=true;await web.close();await new Promise(resolve=>server.close(resolve));global.config=prior;};
+  t.after(stop);
+  function request(url,{method='GET',headers={},json}={}){return new Promise((resolve,reject)=>{const req=http.request({hostname:'127.0.0.1',port,path:url,method,agent:false,
+    headers:{Host:'127.0.0.1:'+port,...(json===undefined?{}:{'Content-Type':'application/json'}),...headers}},res=>{const chunks=[];res.on('data',c=>chunks.push(c));
+    res.on('end',()=>{const text=Buffer.concat(chunks).toString();let value;try{value=JSON.parse(text);}catch{}resolve({status:res.statusCode,headers:res.headers,text,value});});});
+    req.on('error',reject);req.end(json===undefined?undefined:JSON.stringify(json));});}
+  async function page(){const response=await request('/game-day'),match=/name="piraiders-csrf" content="([a-f0-9]{64})"/.exec(response.text);
+    return{response,token:match?.[1],cookie:response.headers['set-cookie']?.[0].split(';')[0]};}
+  return{web,request,origin,stop,page,
+    post:(p,url,json,extra={})=>request(url,{method:'POST',json,headers:{Origin:origin,Cookie:p.cookie,'X-PiRaiders-CSRF':p.token,'Sec-Fetch-Site':'same-origin','Sec-Fetch-Mode':'cors','Sec-Fetch-Dest':'empty',...extra}})};
+}
+function noPaths(text,f){for(const p of [f.parent,f.config.sourceRoot,f.config.cacheDir,f.config.journalDir,path.join(f.parent,'private')])assert.equal(text.includes(p)||text.includes(JSON.stringify(p).slice(1,-1)),false,'no private path in a response');}
+
+test('a source machine serves path-free catalog pages behind the page token and refuses playback',async t=>{
+  const f=await fixture(t),m=source();await f.publish(m);
+  const file=await machineFile(f),s=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json')}));
+  const p=await s.page();assert.equal(p.response.status,200);assert.match(p.token,/^[a-f0-9]{64}$/);
+  assert.match(p.response.text,/read events from the scheduler’s exchange folder/,'source mode says the selection screen is not built');
+  const responses=[];const keep=r=>{responses.push(r.text);return r;};
+  // Playback has no manager on a source machine yet.
+  for(const url of ['/game-day/api/state','/game-day/api/events'])assert.deepEqual(keep(await s.request(url,{headers:{Cookie:p.cookie}})).value,{ok:false,code:'SOURCE_PLAYBACK_NOT_READY'});
+  const stop=keep(await s.post(p,'/game-day/api/command',{action:'stop',expectedEventId:null,expectedSelection:0}));
+  assert.equal(stop.status,503);assert.equal(stop.value.code,'SOURCE_PLAYBACK_NOT_READY');
+  // Before a refresh nothing is browsable.
+  const before=keep(await s.request('/game-day/api/source/status',{headers:{Cookie:p.cookie}}));
+  assert.equal(before.status,200);assert.equal(before.value.ready,false);assert.equal(before.value.status.catalog.code,'CATALOG_NOT_READ');
+  assert.deepEqual(before.value.catalog,{available:false,catalog:null});
+  const early=keep(await s.post(p,'/game-day/api/source/events',{revision:'0'.repeat(64),offset:0,limit:50}));
+  assert.equal(early.status,409);assert.equal(early.value.code,'CATALOG_UNAVAILABLE');
+  // Refresh, then page through events and one event's selections.
+  const refreshed=keep(await s.post(p,'/game-day/api/source/refresh',{}));
+  assert.equal(refreshed.status,200,refreshed.text);assert.equal(refreshed.value.ok,true);assert.equal(refreshed.value.ready,false);
+  const revision=refreshed.value.catalog.revision;assert.match(revision,/^[a-f0-9]{64}$/);
+  const events=keep(await s.post(p,'/game-day/api/source/events',{revision,offset:0,limit:50}));
+  assert.equal(events.status,200);assert.equal(events.value.ready,false);assert.deepEqual(events.value.events.map(e=>e.eventKey),[m.event.eventKey]);
+  const selections=keep(await s.post(p,'/game-day/api/source/selections',{revision,eventKey:m.event.eventKey,offset:0,limit:50}));
+  assert.equal(selections.status,200);assert.deepEqual(selections.value.selections.map(x=>x.identityTuple),[m.identityTuple]);
+  assert.equal(selections.value.selections[0].displayLabel,m.button.displayLabel,'the full source label');
+  const after=keep(await s.request('/game-day/api/source/status',{headers:{Cookie:p.cookie}}));
+  assert.equal(after.value.status.catalog.available,true);assert.equal(after.value.catalog.available,true);
+  // The service's own codes keep their meaning over HTTP.
+  const stale=keep(await s.post(p,'/game-day/api/source/events',{revision:'1'.repeat(64),offset:0,limit:50}));assert.equal(stale.status,409);assert.equal(stale.value.code,'CATALOG_REVISION_STALE');
+  const missing=keep(await s.post(p,'/game-day/api/source/selections',{revision,eventKey:'no-such-event',offset:0,limit:50}));assert.equal(missing.status,404);assert.equal(missing.value.code,'CATALOG_EVENT_MISSING');
+  const beyond=keep(await s.post(p,'/game-day/api/source/events',{revision,offset:5,limit:50}));assert.equal(beyond.status,400);assert.equal(beyond.value.code,'CATALOG_QUERY_INVALID');
+  for(const r of responses)noPaths(r,f);
+  // Close shuts the service; its provider boundary is free for a new adapter.
+  await s.stop();
+  const again=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json')}));
+  const p2=await again.page();assert.equal(p2.response.status,200,'a second adapter can open the same machine after close');
+  assert.equal((await again.post(p2,'/game-day/api/source/refresh',{})).status,200);
+});
+
+test('source routes keep the exact HTTP schema, CSRF and Origin rules',async t=>{
+  const f=await fixture(t),m=source();await f.publish(m);
+  const file=await machineFile(f),s=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json')}));
+  const p=await s.page(),revision=(await s.post(p,'/game-day/api/source/refresh',{})).value.catalog.revision;
+  const bad=[['refresh',{extra:true}],['refresh',[]],['events',{revision,offset:0}],['events',{revision,offset:0,limit:65}],['events',{revision,offset:0,limit:0}],
+    ['events',{revision,offset:-1,limit:10}],['events',{revision:'A'.repeat(64),offset:0,limit:10}],['events',{revision,offset:0,limit:10,extra:1}],['events',{revision,offset:'0',limit:10}],
+    ['selections',{revision,offset:0,limit:10}],['selections',{revision,eventKey:'',offset:0,limit:10}],['selections',{revision,eventKey:'a\u0000b',offset:0,limit:10}],
+    ['selections',{revision,eventKey:'x'.repeat(129),offset:0,limit:10}],['selections',{revision,eventKey:7,offset:0,limit:10}]];
+  for(const[name,json]of bad){const r=await s.post(p,'/game-day/api/source/'+name,json);assert.equal(r.status,400,name+' '+JSON.stringify(json));assert.deepEqual(r.value,{ok:false,code:'INVALID_REQUEST'});}
+  assert.equal((await s.post(p,'/game-day/api/source/refresh',{},{'X-PiRaiders-CSRF':'f'.repeat(64)})).value.code,'CSRF_DENIED');
+  assert.equal((await s.post(p,'/game-day/api/source/refresh',{},{Origin:'https://foreign.invalid'})).value.code,'ORIGIN_DENIED');
+  assert.equal((await s.request('/game-day/api/source/refresh',{headers:{Cookie:p.cookie}})).status,405,'refresh is POST only');
+  assert.equal((await s.request('/game-day/api/source/status?x=1',{headers:{Cookie:p.cookie}})).status,400,'no query strings');
+  const unknown=await s.post(p,'/game-day/api/source/approve',{});assert.equal(unknown.status,404,'no approval route in this slice');
+  // The retained-root check still applies through HTTP.
+  const g=await fixture(t);await g.publish(source());
+  const wrongFile=await machineFile(g,{expectedCanonicalRoot:path.join(g.parent,'retained elsewhere')});
+  const w=await serve(t,()=>({appRoot:g.parent,machineFile:wrongFile,configFile:path.join(g.parent,'config','spx.json')}));
+  const wp=await w.page(),refused=await w.post(wp,'/game-day/api/source/refresh',{});
+  assert.equal(refused.status,503);assert.deepEqual(refused.value,{ok:false,ready:false,code:'SOURCE_ROOT_MISMATCH'});noPaths(refused.text,g);
+});
+
+test('source routes follow the existing SPX login policy',async t=>{
+  const f=await fixture(t);await f.publish(source());
+  const file=await machineFile(f),s=await serve(t,()=>({appRoot:f.parent,machineFile:file,configFile:path.join(f.parent,'config','spx.json')}),{username:'operator',password:'synthetic'});
+  const r=await s.request('/game-day/api/source/status');assert.equal(r.status,401);assert.equal(r.value.code,'AUTH_REQUIRED');
+  const page=await s.request('/game-day');assert.equal(page.status,302,'the page sends an unsigned-in operator to the SPX login');
+});
+
+test('a local-folder adapter has no source routes, and the trusted options are exact',async t=>{
+  const calls=[];const manager={snapshot:()=>({state:'idle'}),listEvents:async()=>({ok:true,events:[]}),prepare:async()=>({ok:true}),activate:async()=>({ok:true}),
+    discardCandidate:async()=>({ok:true}),dispatch:async action=>{calls.push(action);return{ok:true};},close:()=>Promise.resolve({ok:true})};
+  const root=path.join(__dirname,'..');
+  const s=await serve(t,()=>({manager,appRoot:root}));const p=await s.page();
+  assert.equal((await s.request('/game-day/api/source/status',{headers:{Cookie:p.cookie}})).status,404);
+  assert.equal((await s.post(p,'/game-day/api/source/refresh',{})).status,404);
+  assert.equal((await s.request('/game-day/api/state',{headers:{Cookie:p.cookie}})).status,200,'local playback is unchanged');
+  assert.equal((await s.post(p,'/game-day/api/command',{action:'stop',expectedEventId:null,expectedSelection:0})).status,200);assert.deepEqual(calls,['stop']);
+  assert.ok(!p.response.text.includes('exchange folder'),'no source notice on a local-folder machine');
+  const service={refreshCatalog:async()=>{throw Object.assign(Error('C:\\private\\path'),{code:'X'});},catalogState:()=>({available:false,catalog:null}),
+    catalogEventsPage:()=>{throw Error('boom');},catalogSelectionsPage:()=>({ok:false,code:'BUSY'}),status:()=>({ready:false}),close:()=>{}};
+  assert.throws(()=>createGameDayWeb({port:1,appRoot:root,manager,sourceService:service}),{code:'APP_CONFIG_INVALID'});
+  assert.throws(()=>createGameDayWeb({port:1,appRoot:root,sourceService:{...service,close:undefined}}),{code:'APP_CONFIG_INVALID'});
+  const fake=await serve(t,()=>({sourceService:service,appRoot:root}));const fp=await fake.page();
+  const thrown=await fake.post(fp,'/game-day/api/source/refresh',{});assert.equal(thrown.status,503);assert.deepEqual(thrown.value,{ok:false,code:'SOURCE_SERVICE_FAILED'});
+  assert.ok(!thrown.text.includes('private'),'a thrown error never reaches the page');
+  assert.deepEqual((await fake.post(fp,'/game-day/api/source/events',{revision:'0'.repeat(64),offset:0,limit:1})).value,{ok:false,code:'SOURCE_SERVICE_FAILED'});
+  assert.equal((await fake.post(fp,'/game-day/api/source/selections',{revision:'0'.repeat(64),eventKey:'e',offset:0,limit:1})).status,409);
+});

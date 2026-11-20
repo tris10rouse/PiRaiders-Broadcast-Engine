@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-20 (sixth run, lock fence 52). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (seventh run, lock fence 53). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## State of master
 
@@ -10,20 +10,26 @@ Last updated 2026-11-20 (sixth run, lock fence 52). Keep this to one screen. His
 - **Total bytes counted once per picture** (PR #60, merged as `98717c2`): all 9 checks on master after the merge were green.
 - **Large JPEGs from a local folder** (PR #61, merged as `125b76e`): the older local-folder path has the same 384 MB heap cap and 512 MB budget. All 12 checks on the PR and all 9 on master after the merge were green.
 - **Exact approval revalidation** (BE-006 slice 3a, PR #63, merged as `fe0812c`): one module fingerprints the machine's source policy and decides saved approvals exactly, rereading the store before each new event is published, started and acknowledged. Not used by the application yet. All 12 checks on the PR and all 9 on master after the merge were green.
-- **Source catalog service** (BE-006 slice 3b, PR #65): one object built from the machine configuration owns the provider and the approval check, checks the retained source spelling before every source read, and hands out catalog pages only after its own newest refresh. Not used by the application yet. All 12 checks green on the first commit `dc489d4`; merged only after the checks on its final commit (this note) are green. If PR #65 is still open, read its checks first.
+- **Source catalog service** (BE-006 slice 3b, PR #65, merged as `f9d8e46`): one object built from the machine configuration owns the provider and the approval check. All 6 check groups on master after the merge were green.
+- **Source catalog routes** (item 4a, PR #66, branch `feature/be-006-source-catalog-routes`): the web part no longer refuses a source machine: it builds the service and serves status, refresh, events-page and selections-page routes behind the existing guards; its playback routes answer `SOURCE_PLAYBACK_NOT_READY`; the page shows a fixed notice. First commit `398e336`: 11 of 12 checks green; **the prepared-event Windows proof failed** (job 136095134378) at its offline-crash phase with only `ASSERTION_OR_COMPONENT`, about 15 s after all eight frames were verified; cause unknown (that proof does not load the changed web code; its evidence file could not be fetched from this sandbox; it had passed on the previous 20 runs). Recorded, not rerun. Second commit `7acbb00` (documents only): the prepared-event proof passed, but one of its two Windows baseline runs failed one test, `actual Windows launcher-parent termination removes its owned SPX stand-in and descendant` (`tests/piraiders-app.test.cjs`, job 136099621935): `spawnSync powershell.exe ETIMEDOUT` in the process listing (`scripts/windows-process-evidence.cjs` `processTable`); the other Windows baseline run of the same commit passed. Not rerun. PR #66 stays open: read the checks on its final commit (this note) and merge only if all are green.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
-- The source PC service, selector and approval screen are still not enabled. First evaluation release: NOT READY. No Windows artifact exists.
+- The selector screen, approval and playback on a source machine are still not built. First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
-2. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
+Item 4 is split into 4a–4d in the backlog's top section (success criteria there).
+
+1. First finish PR #66. If a Windows process listing times out again, make the test-side `processTable` callers repeat a timed-out listing a bounded number of times and record each attempt, as the Caspar proof already does (its own increment and PR).
+2. 4b: the source catalog screen on the Game Day page in source mode (refresh, year → event → board/button, paging, stale and unavailable states). Browser test at desktop and 390 px.
+3. 4c: inspection, confirm and revoke routes and the confirmation screen; 4d: preparation and playback of an approved selection on a source machine.
+4. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
 
 ## Open risks
 
 - **Time.** The 10 s per-picture limit is fixed in code. On a 2-CPU Linux machine the slowest legal pictures found take 5.5 s (dense progressive 4:4:4 JPEG, 14 MB, at the pixel limit) and 3.0 s (16-bit PNG). The stadium PC has never been measured.
 - **Memory.** One 4096 x 4096 JPEG needs about 0.7 GB (4:2:0) to 1.3 GB (four components) of process memory at its peak, one picture at a time. How much memory the stadium PC has is unknown.
 - The NDI checks run on runtime 6.4.0.2. Add the winget manifest commit to `docs/design/WINDOWS_NDI_PROOF.md` when one exists; a different hash there is a failure, not a detail.
+- The prepared-event proof failed once at the offline crash restart on PR #66's first commit, cause unknown; if it fails again, read its evidence artifact (`prepared-event-private-ndi-evidence`) from a place that can download it.
 - The NDI, console, prepared-event and full-app proofs still make a single process listing at their captures and can fail the way the Caspar proof did.
 - This sandbox cannot run `npm ci` exactly: one locked package (the spreadsheet reader) comes from a host the sandbox blocks. Local Linux runs use the registry's 0.18.5 as a stand-in, with `package.json` and the lock file restored afterwards; the stand-in lacks `set_fs`, so add a no-op `set_fs` export to the local copy or the 7 real-SPX startup tests fail. GitHub's checks are the authority.
 - The source reader refuses a linked source root (`UNSAFE_INPUT`), although `SOURCE_MACHINE_POLICY.md` allows "a configured alias". The service's root check accepts one; the reader then refuses it. Whether the stadium PC's Drive folder is reached through a link is unknown; decide when setup is written.
