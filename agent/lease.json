@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 58,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-20T11:50:55.000Z",
-  "lastHeartbeat": "2026-11-20T12:50:39.000Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-20T12:50:39.000Z"
+  "status": "active",
+  "owner": "claude-20261120T125104000Z",
+  "fence": 59,
+  "task": "PR #74 status comment",
+  "workBranch": "feature/be-006-source-playback-screen",
+  "acquiredAt": "2026-11-20T12:51:04.000Z",
+  "lastHeartbeat": "2026-11-20T12:51:04.000Z",
+  "expiresAt": "2026-11-20T14:21:04.000Z",
+  "releasedAt": null
 }
