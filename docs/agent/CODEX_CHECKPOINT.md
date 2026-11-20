@@ -1,5 +1,12 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Eleventh Claude run (fence 57): playback of approved selections on a source machine, backend (item 4d-1). Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master** `13b0ce3` at the start; all 6 check groups on it and on `986cbd8` green. No open pull requests.
+- **4d split** into 4d-1 (backend) and 4d-2 (screen) in the backlog's top section.
+- **4d-1**, PR #71: `playbackCatalog` and `preparedRuntimeFactory` in the source service; the web adapter gives a source machine a manager over them. Tests: 2 service, 1 HTTP (2 changed). Removing the machine-policy filter or the driver close each made a test fail. Local Linux: syntax 183 files; 938 tests, 911 pass, 27 Windows-only skips, 0 fail (local stand-in for the blocked package); source browser file 9/9.
+- **PR #71 first commit `c29407a`:** 11 of 12 green; `static-contracts (windows-latest)` failed in the launcher-parent test (`spawnSync powershell.exe ETIMEDOUT`, job 136222818361). Not rerun. Fixed by PR #72 (bounded retry of the pre-kill listing, test only; all 10 checks green; merged as `a51630f`). PR #71 updated with master: all 12 green on `deaefb7`; merged as `4f408dd`. This note is its own PR. Lock released.
+
 ## 2026-11-20 · Tenth Claude run (fence 56): review and approval on a source machine (item 4c). Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master** `1e2bf55` (PR #68). All 6 check groups on master after PR #67 green. No open pull requests at the start.
