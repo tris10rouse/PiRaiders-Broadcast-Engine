@@ -50,7 +50,8 @@ test('pending initial factory excludes old direct TCP Reload when prewarm opens 
  const f=await fixture(t),m=f.manager;await f.activateAlpha();const pending=m.prepare('beta',req(m));await until(()=>f.state.betaEntered,'BETA_FACTORY_HELD');assert.equal(f.state.factory[0].options.canPrepare(),false);
  const page=await f.prewarm(),wire=await f.connect();await wire.command(1);await pixels(page,[240,20,20]);const count=f.state.stage.alpha;
  await wire.command(5,false);assert.equal(f.state.stage.alpha,count,'OLD_DECODER_NOT_ENTERED');assert.equal(m.snapshot().active.runtime.lastError,'BUSY');await pixels(page,[240,20,20]);
- assert.equal((await m.dispatch('stop',req(m))).ok,true);await pixels(page,[0,0,0]);assert.equal(m.snapshot().preparing,true);
+ // Diagnostics only (2026-11-20): this Stop answered not ok once on a hosted Windows run; name its answer and state if it does again.
+ const stopped=await m.dispatch('stop',req(m));assert.equal(stopped.ok,true,'STOP_ANSWER '+JSON.stringify(stopped)+' RUNTIME '+JSON.stringify({state:m.snapshot().active?.runtime?.state,lastError:m.snapshot().active?.runtime?.lastError,preparing:m.snapshot().preparing}));await pixels(page,[0,0,0]);assert.equal(m.snapshot().preparing,true);
  f.state.betaGate.resolve();assert.equal((await pending).code,'WINDOW_ACTIVE');assert.equal(m.snapshot().candidate,null);assert.equal(f.state.children.length,1);assert.equal(f.state.factory[0].options.canPrepare(),true);
  await wire.command(1);await wire.command(5);assert.equal(f.state.stage.alpha,count+1);await pixels(page,[240,20,20]);
 });
