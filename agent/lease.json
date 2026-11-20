@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261120T070134Z",
+  "status": "idle",
+  "owner": null,
   "fence": 55,
-  "task": "BE-006 item 4b source catalog screen",
-  "workBranch": "feature/be-006-source-catalog-screen",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-20T07:01:34.000Z",
-  "lastHeartbeat": "2026-11-20T07:44:10.000Z",
-  "expiresAt": "2026-11-20T09:14:10.000Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-20T07:49:33.000Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-20T07:49:33.000Z"
 }
