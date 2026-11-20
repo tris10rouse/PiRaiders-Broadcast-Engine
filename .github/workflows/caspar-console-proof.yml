@@ -41,6 +41,8 @@ jobs:
         run: node --test tests/windows-stdin.test.cjs
       - name: Prepare pinned private CI-only Caspar and Mesa
         run: node scripts/prepare-caspar-proof.cjs
+      - name: Warm the Windows process query before the proof's 15 s capture bound
+        run: node scripts/warm-process-query.cjs
       - name: Prove private console AMCP and actual CEF mixer frames without a TCP controller
         env:
           PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
