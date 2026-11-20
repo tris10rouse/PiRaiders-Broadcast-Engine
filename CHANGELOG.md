@@ -1,5 +1,12 @@
 # PiRaiders engineering changelog
 
+## 2026-11-20 · The source catalog service (second part of the source service)
+
+- New: one object, built only from the machine configuration, that owns the exchange source provider and the approval check for that machine (`docs/design/EXCHANGE_SOURCE_SERVICE.md`). It is what the PC selector and confirmation screen will call: refresh the catalog, browse its pages, inspect one selection, prepare one approved event, and the manager's two approval hooks.
+- Before any read of the source folder it checks that the folder still resolves to the spelling saved in the machine configuration; otherwise it refuses and reads nothing. Catalog pages are handed out only after this service's newest refresh succeeded; a failed, overtaken or closed refresh withdraws them. Cached startup rereads the saved approvals itself and never touches the source.
+- Not yet used by the application: there is still no route, selector or confirmation screen, so a source-enabled machine still cannot run.
+- Tests: 8 new, synthetic only, on real temporary folders. Each guard removed in turn makes at least one test fail.
+
 ## 2026-11-19 · Saved approvals are rechecked exactly (first part of the source service)
 
 - New: one module decides whether a saved PC confirmation still allows a source selection (`docs/design/EXCHANGE_APPROVAL_POLICY.md`). It fingerprints this machine's source policy, rereads the approval store before each new event is published, started and acknowledged, and requires an exact match of policy, feed, selection, production window and, for cached startup, the exact cached snapshot.

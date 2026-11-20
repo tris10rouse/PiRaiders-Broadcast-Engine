@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-19 (fifth run, lock fence 51). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-20 (sixth run, lock fence 52). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## State of master
 
@@ -10,14 +10,14 @@ Last updated 2026-11-19 (fifth run, lock fence 51). Keep this to one screen. His
 - **Total bytes counted once per picture** (PR #60, merged as `98717c2`): all 9 checks on master after the merge were green.
 - **Large JPEGs from a local folder** (PR #61, merged as `125b76e`): the older local-folder path has the same 384 MB heap cap and 512 MB budget. All 12 checks on the PR and all 9 on master after the merge were green.
 - **Exact approval revalidation** (BE-006 slice 3a, PR #63, merged as `fe0812c`): one module fingerprints the machine's source policy and decides saved approvals exactly, rereading the store before each new event is published, started and acknowledged. Not used by the application yet. All 12 checks on the PR and all 9 on master after the merge were green.
+- **Source catalog service** (BE-006 slice 3b, PR #65): one object built from the machine configuration owns the provider and the approval check, checks the retained source spelling before every source read, and hands out catalog pages only after its own newest refresh. Not used by the application yet. All 12 checks green on the first commit `dc489d4`; merged only after the checks on its final commit (this note) are green. If PR #65 is still open, read its checks first.
 - Old lock fence 46 ("exact source revalidation and source service") is lost and is not reconstructed.
 - The source PC service, selector and approval screen are still not enabled. First evaluation release: NOT READY. No Windows artifact exists.
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. BE-006, in slices (backlog item 3). Done: 3a exact approval revalidation. Next: 3b the source catalog service (provider + revalidator + catalog pages behind the machine config, still no screen).
-2. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
-3. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
+1. The PC source selector and the approval confirmation screen. This is also where the exchange catalog pages get their first route and screen: today nothing in the application can list an exchange catalog.
+2. Real Windows exchange activation; then setup, diagnostics and recovery; close and startup proofs; the four-hour soak.
 
 ## Open risks
 
@@ -26,6 +26,7 @@ Last updated 2026-11-19 (fifth run, lock fence 51). Keep this to one screen. His
 - The NDI checks run on runtime 6.4.0.2. Add the winget manifest commit to `docs/design/WINDOWS_NDI_PROOF.md` when one exists; a different hash there is a failure, not a detail.
 - The NDI, console, prepared-event and full-app proofs still make a single process listing at their captures and can fail the way the Caspar proof did.
 - This sandbox cannot run `npm ci` exactly: one locked package (the spreadsheet reader) comes from a host the sandbox blocks. Local Linux runs use the registry's 0.18.5 as a stand-in, with `package.json` and the lock file restored afterwards; the stand-in lacks `set_fs`, so add a no-op `set_fs` export to the local copy or the 7 real-SPX startup tests fail. GitHub's checks are the authority.
+- The source reader refuses a linked source root (`UNSAFE_INPUT`), although `SOURCE_MACHINE_POLICY.md` allows "a configured alias". The service's root check accepts one; the reader then refuses it. Whether the stadium PC's Drive folder is reached through a link is unknown; decide when setup is written.
 - Two old Codex branches are not in master and have no pull request: `feature/be-008-extracted-app-output` (Nov 15) and `feature/windows-development-bundle` (Nov 13). Not reviewed; do not merge them blind.
 - Twelve proposals for the fixture pack and contract wait on the scheduler side (`FIXTURE_RESULTS_FOR_SCHEDULER.md`). Proposal 11 (JPEG limit cases in the pack) still stands after the fix. The Engine changes no schema and no contract text on its own.
 - Nothing has been tested on Windows 10, the stadium PC, a synced folder, NDI over a network or the board.
