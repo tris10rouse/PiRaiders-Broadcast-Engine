@@ -3,7 +3,14 @@
 // machine, in a real browser (items 4c and 4d add approval and playback). A scripted server drives paging, stale and
 // unavailable states; a second test runs the real web adapter and the real
 // source service on temporary synthetic folders. Every name is synthetic.
-const {test,before,after}=require('node:test');
+const nodeTest=require('node:test'),{before,after}=nodeTest;
+// No wait in this file may hang the suite: CI's Linux job once sat 16 minutes
+// after test 10 until the job timed out (and the same happened locally). Each
+// test has a bound, so its after hooks release held answers and the file ends
+// with a named failure; a held answer the page never asks for fails by name.
+const TEST_TIMEOUT_MS=120000;
+const test=(name,fn)=>nodeTest.test(name,{timeout:TEST_TIMEOUT_MS},fn);
+function within(promise,ms,code){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(code)),ms);})]).finally(()=>clearTimeout(timer));}
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
 const http=require('node:http');
@@ -188,12 +195,12 @@ test('source machine: a late answer for an earlier event never replaces the newe
   const {page,model}=await scripted(t);
   await page.getByText('School year 2026-2027 · 30 events · catalog 7',{exact:true}).waitFor();
   const hold={eventKey:'EV-02',entered:deferred(),release:deferred()};model.hold=hold;
-  await page.locator('#source-events button').nth(1).click();await hold.entered.promise;
+  await page.locator('#source-events button').nth(1).click();await within(hold.entered.promise,15000,'HELD_SELECTIONS_NOT_ASKED');
   await page.locator('#source-events button').nth(2).click();
   await page.getByText('Synthetic event 03 · 2026-10-03 · Synthetic · Synthetic field · 1 board button',{exact:true}).waitFor();
   await page.locator('#source-selections > li').first().waitFor();
   const late=page.waitForResponse(r=>r.url().endsWith('/source/selections')&&r.request().postDataJSON()?.eventKey==='EV-02');
-  hold.release.resolve();await(await late).finished();
+  hold.release.resolve();await within((await late).finished(),15000,"HELD_ANSWER_NOT_FINISHED");
   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,200)));
   assert.equal(await page.locator('#source-selections > li').count(),1,'only EV-03’s one button');
   assert.equal(await page.locator('#source-selections button').first().getAttribute('data-selection-id'),'sel-03-00');
@@ -322,7 +329,7 @@ test('source machine: a late review never lands on another button, and an unset 
   const {page,model}=await scripted(t);
   await chooseFirstButton(page);
   const hold={label:'Synthetic button 00',entered:deferred(),release:deferred()};model.reviewHold=hold;
-  await page.getByRole('button',{name:'Check this button'}).click();await hold.entered.promise;
+  await page.getByRole('button',{name:'Check this button'}).click();await within(hold.entered.promise,15000,'HELD_REVIEW_NOT_ASKED');
   assert.equal(await page.locator('#source-check').textContent(),'Checking…');
   await page.locator('#source-selections button').nth(1).click();
   assert.equal(await page.locator('#source-check').textContent(),'Check this button','a new choice starts unchecked');
@@ -331,7 +338,7 @@ test('source machine: a late review never lands on another button, and an unset 
   await page.locator('#source-review-version').getByText('gen-02-01',{exact:true}).waitFor();
   await page.locator('#source-window-prewarm').fill('30');
   const late=page.waitForResponse(r=>r.url().endsWith('/source/review')&&r.request().postDataJSON()?.identityTuple?.[4]==='Synthetic button 00');
-  hold.release.resolve();await(await late).finished();
+  hold.release.resolve();await within((await late).finished(),15000,"HELD_ANSWER_NOT_FINISHED");
   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,200)));
   assert.equal(await page.locator('#source-review-version').textContent(),'gen-02-01','the first button’s late review is dropped');
   assert.equal(await page.locator('#source-window-prewarm').inputValue(),'30','and does not reset the form');
@@ -473,3 +480,7 @@ async function realSourcePlayback(t,{width,height}){
 }
 test('source machine end to end: approve, prepare, revoke while prepared, then approve again and play (desktop)',t=>realSourcePlayback(t,{width:1280,height:900}));
 test('source machine end to end at 390 px: the same flow fits without sideways scrolling',t=>realSourcePlayback(t,{width:390,height:844}));
+test('a held answer the page never asks for fails by name instead of hanging the suite',async()=>{
+  const started=Date.now();await assert.rejects(within(new Promise(()=>{}),50,'HELD_REVIEW_NOT_ASKED'),/^Error: HELD_REVIEW_NOT_ASKED$/);
+  assert.ok(Date.now()-started<5000);assert.equal(await within(Promise.resolve('asked'),50,'UNUSED'),'asked');
+});

@@ -9,4 +9,17 @@ function fixedFailure(error){
 function systemFailure(error){
   return ['ETIMEDOUT','ENOENT','EACCES','EPERM','EINVAL','ENOBUFS'].includes(error?.code)?error.code:null;
 }
-module.exports={fixedFailure,systemFailure};
+// Fixed vocabulary for an uncoded failure: what kind of thing failed, never its
+// message, command, path or output. A child killed at its timeout (execFile)
+// carries no errno code, only killed:true; execFileSync reports ETIMEDOUT.
+function failureKind(error){
+  if(!error||(typeof error!=='object'&&typeof error!=='function'))return 'NON_ERROR';
+  if(error instanceof assert.AssertionError)return 'ASSERTION';
+  if(error.killed===true)return 'CHILD_KILLED';
+  const system=systemFailure(error);if(system)return system;
+  if(Number.isSafeInteger(error.status)||Number.isSafeInteger(error.code))return 'CHILD_EXIT';
+  if(error instanceof SyntaxError)return 'PARSE';
+  if(error instanceof TypeError||error instanceof RangeError||error instanceof ReferenceError)return 'PROGRAM';
+  return 'OTHER';
+}
+module.exports={fixedFailure,systemFailure,failureKind};

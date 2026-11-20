@@ -21,3 +21,25 @@ test('native proof system diagnostics expose only known OS failure codes',()=>{
   for(const code of [null,undefined,1,'UNKNOWN_CODE','ETIMEDOUT\nprivate','C:\\private','http://private'])assert.equal(systemFailure({code}),null);
   assert.equal(systemFailure(null),null);
 });
+test('uncoded proof failures get a fixed kind from real child failures, never their message',async()=>{
+  const {failureKind}=require('../scripts/ndi-proof-diagnostics.cjs');
+  const {execFileSync,execFile}=require('node:child_process');
+  const secret='C:\\private\\exchange http://127.0.0.1:1/p#piraiders='+'A'.repeat(43);
+  const hang=['-e','setTimeout(()=>{},60000)',secret];
+  let sync;try{execFileSync(process.execPath,hang,{timeout:200,stdio:'ignore'});}catch(error){sync=error;}
+  assert.equal(failureKind(sync),'ETIMEDOUT');
+  const killed=await new Promise(resolve=>execFile(process.execPath,hang,{timeout:200},error=>resolve(error)));
+  assert.equal(killed.code,null);assert.equal(failureKind(killed),'CHILD_KILLED');
+  let exit;try{execFileSync(process.execPath,['-e','process.exit(3)',secret],{stdio:'ignore'});}catch(error){exit=error;}
+  assert.equal(failureKind(exit),'CHILD_EXIT');
+  const async=await new Promise(resolve=>execFile(process.execPath,['-e','process.exit(4)',secret],error=>resolve(error)));
+  assert.equal(failureKind(async),'CHILD_EXIT');
+  let assertion;try{assert.equal(secret,'other');}catch(error){assertion=error;}
+  assert.equal(failureKind(assertion),'ASSERTION');
+  let parse;try{JSON.parse('{'+secret);}catch(error){parse=error;}
+  assert.equal(failureKind(parse),'PARSE');
+  assert.equal(failureKind(new TypeError(secret)),'PROGRAM');
+  assert.equal(failureKind(Error(secret)),'OTHER');
+  assert.equal(failureKind(null),'NON_ERROR');assert.equal(failureKind(secret),'NON_ERROR');
+  for(const value of [sync,killed,exit,async,assertion,parse])assert.doesNotMatch(failureKind(value),/private|piraiders|127/);
+});

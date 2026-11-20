@@ -2,6 +2,7 @@
 
 ## 2026-11-19 · Order after the Claude takeover (current page: `docs/agent/CLAUDE_HANDOFF.md`)
 
+2026-11-20 (fence 62): before 5a-2, the console proof's intermittent START failure (master `79ff344`, `bc679a3`): step 1, its failure line names the step and a fixed error kind (PR #79). Success: the line carries `step`, `stepElapsedMs` and `kind` with no private text (tests on real child timeouts); then a fix of the named cause if it recurs. Also (PR #79): the Linux browser suite must never hang (bounded tests and held-answer waits in the source-machine file); the NDI proof's negative-control failure on `f89a8b1` is recorded.
 2026-11-20 (fence 61): item 5a split into 5a-1 to 5a-3; 5a-1 merged (#77). Sizes and the run count: `CLAUDE_HANDOFF.md` › Road to the evaluation build.
 
 1. **Done 2026-11-19 (fence 48).** Engine defect: JPEGs above about 9 megapixels were refused on the exchange path (decoder memory budget 128 MB, worker heap 64 MB); the contract allows 16,777,216 pixels. Success criteria as written before the work: every contract-legal JPEG sampling at 4096 x 4096 decodes inside the existing time limit with bounded memory, with tests; PNG behaviour unchanged. Result: budget 512 MB and heap cap 384 MB on the exchange path only; numbers in `CHANGELOG.md`.
