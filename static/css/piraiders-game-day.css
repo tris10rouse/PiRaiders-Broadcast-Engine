@@ -5,3 +5,14 @@
 
 /* Keep the SPX navigation label a single keyboard and pointer target. */
 footer a{white-space:nowrap}
+
+/* Source machine: the exchange catalog replaces the local event list (BE-006 item 4b). */
+body[data-mode=source] .event-section:not(.source-section){display:none}
+.source-section .list-heading{margin:22px 0 8px}
+.choice-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.choice-list button{width:100%;min-height:48px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;font-weight:500}
+.choice-list button[aria-pressed=true]{border-color:var(--blue);background:#1d3346}
+.choice-name{font-weight:600;overflow-wrap:anywhere;max-width:100%}
+.choice-meta{font-size:12px;color:var(--muted);overflow-wrap:anywhere;max-width:100%}
+.source-section .wide{margin-top:8px}
+.source-section .details dd{text-align:right;overflow-wrap:anywhere;min-width:0}

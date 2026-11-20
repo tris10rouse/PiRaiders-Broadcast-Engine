@@ -109,7 +109,7 @@
     try { const formatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }); return formatter.format(new Date(window.start)) + ' – ' + formatter.format(new Date(window.end)); }
     catch { return 'Not configured'; }
   }
-  function render() {
+  let render = function () {
     const active = state?.active, candidate = state?.candidate, runtime = active?.runtime;
     const online = connection === 'online' && !!state && !state.closed && !!csrf;
     const window = active?.productionWindow, now = Date.now();
@@ -174,6 +174,141 @@
       .finally(() => { epoch++; if (stop) stopping = null; else normal = null; render(); void refreshState(); });
     if (stop) stopping = pending; render(); return pending;
   }
+  // Source machine (BE-006 item 4b): browse the exchange catalog through the
+  // source routes. Read-only: nothing here approves, prepares or plays, and
+  // Stop keeps its own path. Pages are dropped when a newer refresh started.
+  const sourceMode = document.body.dataset.mode === 'source';
+  const PAGE = 25, HEX = /^[a-f0-9]{64}$/;
+  const sourceMessages = {
+    SOURCE_UNAVAILABLE: 'The exchange folder could not be reached. Check that the synced folder is on this PC, then refresh.',
+    SOURCE_ROOT_MISMATCH: 'The exchange folder is not the one this PC was set up with. Nothing was read. Check this PC’s setup before refreshing.',
+    CATALOG_REVISION_STALE: 'The exchange catalog changed since this list was read. Refresh to see the current events.',
+    CATALOG_UNAVAILABLE: 'The exchange catalog is not available right now. Refresh to read it again.',
+    CATALOG_EVENT_MISSING: 'That event is no longer in the exchange catalog. Refresh to see the current events.',
+    BUSY: 'The exchange folder is being read. Try again in a moment.',
+    SOURCE_SERVICE_CLOSED: 'The application is closing or has closed. Reopen it with the Windows launcher.',
+    CONNECTION_LOST: 'No answer from the application. The list was not changed; refresh when the connection returns.'
+  };
+  const sourceText = code => sourceMessages[code] || 'The exchange catalog could not be read. Check the exchange folder, then refresh.';
+  const src = { gen: 0, flight: null, pages: 0, seq: { events: 0, selections: 0 }, summary: null, events: [], eventsNext: null, eventKey: null, selections: [], selectionsNext: null, selectionId: null, problem: null, statusTimer: null };
+  const str = (value, max = 200) => typeof value === 'string' && value.length <= max ? value : null;
+  function validSummary(v) { return !!v && HEX.test(v.revision) && !!str(v.schoolYear, 32) && Number.isSafeInteger(v.eventCount) && v.eventCount >= 0 && Number.isSafeInteger(v.catalogSequence) && v.catalogSequence >= 0; }
+  function validPage(v, revision, rows) { return !!v && v.ok === true && v.revision === revision && Array.isArray(v[rows]) && v[rows].length <= 64 && (v.nextOffset === null || Number.isSafeInteger(v.nextOffset)); }
+  function eventRow(v) { return !!v && !!str(v.eventKey, 128) && !!str(v.displayName) && Number.isSafeInteger(v.selectionCount); }
+  function selectionRow(v) { return !!v && !!str(v.selectionId, 128) && typeof v.displayLabel === 'string' && v.displayLabel.length <= 200 && !!str(v.targetBoardKey, 64) && Number.isSafeInteger(v.occurrenceCount) && v.occurrenceCount >= 0; }
+  const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+  const manifestLabels = { complete: 'Complete', incomplete: 'Incomplete', empty: 'No pictures', removed: 'Removed' };
+  const currentEvent = () => src.events.find(row => row.eventKey === src.eventKey) || null;
+  function boardName(event, selection) { const board = event?.eventBoard; return board && board.boardKey === selection.targetBoardKey && str(board.displayName) ? board.displayName : selection.targetBoardKey; }
+  function eventMeta(row) { return [str(row.eventDate, 32), str(row.eventType), str(row.venue)].filter(Boolean).concat(plural(row.selectionCount, 'board button', 'board buttons')).join(' · '); }
+  function choice(name, meta, key, kind) {
+    const item = document.createElement('li'), button = document.createElement('button'), title = document.createElement('span'), detail = document.createElement('span');
+    button.type = 'button'; button.dataset[kind] = key; button.setAttribute('aria-pressed', 'false');
+    title.className = 'choice-name'; title.textContent = name || 'Unnamed button'; detail.className = 'choice-meta'; detail.textContent = meta;
+    button.append(title, detail); item.append(button); return item;
+  }
+  function empty(text) { const item = document.createElement('li'); item.className = 'support'; item.textContent = text; return item; }
+  function rebuildSourceEvents() { $('source-events').replaceChildren(...(src.events.length ? src.events.map(row => choice(row.displayName, eventMeta(row), row.eventKey, 'eventKey')) : [empty('This catalog has no events.')])); }
+  function rebuildSelections() { const event = currentEvent(); $('source-selections').replaceChildren(...(src.selections.length ? src.selections.map(row => choice(row.displayLabel, 'Board ' + boardName(event, row) + ' · ' + plural(row.occurrenceCount, 'picture', 'pictures'), row.selectionId, 'selectionId')) : [empty('This event has no board buttons.')])); }
+  function clearCatalog(problem) { src.gen++; src.summary = null; src.events = []; src.eventsNext = null; src.eventKey = null; src.selections = []; src.selectionsNext = null; src.selectionId = null; src.problem = problem; rebuildSourceEvents(); rebuildSelections(); }
+  function renderSource() {
+    setText('active-detail', 'Playback on this PC needs an approved exchange selection. Approval is not built yet.');
+    const reading = !!src.flight, blocked = !csrf || !!accessIssue;
+    $('source-refresh').disabled = reading || blocked; $('source-refresh').setAttribute('aria-busy', String(reading));
+    $('source-refresh').textContent = reading ? 'Reading exchange…' : 'Refresh from exchange';
+    setText('source-summary', reading ? 'Reading the scheduler’s exchange folder…' : src.summary ? 'School year ' + src.summary.schoolYear + ' · ' + plural(src.summary.eventCount, 'event', 'events') + ' · catalog ' + src.summary.catalogSequence : src.problem ? 'No exchange catalog is shown.' : 'Not read yet.');
+    $('source-problem').hidden = !src.problem; if (src.problem) setText('source-problem-text', sourceText(src.problem));
+    $('source-problem-refresh').hidden = !src.problem || reading || blocked || src.problem === 'SOURCE_SERVICE_CLOSED';
+    $('source-events-block').hidden = !src.summary;
+    $('source-more-events').hidden = src.eventsNext === null; $('source-more-events').disabled = src.pages > 0 || reading;
+    const event = currentEvent(); $('source-event').hidden = !src.summary || !event;
+    if (event) setText('source-event-detail', event.displayName + ' · ' + eventMeta(event));
+    $('source-more-selections').hidden = src.selectionsNext === null; $('source-more-selections').disabled = src.pages > 0 || reading;
+    for (const button of $('source-events').querySelectorAll('button')) button.setAttribute('aria-pressed', String(button.dataset.eventKey === src.eventKey));
+    for (const button of $('source-selections').querySelectorAll('button')) button.setAttribute('aria-pressed', String(button.dataset.selectionId === src.selectionId));
+    const chosen = event && src.selections.find(row => row.selectionId === src.selectionId);
+    $('source-choice').hidden = !chosen;
+    if (chosen) {
+      setText('source-choice-event', event.displayName); setText('source-choice-board', boardName(event, chosen)); setText('source-choice-button', chosen.displayLabel || 'Unnamed button');
+      setText('source-choice-pictures', plural(chosen.occurrenceCount, 'picture', 'pictures') + (manifestLabels[chosen.manifestState] ? ' · ' + manifestLabels[chosen.manifestState] : ''));
+      setText('source-choice-generation', str(chosen.generation, 128) || 'Unavailable');
+    }
+  }
+  // A page problem: a changed or withdrawn catalog empties the lists, so
+  // nothing old stays selectable; a busy source keeps them.
+  function pageProblem(code) {
+    if (code === 'BUSY') src.problem = code;
+    else if (code === 'CATALOG_EVENT_MISSING') { src.eventKey = null; src.selections = []; src.selectionsNext = null; src.selectionId = null; src.problem = code; rebuildSelections(); }
+    else clearCatalog(code);
+  }
+  // Each list keeps only its newest request: an answer for an older request,
+  // another event or an older refresh is dropped. "Show more" waits for idle.
+  function sourcePage(kind, offset) {
+    if (!src.summary || (offset > 0 && src.pages > 0)) return Promise.resolve();
+    const gen = src.gen, revision = src.summary.revision, eventKey = src.eventKey, selections = kind === 'selections', seq = ++src.seq[kind];
+    const body = selections ? { revision, eventKey, offset, limit: PAGE } : { revision, offset, limit: PAGE };
+    src.pages++;
+    const flight = api('source/' + kind, body).then(value => {
+      if (gen !== src.gen || seq !== src.seq[kind] || (selections && eventKey !== src.eventKey)) return;
+      if (!value.ok) { pageProblem(value.code); return; }
+      if (!validPage(value, revision, kind) || (selections && value.eventKey !== eventKey)) { pageProblem('CATALOG_UNAVAILABLE'); return; }
+      const rows = value[kind].filter(selections ? selectionRow : eventRow);
+      if (src.problem === 'BUSY') src.problem = null;
+      if (selections) { src.selections = offset ? src.selections.concat(rows) : rows; src.selectionsNext = value.nextOffset; rebuildSelections(); }
+      else { src.events = offset ? src.events.concat(rows) : rows; src.eventsNext = value.nextOffset; rebuildSourceEvents(); }
+    }).catch(error => { if (accessCodes.has(error.code)) setConnection(accessState(error.code)); else if (gen === src.gen && seq === src.seq[kind]) src.problem = 'CONNECTION_LOST'; })
+      .finally(() => { src.pages--; render(); });
+    render(); return flight;
+  }
+  function adopt(summary) {
+    if (src.summary && src.summary.revision === summary.revision) { src.summary = summary; src.problem = null; return Promise.resolve(); }
+    clearCatalog(null); src.summary = summary; return sourcePage('events', 0);
+  }
+  function refreshSource() {
+    if (src.flight || !csrf || accessIssue) return src.flight || Promise.resolve();
+    src.gen++; const gen = src.gen;
+    src.flight = api('source/refresh', {}).then(value => {
+      if (gen !== src.gen) return null;
+      if (value.ok && validSummary(value.catalog)) return value.catalog;
+      if (value.code === 'CATALOG_REFRESH_SUPERSEDED') return 'status';
+      clearCatalog(value.ok ? 'CATALOG_UNAVAILABLE' : value.code); return null;
+    }).catch(error => { if (accessCodes.has(error.code)) setConnection(accessState(error.code)); else clearCatalog('CONNECTION_LOST'); return null; })
+      .finally(() => { src.flight = null; render(); });
+    render();
+    return src.flight.then(next => next === 'status' ? sourceStatus(true) : next ? adopt(next) : undefined);
+  }
+  // Status is the connection check on a source machine. A catalog read in
+  // another tab with a different revision makes this list stale.
+  function sourceStatus(adoptAvailable = false) {
+    clearTimeout(src.statusTimer);
+    return api('source/status').then(value => {
+      if (!value.ok || !value.status || !value.catalog) throw Error();
+      setConnection('online');
+      const live = value.catalog.available === true && validSummary(value.catalog.catalog) ? value.catalog.catalog : null;
+      if (src.flight || src.pages > 0) return;
+      if (live && (adoptAvailable || !src.summary && !src.problem)) return adopt(live);
+      if (src.summary && live && live.revision !== src.summary.revision) { clearCatalog('CATALOG_REVISION_STALE'); render(); }
+      if (adoptAvailable && !live && !src.problem) { clearCatalog(value.status.catalog?.code === 'CATALOG_NOT_READ' ? null : 'CATALOG_UNAVAILABLE'); render(); }
+    }).catch(error => setConnection(accessState(error.code)))
+      .finally(() => { if (!accessIssue) src.statusTimer = setTimeout(() => void sourceStatus(), connection === 'offline' ? 2500 : 3000); });
+  }
+  if (sourceMode) {
+    const renderLocal = render;
+    render = () => { renderLocal(); renderSource(); };
+    $('source-refresh').addEventListener('click', () => { void refreshSource(); });
+    $('source-problem-refresh').addEventListener('click', () => { void refreshSource(); });
+    $('source-more-events').addEventListener('click', () => { void sourcePage('events', src.eventsNext); });
+    $('source-more-selections').addEventListener('click', () => { void sourcePage('selections', src.selectionsNext); });
+    $('source-events').addEventListener('click', event => {
+      const button = event.target.closest('button[data-event-key]'); if (!button || button.dataset.eventKey === src.eventKey) return;
+      src.eventKey = button.dataset.eventKey; src.selections = []; src.selectionsNext = null; src.selectionId = null; if (src.problem === 'CATALOG_EVENT_MISSING') src.problem = null; rebuildSelections();
+      void sourcePage('selections', 0).then(() => { if (src.eventKey === button.dataset.eventKey && !$('source-event').hidden) $('source-selections-heading').focus({ preventScroll: true }); });
+    });
+    $('source-selections').addEventListener('click', event => {
+      const button = event.target.closest('button[data-selection-id]'); if (!button) return;
+      src.selectionId = button.dataset.selectionId; render(); $('source-choice-heading').focus({ preventScroll: true });
+    });
+  }
   $('event-select').addEventListener('change', event => { selected = event.target.value; render(); });
   $('prepare').addEventListener('click', () => { void mutate('prepare', { eventId: selected }); });
   $('activate').addEventListener('click', () => { void mutate('activate'); });
@@ -182,7 +317,8 @@
   $('stop').addEventListener('click', () => { void mutate('command', { action: 'stop' }, true); });
   $('refresh-events').addEventListener('click', () => { void refreshCatalog(); });
   $('reload-page').addEventListener('click', () => location.reload());
-  $('retry').addEventListener('click', () => { setConnection('loading'); void refreshState(); void refreshCatalog(); });
+  $('retry').addEventListener('click', () => { setConnection('loading'); if (sourceMode) void sourceStatus(); else { void refreshState(); void refreshCatalog(); } });
   if (!csrf) { setConnection('auth'); notice('Reload this page to restore authorized controls.', 'error'); }
+  else if (sourceMode) { notice('Browsing the exchange catalog. Playback on this PC is not available yet.'); void sourceStatus().then(() => { if (!src.summary && !src.problem && !src.flight && connection === 'online') return refreshSource(); }); }
   else { void refreshState(); void refreshCatalog(); }
 })();

@@ -1,5 +1,13 @@
 # PiRaiders engineering changelog
 
+## 2026-11-20 · The exchange catalog screen on the Game Day page (second part of the PC selector)
+
+- On a PC set to read the scheduler's exchange folder, the Game Day page now shows **Exchange events** in place of the local event list: it reads the catalog when the page opens (or reuses the one already read), shows the school year, the number of events and the catalog number, lists the events 25 at a time with **Show more events**, and for the chosen event lists its boards and buttons 25 at a time. Choosing a button shows its event, board, button label, picture count and generation.
+- Read-only: nothing is approved, prepared or played from this screen, and it says so. Stop and the playback controls are unchanged (they stay unavailable on such a PC).
+- When the catalog changes after it was read (another tab refreshed it, or a page answers "stale"), or it cannot be read (folder missing, folder not the one set up, catalog withdrawn), the lists are emptied and a plain message with a **Refresh from exchange** button appears; nothing old stays choosable. A busy folder keeps the lists. A late answer for an earlier event never replaces the newer event's buttons.
+- A local-folder PC is unchanged.
+- Tests: 6 new browser tests (desktop and 390 px, keyboard, paging, stale, unavailable, late answers, and one end to end with the real web part and source service on synthetic folders); the HTTP test checks the screen is present only in source mode.
+
 ## 2026-11-20 · The exchange catalog can be browsed through the application (first part of the PC selector)
 
 - A PC configured to read the scheduler's exchange folder no longer fails at startup with "configuration invalid". The Game Day web part now builds the source catalog service for it and offers four routes: source status, refresh the catalog, one page of events, one page of an event's board/button selections (`docs/design/EXCHANGE_SOURCE_SERVICE.md` › Routes).

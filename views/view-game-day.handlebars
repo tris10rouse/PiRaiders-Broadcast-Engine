@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/css/piraiders-game-day.css">
   <script src="/js/piraiders-game-day.js" defer></script>
 </head>
-<body>
+<body data-mode="{{#if sourceMode}}source{{else}}local{{/if}}">
   <a class="skip-link" href="#main">Skip to Game Day</a>
   <header class="app-header">
     <a class="brand" href="/">PiRaiders<span>Broadcast Engine</span></a>
@@ -18,9 +18,36 @@
   <main id="main">
     <div class="page-heading"><div><h1>Game Day</h1><p>Prepare an event, then activate its playback controls.</p></div><button id="retry" type="button" hidden>Retry connection</button></div>
     <div id="connection-warning" class="message warning" hidden><p id="connection-detail"></p><a id="sign-in" href="/login" hidden>Sign in to SPX</a><a id="configure-spx" href="/config" hidden>Open SPX configuration</a><button id="reload-page" type="button" hidden>Reload Game Day</button></div>
-    {{#if sourceMode}}<div class="message warning"><p>This PC is set to read events from the scheduler’s exchange folder. The screen for choosing and approving those events is not built yet, so preparation and playback are unavailable here.</p></div>{{/if}}
+    {{#if sourceMode}}<div class="message warning"><p>This PC is set to read events from the scheduler’s exchange folder. You can browse its events, boards and buttons here. Approving a selection, preparing it and playing it on this PC are not built yet, so playback is unavailable.</p></div>{{/if}}
     <p id="notice" class="notice" role="status" aria-live="polite">Loading event status…</p>
     <div class="workspace">
+      {{#if sourceMode}}<section id="source-section" class="event-section source-section" aria-labelledby="source-heading">
+        <div class="section-heading"><h2 id="source-heading">Exchange events</h2><button id="source-refresh" class="quiet" type="button">Refresh from exchange</button></div>
+        <p id="source-summary" class="support" role="status" aria-live="polite">Not read yet.</p>
+        <div id="source-problem" class="message warning" hidden><p id="source-problem-text"></p><button id="source-problem-refresh" type="button" hidden>Refresh from exchange</button></div>
+        <div id="source-events-block" hidden>
+          <h3 id="source-events-heading" class="list-heading">Events</h3>
+          <ul id="source-events" class="choice-list" aria-labelledby="source-events-heading"></ul>
+          <button id="source-more-events" class="wide" type="button" hidden>Show more events</button>
+        </div>
+        <div id="source-event" hidden>
+          <h3 id="source-selections-heading" class="list-heading" tabindex="-1">Boards and buttons</h3>
+          <p id="source-event-detail" class="support"></p>
+          <ul id="source-selections" class="choice-list" aria-labelledby="source-selections-heading"></ul>
+          <button id="source-more-selections" class="wide" type="button" hidden>Show more boards and buttons</button>
+        </div>
+        <div id="source-choice" class="candidate" hidden>
+          <h3 id="source-choice-heading" tabindex="-1">Chosen board button</h3>
+          <dl class="details">
+            <div><dt>Event</dt><dd id="source-choice-event"></dd></div>
+            <div><dt>Board</dt><dd id="source-choice-board"></dd></div>
+            <div><dt>Button</dt><dd id="source-choice-button"></dd></div>
+            <div><dt>Pictures</dt><dd id="source-choice-pictures"></dd></div>
+            <div><dt>Generation</dt><dd id="source-choice-generation" class="version"></dd></div>
+          </dl>
+          <p class="support">Reviewing and approving a selection on this PC is not built yet. Nothing is prepared and output is unchanged.</p>
+        </div>
+      </section>{{/if}}
       <section class="event-section" aria-labelledby="events-heading">
         <div class="section-heading"><h2 id="events-heading">Event preparation</h2><button id="refresh-events" class="quiet" type="button">Refresh list</button></div>
         <label for="event-select">Local event</label>
