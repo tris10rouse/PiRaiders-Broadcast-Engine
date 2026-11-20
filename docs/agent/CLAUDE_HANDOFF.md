@@ -8,7 +8,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 | Part | Size | Why that size | Status |
 |---|---|---|---|
-| 5a-1 Synthetic exchange folder and setup step for the proof | S | One builder and Linux tests on code that already exists | PR open (#77) |
+| 5a-1 Synthetic exchange folder and setup step for the proof | S | One builder and Linux tests on code that already exists | merged on 2026-11-20 (#77, `bc679a3`) |
 | 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | not started |
 | 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | not started |
 | 5b Setup command and cached (offline) startup | L | New operator command, the linked-folder decision, offline pins, proven on Linux and Windows | not started |
@@ -18,13 +18,13 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
 | Open failing check: console proof on master `79ff344` | fix | Cause unknown; one run if it fails again | recorded |
 
-**Estimate:** remaining sizes 2 S + 4 M + 2 L = 16 sized runs; pace 1.5 runs per sized run (reconstructed from lock fences 52–60: 9 runs for 6 merged S parts, 3b to 4d-2; replaced by this log's own numbers once parts merge here); 16 x 1.5 + 1 open failing check = **about 25 runs**.
+**Estimate:** remaining sizes 1 S + 4 M + 2 L = 15 sized runs; pace 1.5 runs per sized run (reconstructed from lock fences 52–60: 9 runs for 6 merged S parts, 3b to 4d-2; replaced by this log's own numbers once parts merge here); 15 x 1.5 + 1 open failing check = **about 24 runs** (this log so far: 1 run for 1 merged S part, pace 1.0; the reconstructed 1.5 stays until this log has 3 merged parts).
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
-| 2026-11-20 14:44 | 61 | PR open | 5a split into 5a-1..5a-3; 5a-1 PR #77 |
+| 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
 
 ## State of master
 
@@ -35,7 +35,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
-1. PR #77 (5a-1): read its checks; merge if all green and the whole diff is read.
+1. Confirm the checks on master after PR #77 (`bc679a3`) and this note; merge this note's PR if green.
 2. 5a-2: the Windows job. Start from `scripts/smoke-full-app-windows.cjs` (`application()`, `receiver()`, the capture helpers) and `buildExchangeActivationFixture` (machine parts: Caspar, output NDI, renderer profile, RossTalk as the full-app proof writes them). A new job beside `actual-full-app-private-ndi`, not a change to its assertions. Approve with a window that contains now (the proof's own clock), prewarm 0.
 3. Then 5a-3, 5b, 5c, 5d, 5e, 5f.
 
