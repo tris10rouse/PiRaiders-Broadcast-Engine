@@ -1,6 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
+  const sourceMode = document.body.dataset.mode === 'source';
   const csrf = document.querySelector('meta[name="piraiders-csrf"]')?.content || '';
   const actions = [...document.querySelectorAll('[data-action]')];
   const messages = {
@@ -22,11 +23,22 @@
     AUTH_POLICY_REQUIRED: 'SPX requires an authentication policy. Complete its configuration, then reload Game Day.',
     REQUEST_DENIED: 'This request was refused. Open Game Day directly on this computer using the Windows launcher.',
     NO_RESPONSE: 'No response was confirmed. Check the current status before retrying.',
-    CONNECTION_LOST: 'Connection lost. The last received status is retained; reconnect before using playback controls.'
+    CONNECTION_LOST: 'Connection lost. The last received status is retained; reconnect before using playback controls.',
+    ADMISSION_DENIED: 'This event is no longer admitted on this PC. Nothing new was started; prepare it again.'
   };
+  // A source machine prepares approved board buttons from the exchange
+  // folder (BE-006 item 4d), so a few answers mean something more specific.
+  if (sourceMode) Object.assign(messages, {
+    CATALOG_INVALID: 'That button is no longer approved on this PC, or the approval list could not be read. Refresh the list; approve it again under Exchange events if needed.',
+    PREPARE_FAILED: 'The exchange pictures could not be prepared. The last accepted content is retained. Check the exchange folder, then prepare again.',
+    ADMISSION_DENIED: 'This PC no longer accepts that button: its approval was revoked or changed. Nothing new was started. Approve it again under Exchange events, then prepare it again.'
+  });
+  const words = sourceMode
+    ? { prepare: 'Prepare selected button', preparing: 'Preparing the exchange pictures. Current content is retained.', prepared: 'Pictures prepared. Review the button, then activate it.', candidate: 'Pictures prepared on this PC. Not activated.', start: 'Approve a board button for this PC, then prepare it.', idle: 'Prepare an approved board button to begin.' }
+    : { prepare: 'Prepare selected event', preparing: 'Preparing local media. Current content is retained.', prepared: 'Media prepared. Review the event, then activate it.', candidate: 'Media prepared locally. Not activated.', start: 'Select an event to prepare.', idle: 'Prepare an event to begin.' };
   let state = null, events = [], selected = '', connection = 'loading', normal = null, stopping = null;
   let stateFlight = null, stateAgain = false, catalogFlight = null, timer = null, epoch = 0, intent = 0;
-  let catalogError = false, catalogLoaded = false, focusAfter = null, accessIssue = null;
+  let catalogError = false, catalogLoaded = false, catalogAgain = false, focusAfter = null, accessIssue = null;
   const accessCodes = new Set(['AUTH_REQUIRED', 'CSRF_DENIED', 'AUTH_POLICY_REQUIRED', 'ORIGIN_DENIED', 'LOCAL_ONLY', 'FETCH_DENIED', 'REQUEST_DENIED']);
   const accessState = code => code === 'AUTH_REQUIRED' ? 'auth' : code === 'CSRF_DENIED' ? 'csrf' : code === 'AUTH_POLICY_REQUIRED' ? 'policy' : accessCodes.has(code) ? 'denied' : 'offline';
   function setText(id, value) { const element = $(id); if (element.textContent !== value) element.textContent = value; }
@@ -79,28 +91,30 @@
       if (captured !== epoch) { stateAgain = true; return; }
       if (!value.ok || !validState(value.state)) throw Error();
       state = value.state; setConnection('online');
-      if (!normal && !stopping && $('notice').textContent === 'Loading event status…') notice(state.active ? 'Active event controls are available.' : 'Select an event to prepare.');
+      if (!normal && !stopping && $('notice').textContent === 'Loading event status…') notice(state.active ? 'Active event controls are available.' : words.start);
     }).catch(error => { if (captured === epoch) setConnection(accessState(error.code)); })
       .finally(() => { stateFlight = null; if (stateAgain) { stateAgain = false; void refreshState(); } else schedule(); });
     return stateFlight;
   }
   function refreshCatalog() {
-    if (catalogFlight) return catalogFlight;
+    // A request made while a read is in flight (an approval just changed)
+    // reads again afterwards, so the list never stays on the older answer.
+    if (catalogFlight) { catalogAgain = true; return catalogFlight; }
     catalogError = false; $('refresh-events').disabled = true; $('refresh-events').setAttribute('aria-busy', 'true');
     catalogFlight = api('events').then(value => {
       if (!value.ok || !Array.isArray(value.events) || value.events.length > 128) throw Error();
       events = value.events.filter(row => row && typeof row.displayName === 'string' && (row.status === 'available' || row.status === 'invalid'));
       catalogLoaded = true; rebuildEvents();
     }).catch(error => { catalogError = true; if (accessCodes.has(error.code)) setConnection(accessState(error.code)); })
-      .finally(() => { catalogFlight = null; $('refresh-events').disabled = false; $('refresh-events').removeAttribute('aria-busy'); render(); });
+      .finally(() => { catalogFlight = null; $('refresh-events').disabled = false; $('refresh-events').removeAttribute('aria-busy'); render(); if (catalogAgain) { catalogAgain = false; void refreshCatalog(); } });
     return catalogFlight;
   }
   function rebuildEvents() {
     const available = events.filter(row => row.status === 'available' && typeof row.eventId === 'string');
     if (!selected && available.length) selected = available[0].eventId;
     const options = [];
-    if (!available.length) { const option = document.createElement('option'); option.value = ''; option.textContent = 'No events available'; option.disabled = true; options.push(option); }
-    else if (selected && !available.some(row => row.eventId === selected)) { const option = document.createElement('option'); option.value = selected; option.textContent = 'Previously selected event unavailable'; option.disabled = true; options.push(option); }
+    if (!available.length) { const option = document.createElement('option'); option.value = ''; option.textContent = sourceMode ? 'No approved board buttons' : 'No events available'; option.disabled = true; options.push(option); }
+    else if (selected && !available.some(row => row.eventId === selected)) { const option = document.createElement('option'); option.value = selected; option.textContent = sourceMode ? 'Previously selected button is no longer approved' : 'Previously selected event unavailable'; option.disabled = true; options.push(option); }
     for (const row of events) { const option = document.createElement('option'); option.value = row.eventId || ''; option.disabled = row.status !== 'available'; option.textContent = row.status === 'available' ? row.displayName : 'Unavailable event' + (row.eventId ? ' · ' + row.eventId : ''); options.push(option); }
     $('event-select').replaceChildren(...options); $('event-select').value = selected;
   }
@@ -120,21 +134,22 @@
     const selectedAvailable = events.some(row => row.eventId === selected && row.status === 'available');
     $('event-select').disabled = !catalogLoaded || !events.some(row => row.status === 'available');
     $('prepare').disabled = !online || busy || protectedWindow || !selectedAvailable || catalogError;
-    $('prepare').textContent = normal === 'prepare' || state?.operation === 'preparing' ? 'Preparing media…' : 'Prepare selected event';
+    $('prepare').textContent = normal === 'prepare' || state?.operation === 'preparing' ? (sourceMode ? 'Preparing pictures…' : 'Preparing media…') : words.prepare;
     $('prepare').setAttribute('aria-busy', String(normal === 'prepare' || state?.operation === 'preparing'));
     $('protection').hidden = !protectedWindow;
     const invalid = events.filter(row => row.status === 'invalid').length;
-    setText('catalog-note', catalogError ? 'The event list could not be read. Check local configuration, then refresh the list.' : !catalogLoaded ? 'Reading the local event list.' : !events.some(row => row.status === 'available') ? 'Add a valid local event profile, then refresh this list.' : invalid ? invalid + ' event' + (invalid === 1 ? ' needs' : 's need') + ' attention. Check local configuration, then refresh.' : 'Selection prepares local media; it does not change active output.');
+    if (sourceMode) setText('catalog-note', catalogError ? 'This PC’s approved board buttons could not be read. Check this PC’s setup, then refresh the list.' : !catalogLoaded ? 'Reading this PC’s approved board buttons.' : !events.some(row => row.status === 'available') ? 'No board button is approved on this PC yet. Approve one under Exchange events.' : 'Preparing reads the exchange pictures; it does not change active output.');
+    else setText('catalog-note', catalogError ? 'The event list could not be read. Check local configuration, then refresh the list.' : !catalogLoaded ? 'Reading the local event list.' : !events.some(row => row.status === 'available') ? 'Add a valid local event profile, then refresh this list.' : invalid ? invalid + ' event' + (invalid === 1 ? ' needs' : 's need') + ' attention. Check local configuration, then refresh.' : 'Selection prepares local media; it does not change active output.');
     $('candidate').hidden = !candidate;
     if (candidate) {
       setText('candidate-name', candidate.displayName); setText('candidate-version', typeof candidate.revision === 'string' ? candidate.revision.slice(0, 12) : 'Unavailable');
-      setText('candidate-status', candidate.cleanup === 'open' ? 'Media prepared locally. Not activated.' : 'Preparation cleanup requires attention.');
+      setText('candidate-status', candidate.cleanup === 'open' ? words.candidate : 'Preparation cleanup requires attention.');
     }
     $('activate').disabled = !online || !candidate || candidate.cleanup !== 'open' || busy || protectedWindow;
     $('discard').disabled = !online || !candidate || busy;
     $('activate').textContent = normal === 'activate' || state?.operation === 'activating' ? 'Activating…' : 'Activate event';
     setText('active-name', active ? active.displayName : 'Activate a prepared event');
-    setText('active-detail', active ? active.cleanup === 'failed' ? 'Service cleanup is not confirmed. Event replacement is blocked.' : active.cleanup === 'closing' ? 'Closing this event’s services. Replacement waits for confirmed cleanup.' : runtime?.state === 'closed' ? 'This event is closed. Prepare another event when cleanup is complete.' : runtime?.ready ? 'Renderer acknowledged. Launch starts at slide 1.' : protectedWindow ? 'Waiting for the renderer. Playback begins only after Launch.' : 'Waiting outside the production window. SPX Graphics remains available.' : 'Prepare an event to begin.');
+    setText('active-detail', active ? active.cleanup === 'failed' ? 'Service cleanup is not confirmed. Event replacement is blocked.' : active.cleanup === 'closing' ? 'Closing this event’s services. Replacement waits for confirmed cleanup.' : runtime?.state === 'closed' ? 'This event is closed. Prepare another event when cleanup is complete.' : runtime?.ready ? 'Renderer acknowledged. Launch starts at slide 1.' : protectedWindow ? 'Waiting for the renderer. Playback begins only after Launch.' : 'Waiting outside the production window. SPX Graphics remains available.' : words.idle);
     const labels = { prepared: 'Prepared locally', waiting: 'Waiting', starting: 'Starting', ready: 'Renderer ready', closing: 'Closing', closed: 'Closed' };
     setText('runtime-state', active ? labels[runtime?.state] || 'Status unavailable' : 'No active event'); $('runtime-state').dataset.ready = String(runtime?.ready === true);
     setText('renderer-status', active ? active.cleanup !== 'open' || runtime?.state === 'closed' ? 'Not active' : runtime?.ready ? 'Acknowledged and ready' : protectedWindow ? 'Waiting for acknowledgment' : 'Waiting for production window' : 'Not started');
@@ -163,11 +178,11 @@
     const myIntent = ++intent; epoch++; const payload = { ...extra, ...tuple() };
     if (!stop && (route === 'activate' || route === 'discard')) payload.candidateId = state.candidate?.candidateId;
     if (!stop) normal = route === 'command' ? extra.action : route;
-    notice(stop ? 'Requesting black output…' : route === 'prepare' ? 'Preparing local media. Current content is retained.' : route === 'activate' ? 'Activating the prepared event…' : route === 'discard' ? 'Discarding the prepared event…' : 'Sending playback command…');
+    notice(stop ? 'Requesting black output…' : route === 'prepare' ? words.preparing : route === 'activate' ? 'Activating the prepared event…' : route === 'discard' ? 'Discarding the prepared event…' : 'Sending playback command…');
     const pending = api(route, payload, true).then(value => {
       if (myIntent !== intent) return;
       if (!value.ok) { notice(explain(value.code), 'error'); return; }
-      const success = { prepare: 'Media prepared. Review the event, then activate it.', activate: 'Event activated. Launch starts at slide 1.', discard: 'Prepared event discarded.', launch: 'Launch acknowledged.', next: 'Next slide acknowledged.', previous: 'Previous slide acknowledged.', auto: 'Automatic mode acknowledged.', manual: 'Manual mode acknowledged.', reload: 'Media reload acknowledged.', stop: 'Black output acknowledged. The sender remains governed by its production window.' };
+      const success = { prepare: words.prepared, activate: 'Event activated. Launch starts at slide 1.', discard: 'Prepared event discarded.', launch: 'Launch acknowledged.', next: 'Next slide acknowledged.', previous: 'Previous slide acknowledged.', auto: 'Automatic mode acknowledged.', manual: 'Manual mode acknowledged.', reload: 'Media reload acknowledged.', stop: 'Black output acknowledged. The sender remains governed by its production window.' };
       notice(success[route === 'command' ? extra.action : route], 'success');
       if (route === 'prepare' || route === 'activate') focusAfter = { id: route === 'prepare' ? 'candidate-heading' : 'playback-heading', intent: myIntent };
     }).catch(error => { if (myIntent === intent) { setConnection(accessState(error.code)); notice(explain(error.code), 'error'); } })
@@ -176,9 +191,10 @@
   }
   // Source machine (BE-006 item 4b): browse the exchange catalog through the
   // source routes; item 4c adds the review and the PC approval of one board
-  // button. Nothing here prepares or plays, and Stop keeps its own path.
-  // Pages and reviews are dropped when a newer refresh or choice started.
-  const sourceMode = document.body.dataset.mode === 'source';
+  // button. Nothing here prepares or plays, and Stop keeps its own path: the
+  // approved buttons are prepared and played above, through the ordinary
+  // routes (item 4d). Pages and reviews are dropped when a newer refresh or
+  // choice started.
   const PAGE = 25, HEX = /^[a-f0-9]{64}$/;
   const sourceMessages = {
     SOURCE_UNAVAILABLE: 'The exchange folder could not be reached. Check that the synced folder is on this PC, then refresh.',
@@ -223,7 +239,6 @@
   function rebuildSelections() { const event = currentEvent(); $('source-selections').replaceChildren(...(src.selections.length ? src.selections.map(row => choice(row.displayLabel, 'Board ' + boardName(event, row) + ' · ' + plural(row.occurrenceCount, 'picture', 'pictures'), row.selectionId, 'selectionId')) : [empty('This event has no board buttons.')])); }
   function clearCatalog(problem) { resetReview(); src.gen++; src.summary = null; src.events = []; src.eventsNext = null; src.eventKey = null; src.selections = []; src.selectionsNext = null; src.selectionId = null; src.problem = problem; rebuildSourceEvents(); rebuildSelections(); }
   function renderSource() {
-    setText('active-detail', 'Playback on this PC needs an approved exchange selection. Preparing it on this PC is not built yet.');
     const reading = !!src.flight, blocked = !csrf || !!accessIssue;
     $('source-refresh').disabled = reading || blocked; $('source-refresh').setAttribute('aria-busy', String(reading));
     $('source-refresh').textContent = reading ? 'Reading exchange…' : 'Refresh from exchange';
@@ -416,7 +431,9 @@
       if (!value.ok) { rev.problem = value.code || 'CONNECTION_LOST'; if (['APPROVAL_INSPECTION_STALE', 'APPROVAL_CONFLICT', 'APPROVAL_COMMIT_UNCERTAIN'].includes(value.code)) rev.review = null; return; }
       if (!validRecord(value.approval)) { rev.problem = 'APPROVAL_COMMIT_UNCERTAIN'; rev.review = null; return; }
       rev.review = { ...review, approval: { read: true, code: null, revision: value.revision, record: value.approval } };
-      rev.saved = ask.kind === 'approve' ? (value.changed ? 'Approved for this PC. Nothing is prepared or played yet.' : 'This PC already had exactly this approval.') : (value.changed ? 'Approval revoked on this PC.' : 'This PC had no approval to revoke.');
+      rev.saved = ask.kind === 'approve' ? (value.changed ? 'Approved for this PC. Prepare it under Approved board buttons.' : 'This PC already had exactly this approval.') : (value.changed ? 'Approval revoked on this PC. A prepared copy can no longer be activated.' : 'This PC had no approval to revoke.');
+      // The approved list is the playback catalog: reread it after any write.
+      void refreshCatalog();
     }).catch(error => { if (accessCodes.has(error.code)) setConnection(accessState(error.code)); else if (seq === rev.seq) { rev.confirm = null; rev.review = null; rev.problem = 'APPROVAL_COMMIT_UNCERTAIN'; } })
       .finally(() => { if (seq !== rev.seq) return; rev.busy = false; render(); $(rev.review ? 'source-review-heading' : 'source-check').focus({ preventScroll: true }); });
   }
@@ -451,8 +468,10 @@
   $('stop').addEventListener('click', () => { void mutate('command', { action: 'stop' }, true); });
   $('refresh-events').addEventListener('click', () => { void refreshCatalog(); });
   $('reload-page').addEventListener('click', () => location.reload());
-  $('retry').addEventListener('click', () => { setConnection('loading'); if (sourceMode) void sourceStatus(); else { void refreshState(); void refreshCatalog(); } });
+  $('retry').addEventListener('click', () => { setConnection('loading'); if (sourceMode) void sourceStatus(); void refreshState(); void refreshCatalog(); });
   if (!csrf) { setConnection('auth'); notice('Reload this page to restore authorized controls.', 'error'); }
-  else if (sourceMode) { notice('Browsing the exchange catalog. Playback on this PC is not available yet.'); void sourceStatus().then(() => { if (!src.summary && !src.problem && !src.flight && connection === 'online') return refreshSource(); }); }
-  else { void refreshState(); void refreshCatalog(); }
+  else {
+    if (sourceMode) void sourceStatus().then(() => { if (!src.summary && !src.problem && !src.flight && connection === 'online') return refreshSource(); });
+    void refreshState(); void refreshCatalog();
+  }
 })();

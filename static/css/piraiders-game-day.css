@@ -6,8 +6,14 @@
 /* Keep the SPX navigation label a single keyboard and pointer target. */
 footer a{white-space:nowrap}
 
-/* Source machine: the exchange catalog replaces the local event list (BE-006 item 4b). */
-body[data-mode=source] .event-section:not(.source-section){display:none}
+/* Source machine: the exchange catalog above this PC's approved board buttons,
+   playback beside both (BE-006 items 4b and 4d). One column below 620 px. */
+body[data-mode=source] .workspace{grid-template-rows:auto 1fr}
+body[data-mode=source] .source-section,body[data-mode=source] .prepare-section{grid-column:1}
+body[data-mode=source] .prepare-section{border-top:1px solid var(--line)}
+body[data-mode=source] .playback-section{grid-column:2;grid-row:1/span 2}
+.source-note{color:var(--text);border-color:#3a89c1;background:#1d3346}
+@media(max-width:620px){body[data-mode=source] .workspace{grid-template-rows:none}body[data-mode=source] .playback-section{grid-column:1;grid-row:auto}body[data-mode=source] .prepare-section{border-top:0}}
 .source-section .list-heading{margin:22px 0 8px}
 .choice-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .choice-list button{width:100%;min-height:48px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;font-weight:500}

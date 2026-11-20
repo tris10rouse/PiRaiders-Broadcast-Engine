@@ -18,7 +18,7 @@
   <main id="main">
     <div class="page-heading"><div><h1>Game Day</h1><p>Prepare an event, then activate its playback controls.</p></div><button id="retry" type="button" hidden>Retry connection</button></div>
     <div id="connection-warning" class="message warning" hidden><p id="connection-detail"></p><a id="sign-in" href="/login" hidden>Sign in to SPX</a><a id="configure-spx" href="/config" hidden>Open SPX configuration</a><button id="reload-page" type="button" hidden>Reload Game Day</button></div>
-    {{#if sourceMode}}<div class="message warning"><p>This PC is set to read events from the scheduler’s exchange folder. You can browse its events, boards and buttons here and approve one for this PC. Preparing and playing an approved selection on this PC are not built yet, so playback is unavailable.</p></div>{{/if}}
+    {{#if sourceMode}}<div id="source-mode-note" class="message source-note"><p>This PC reads events from the scheduler’s exchange folder. Approve a board button for this PC under Exchange events, then prepare and activate it under Approved board buttons.</p></div>{{/if}}
     <p id="notice" class="notice" role="status" aria-live="polite">Loading event status…</p>
     <div class="workspace">
       {{#if sourceMode}}<section id="source-section" class="event-section source-section" aria-labelledby="source-heading">
@@ -77,12 +77,12 @@
           </div>
         </div>
       </section>{{/if}}
-      <section class="event-section" aria-labelledby="events-heading">
-        <div class="section-heading"><h2 id="events-heading">Event preparation</h2><button id="refresh-events" class="quiet" type="button">Refresh list</button></div>
-        <label for="event-select">Local event</label>
+      <section id="prepare-section" class="event-section prepare-section" aria-labelledby="events-heading">
+        <div class="section-heading"><h2 id="events-heading">{{#if sourceMode}}Approved board buttons{{else}}Event preparation{{/if}}</h2><button id="refresh-events" class="quiet" type="button">Refresh list</button></div>
+        <label for="event-select">{{#if sourceMode}}Approved button{{else}}Local event{{/if}}</label>
         <select id="event-select" aria-describedby="catalog-note" disabled><option>Loading events…</option></select>
-        <p id="catalog-note" class="support">Reading the local event list.</p>
-        <button id="prepare" class="primary wide" type="button" disabled>Prepare selected event</button>
+        <p id="catalog-note" class="support">{{#if sourceMode}}Reading this PC’s approved board buttons.{{else}}Reading the local event list.{{/if}}</p>
+        <button id="prepare" class="primary wide" type="button" disabled>{{#if sourceMode}}Prepare selected button{{else}}Prepare selected event{{/if}}</button>
         <p id="protection" class="support" hidden>The current production window protects event changes. Playback controls remain available.</p>
         <div id="candidate" class="candidate" hidden>
           <h3 id="candidate-heading" tabindex="-1">Prepared event</h3>
@@ -92,7 +92,7 @@
           <div class="button-pair"><button id="activate" class="primary" type="button" disabled>Activate event</button><button id="discard" type="button" disabled>Discard</button></div>
           <p class="support">Activation opens this event’s controls. The sender follows its production window.</p>
         </div>
-        <div class="local-note"><h3>Local media</h3><p>Preparation validates a local media snapshot. Reload checks for updated media and keeps the last accepted content if preparation fails.</p></div>
+        {{#if sourceMode}}<div class="local-note"><h3>Exchange pictures</h3><p>Preparation reads this button’s pictures from the exchange folder and checks every one. A button whose approval is revoked or changed cannot be activated or started.</p></div>{{else}}<div class="local-note"><h3>Local media</h3><p>Preparation validates a local media snapshot. Reload checks for updated media and keeps the last accepted content if preparation fails.</p></div>{{/if}}
       </section>
       <section class="playback-section" aria-labelledby="playback-heading">
         <div class="section-heading"><h2 id="playback-heading" tabindex="-1">Playback</h2><span id="runtime-state" class="status-label">No active event</span></div>
