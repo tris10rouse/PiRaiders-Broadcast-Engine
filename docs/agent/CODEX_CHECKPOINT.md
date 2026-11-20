@@ -1,5 +1,12 @@
 # Codex engineering checkpoint
 
+## 2026-11-20 · Seventh Claude run (fence 53): source catalog routes (item 4a). Current state: `docs/agent/CLAUDE_HANDOFF.md`
+
+- **Master** `f9d8e46` (PR #65 merged by the sixth run; all 6 check groups on master after the merge green). No open pull requests at the start.
+- **Item 4 split** into 4a–4d with success criteria in the backlog's top section.
+- **4a** on `feature/be-006-source-catalog-routes`: `scripts/lib/game-day-web.cjs` builds the source service for a source machine and serves status, refresh, events-page and selections-page routes behind the existing guards; playback routes there answer `SOURCE_PLAYBACK_NOT_READY`; the page renders with a fixed notice. Local-folder machines unchanged.
+- **Tests:** 4 new over real HTTP; removing the source-mode check, the body schema, the playback refusal or the page's source mode each made at least one fail. Local Linux: syntax 182 files; 932 tests, 905 pass, 27 Windows-only skips, 0 fail (local stand-in for the blocked package); browser 45/45 with the sandbox's Chromium.
+
 ## 2026-11-20 · Sixth Claude run (fence 52): the source catalog service. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
 - **Master** `03fb76b` (PR #64). No open pull requests at the start.

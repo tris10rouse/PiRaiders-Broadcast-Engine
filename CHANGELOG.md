@@ -1,5 +1,12 @@
 # PiRaiders engineering changelog
 
+## 2026-11-20 · The exchange catalog can be browsed through the application (first part of the PC selector)
+
+- A PC configured to read the scheduler's exchange folder no longer fails at startup with "configuration invalid". The Game Day web part now builds the source catalog service for it and offers four routes: source status, refresh the catalog, one page of events, one page of an event's board/button selections (`docs/design/EXCHANGE_SOURCE_SERVICE.md` › Routes).
+- Same protections as every Game Day request: this PC only, exact origin, the SPX login, the page's anti-forgery token, strict small JSON. Answers carry codes and catalog data only, never folder paths.
+- Still no selection screen, approval or playback on such a PC: the page shows a notice saying so, and every playback request answers "source playback not ready". A local-folder PC behaves exactly as before.
+- Tests: 4 new over real HTTP, synthetic only. Each new check removed in turn makes at least one test fail.
+
 ## 2026-11-20 · The source catalog service (second part of the source service)
 
 - New: one object, built only from the machine configuration, that owns the exchange source provider and the approval check for that machine (`docs/design/EXCHANGE_SOURCE_SERVICE.md`). It is what the PC selector and confirmation screen will call: refresh the catalog, browse its pages, inspect one selection, prepare one approved event, and the manager's two approval hooks.

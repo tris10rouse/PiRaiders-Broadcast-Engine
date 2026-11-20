@@ -18,6 +18,7 @@
   <main id="main">
     <div class="page-heading"><div><h1>Game Day</h1><p>Prepare an event, then activate its playback controls.</p></div><button id="retry" type="button" hidden>Retry connection</button></div>
     <div id="connection-warning" class="message warning" hidden><p id="connection-detail"></p><a id="sign-in" href="/login" hidden>Sign in to SPX</a><a id="configure-spx" href="/config" hidden>Open SPX configuration</a><button id="reload-page" type="button" hidden>Reload Game Day</button></div>
+    {{#if sourceMode}}<div class="message warning"><p>This PC is set to read events from the scheduler’s exchange folder. The screen for choosing and approving those events is not built yet, so preparation and playback are unavailable here.</p></div>{{/if}}
     <p id="notice" class="notice" role="status" aria-live="polite">Loading event status…</p>
     <div class="workspace">
       <section class="event-section" aria-labelledby="events-heading">
