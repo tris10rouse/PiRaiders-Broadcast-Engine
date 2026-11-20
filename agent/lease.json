@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 52,
-  "task": null,
-  "workBranch": null,
-  "acquiredAt": "2026-11-20T00:51:15.000Z",
-  "lastHeartbeat": "2026-11-20T01:33:37.000Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-20T01:33:37.000Z"
+  "status": "active",
+  "owner": "claude-20261120T045113Z",
+  "fence": 53,
+  "task": "BE-006-selector",
+  "workBranch": "feature/be-006-source-selector",
+  "acquiredAt": "2026-11-20T04:51:14.000Z",
+  "lastHeartbeat": "2026-11-20T04:51:14.000Z",
+  "expiresAt": "2026-11-20T06:21:14.000Z",
+  "releasedAt": null
 }
