@@ -6,6 +6,7 @@
 - **Item 4 split** into 4a–4d with success criteria in the backlog's top section.
 - **4a** on `feature/be-006-source-catalog-routes`: `scripts/lib/game-day-web.cjs` builds the source service for a source machine and serves status, refresh, events-page and selections-page routes behind the existing guards; playback routes there answer `SOURCE_PLAYBACK_NOT_READY`; the page renders with a fixed notice. Local-folder machines unchanged.
 - **Tests:** 4 new over real HTTP; removing the source-mode check, the body schema, the playback refusal or the page's source mode each made at least one fail. Local Linux: syntax 182 files; 932 tests, 905 pass, 27 Windows-only skips, 0 fail (local stand-in for the blocked package); browser 45/45 with the sandbox's Chromium.
+- **PR #66 first commit `398e336`:** 11 of 12 checks green. `actual-prepared-private-ndi` (job 136095134378) FAILED at phase `OFFLINE_CRASH`, code `ASSERTION_OR_COMPONENT`, no process evidence, after all eight frame checks passed. Cause unknown: the proof script does not load `game-day-web.cjs` or the view; the evidence artifact could not be downloaded here (blob host refused by the sandbox proxy). Not rerun. This note is a new commit; merge only if every check on it is green.
 
 ## 2026-11-20 · Sixth Claude run (fence 52): the source catalog service. Current state: `docs/agent/CLAUDE_HANDOFF.md`
 
