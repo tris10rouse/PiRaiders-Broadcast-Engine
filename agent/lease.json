@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261123T035808Z-c2fb9f",
+  "status": "idle",
+  "owner": null,
   "fence": 70,
-  "task": "Q-005",
-  "workBranch": "feature/Q-005-concurrent-refresh",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-23T03:58:08.312Z",
-  "lastHeartbeat": "2026-11-23T04:35:11.838Z",
-  "expiresAt": "2026-11-23T06:05:11.838Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-23T04:35:21.439Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-23T04:35:21.439Z"
 }
