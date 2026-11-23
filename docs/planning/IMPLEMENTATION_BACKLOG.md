@@ -2,6 +2,7 @@
 
 ## 2026-11-19 · Order after the Claude takeover (current page: `docs/agent/CLAUDE_HANDOFF.md`)
 
+2026-11-23 (fence 68): the builder workflow. Success: the queue (`queue/`, one file per remaining part of the Road table, the words copied from this section and the handoff), a git transport for the lease, the run's steps in AGENTS.md › A run, skills in `.claude/skills/`, a push guard and a canary hook, all tested by `tests/builder.test.cjs`; one part proven end to end by a builder session.
 2026-11-20 (fence 67): before 5a-3, the late-review browser test's `HELD_ANSWER_NOT_FINISHED`. Success: the cause shown (reproduced and instrumented), a test-only fix that does not hang or pass falsely, the reproduction green afterwards. Result: Playwright's `response.finished()` never settles when DevTools reports a fully read answer as `net::ERR_ABORTED` under load; the tests wait on Resource Timing (PR #83). New open failing check recorded: full-app `RECEIVER_START_TIMEOUT` on `ca9000f`.
 2026-11-20 (fence 67): the console proof's START failure recurred on `6da55bb`, named by #79's diagnostics (first process query over the 15 s bound). Success: the cause named from evidence, a CI-only step that warms the query without changing the proof's bound, a test that fails without it. Result: #84 merged.
 2026-11-20 (fence 64): 5a-2 merged (#81). The three open failing-check rows closed (master `fb4a140` and `8f6f06d` green on every check). 5a-2 started on `feature/be-081-exchange-activation-windows`: route steps shared with a Linux test, the Windows script and its own job.

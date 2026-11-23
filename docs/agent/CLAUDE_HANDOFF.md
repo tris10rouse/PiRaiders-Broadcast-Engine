@@ -41,6 +41,9 @@ Closed (fence 64): the console proof's START failure, the Linux browser-suite ha
 
 ## Next, in this order (one increment per run, each on `feature/be-NNN-short-name` with a PR)
 
+From 2026-11-23 the work is done by builders (AGENTS.md › A run) from `queue/`: each part below is a queue file with these words; `queue/ORDER.md` is the order. This list stays as the words those files were made from.
+
+
 1. Read master's checks on #84's and #83's merge commits; a red one is recorded (cause or "cause unknown"), not rerun.
 2. 5a-3: evidence and privacy of the activation job. Today it keeps six received frames and `result.json`, and a failure screenshot of the page on failure. Add a check that fails the job if any retained file names the proof folder, the exchange folder or a private store (reuse the route-answer check in `scripts/exchange-activation-routes.cjs`), decide whether the failure screenshot stays, and write `docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` (what it proves, what it does not).
 3. If the full-app `RECEIVER_START_TIMEOUT` recurs (third time), look at the receiver start before 5b.
