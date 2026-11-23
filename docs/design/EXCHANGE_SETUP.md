@@ -38,7 +38,7 @@ One JSON line: `{ok, step, code, done}`, where `done` names the steps passed and
 ## Not here
 
 - The linked source root rule (5b-2): setup checks the resolved spelling and reads from it, so it accepts a media root reached through a link, while the reader refuses one when the service reads through the alias. 5b-2 decides.
-- The Windows job using this command and a cached start there (5b-4: that job still sets up its stores through the fixture). Cached startup is shown on Linux only, with a stand-in runtime: no Caspar, NDI or Windows output.
+- 5b-4 (2026-11-23, fence 76): the Windows exchange activation job now sets up its stores with this command (twice), pins with `--pin-offline` and proves a cached start with the exchange folder gone on hosted Windows with real Caspar and NDI software output (`EXCHANGE_ACTIVATION_WINDOWS_PROOF.md`, step 6). Same-machine CI evidence only.
 - A pin to an older playback stays when the button's current playback is not prepared; cached startup then plays that older, verified snapshot. Not decided further here.
 - Store ids are written into the machine file by whoever writes it; setup does not generate or change the machine file.
 - No screen, route or source write. Nothing about Windows, the stadium PC or the board is shown by these tests.

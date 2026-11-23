@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-23 (builder run, lock fence 75; 5b-3 offline pins and cached startup on Linux). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-23 (builder run, lock fence 76; 5b-4 setup command and cached start in the Windows activation job). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -11,11 +11,11 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5a-1 Synthetic exchange folder and setup step for the proof | S | One builder and Linux tests on code that already exists | merged on 2026-11-20 (#77, `bc679a3`) |
 | 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black, close | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | merged on 2026-11-20 (#81, `ca9000f`, all 13 checks green on `f8459cd`) |
 | 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | landed by #86 on 2026-11-23 |
-| 5b Setup command and cached (offline) startup | L | Split on 2026-11-23 (fence 73) into 5b-1..5b-4 | split |
+| 5b Setup command and cached (offline) startup | L | Split on 2026-11-23 (fence 73) into 5b-1..5b-4 | done with 5b-4 (fence 76) |
 | 5b-1 Setup command: source root, feed, journal and approval list once | S | One command and Linux tests on stores that exist | landed by #91 on 2026-11-23 (fence 73) |
 | 5b-2 Linked source root: decide, record, test | S | One decision, the reader and setup made consistent | landed by #92 on 2026-11-23 (fence 74): an alias that resolves to the retained spelling is allowed; everything is read through that spelling |
 | 5b-3 Offline pins and cached startup on Linux | S | One pin write path, one startup path, Linux tests | landed by #93 on 2026-11-23 (fence 75): `piraiders-setup.cjs --pin-offline`; a pinned button starts cached when the exchange folder is gone (Linux, stand-in runtime) |
-| 5b-4 Windows job: setup command and cached start without the exchange folder | S | Changes the 5a Windows job only; Windows-only failures show up only in CI | not started |
+| 5b-4 Windows job: setup command and cached start without the exchange folder | S | Changes the 5a Windows job only; Windows-only failures show up only in CI | landed by #PRNUM on 2026-11-23 (fence 76): the job's stores set up by `piraiders-setup.cjs` (twice, second unchanged); after the online run `--pin-offline`, folder moved away, the app restarted plays the same button from the cache in order, Stop black, clean close (hosted Windows, real Caspar/NDI software) |
 | 5c Diagnostics and recovery | L | Six distinct states on screen and by command, four tested fault recoveries | not started |
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
@@ -30,14 +30,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 1 S + 3 M + 1 L = 10 sized runs. Pace from every merged part so far: 15 runs for 13 sized runs = 1.15. 10 x 1.15 + 3 open failing checks (full-app receiver start, Caspar CEF, NDI crash enumerate) = **about 15 runs** (Q-003 fixed at fence 71, Q-006 at fence 72).
+**Estimate:** remaining sizes 3 M + 1 L = 9 sized runs. Pace from every merged part so far: 16 runs for 14 sized runs = 1.14. 9 x 1.14 + 3 open failing checks (full-app receiver start, Caspar CEF, NDI crash enumerate) = **about 13 runs**.
 
-Parts left · runs left: 5 parts (5b-4, 5c to 5f) + 3 parked fix rows · about 15 runs.
+Parts left · runs left: 4 parts (5c to 5f) + 3 parked fix rows · about 13 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-23 | 76 | merged (#PRNUM) | 5b-4: Windows activation job sets up its stores with the setup command (twice), pins offline, moves the exchange folder away and plays the same button from the cache; Linux test runs the same steps on the real web adapter (7 tests); review: none confirmed |
 | 2026-11-23 | 75 | merged (#93) | 5b-3: `--pin-offline` writes offline pins of prepared confirmations (reread before each write); cached startup when the folder is gone and the button is pinned; 6 Linux tests, each of 8 guards removed fails one; review found the scan bound's code hidden, fixed with a test |
 | 2026-11-23 | 74 | merged (#92) | 5b-2: linked source root decided (alias allowed when it resolves to the retained spelling; reads go through that spelling); setup answers `source: direct` or `linked`; 3 Linux tests, each guard removed fails one |
 | 2026-11-23 | 73 | merged (#91) | 5b split into 5b-1..5b-4; 5b-1: setup command `scripts/piraiders-setup.cjs` (source root, feed, journal and approval list once), 6 Linux tests |
