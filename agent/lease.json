@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261123T073308Z-a05ca6",
   "fence": 76,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "5b-4",
+  "workBranch": "feature/5b-4-windows-setup-cached",
   "acquiredAt": "2026-11-23T07:33:08.912Z",
-  "lastHeartbeat": "2026-11-23T07:33:08.912Z",
-  "expiresAt": "2026-11-23T09:03:08.912Z",
+  "lastHeartbeat": "2026-11-23T07:33:38.809Z",
+  "expiresAt": "2026-11-23T09:03:38.809Z",
   "releasedAt": null
 }
