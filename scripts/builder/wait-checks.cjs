@@ -6,6 +6,10 @@
  *
  *   node scripts/builder/wait-checks.cjs <sha> [--repo owner/name] [--timeout-min 75] [--once]
  *
+ * Also reads the commit's workflow runs: while any of them has not finished (queued, waiting, in progress) the
+ * verdict is RUNNING however many check runs already passed, because a slow workflow may not have created its
+ * jobs yet (Q-003). A workflow run that finished badly without any check run counts as a failed check.
+ *
  * Prints one line per check, then a verdict line. Exit 0 every check passed (success, skipped or
  * neutral) · 1 a check failed · 2 timed out or no check appeared · 3 the lease was lost (stop writing).
  * --once reads once and prints, exit 0 green, 1 red, 2 still running or none.
@@ -37,9 +41,38 @@ function repoSlug(cwd) {
   return m ? m[1] + '/' + m[2] : '';
 }
 
-function readRuns(repo, sha) {
-  const out = execFileSync('gh', ['api', '-X', 'GET', 'repos/' + repo + '/commits/' + sha + '/check-runs', '-f', 'per_page=100'], { stdio: ['ignore', 'pipe', 'pipe'] }).toString();
-  return JSON.parse(out).check_runs || [];
+/** `gh api` GET of one path with query fields → parsed JSON. */
+function ghApi(apiPath, fields = {}) {
+  const args = ['api', '-X', 'GET', apiPath];
+  for (const k of Object.keys(fields)) args.push('-f', k + '=' + fields[k]);
+  return JSON.parse(execFileSync('gh', args, { stdio: ['ignore', 'pipe', 'pipe'] }).toString());
+}
+
+/**
+ * One read of a commit (sha or branch name) → summarize()'s fields plus `pending` (workflows not finished).
+ * `api(path, fields)` is injectable for tests.
+ */
+function readVerdict(repo, ref, api = ghApi) {
+  const base = 'repos/' + repo;
+  const sha = /^[0-9a-f]{40}$/i.test(ref) ? ref : api(base + '/commits/' + ref).sha;
+  const checks = api(base + '/commits/' + sha + '/check-runs', { per_page: 100 }).check_runs || [];
+  // A workflow started twice for the same event (a run cancelled and replaced) counts only its newest run.
+  const newestRun = {};
+  for (const w of api(base + '/actions/runs', { head_sha: sha, per_page: 100 }).workflow_runs || []) {
+    const k = (w.workflow_id || w.name) + '\t' + (w.event || '');
+    if (!newestRun[k] || (w.run_number || 0) >= (newestRun[k].run_number || 0)) newestRun[k] = w;
+  }
+  const workflows = Object.values(newestRun);
+  const s = summarize(checks);
+  const suites = new Set(checks.map(r => r.check_suite && r.check_suite.id));
+  const pending = workflows.filter(w => w.status !== 'completed').map(w => w.name).sort();
+  const silentFails = workflows.filter(w => w.status === 'completed' && PASS.indexOf(w.conclusion) < 0 && !suites.has(w.check_suite_id))
+    .map(w => w.name).sort();
+  const failed = s.failed.concat(silentFails);
+  const lines = s.lines.concat(pending.map(n => n + '\tworkflow ' + 'not finished'), silentFails.map(n => n + '\tworkflow failed without a check run'));
+  const anything = s.count + silentFails.length > 0;
+  const done = anything && pending.length === 0 && (s.count === 0 || s.done);
+  return { count: s.count, done, green: done && failed.length === 0, failed, pending, lines };
 }
 
 function renew(cwd) {
@@ -56,9 +89,9 @@ async function main() {
   if (!sha || /^--/.test(sha)) { console.error('usage: wait-checks.cjs <sha> [--repo owner/name] [--timeout-min 75] [--once]'); process.exit(2); }
   const repo = get('--repo') || repoSlug(cwd);
   if (a.indexOf('--once') >= 0) {
-    const s = summarize(readRuns(repo, sha));
+    const s = readVerdict(repo, sha);
     s.lines.forEach(l => console.log(l));
-    console.log(s.green ? 'GREEN ' + s.count + ' checks' : s.done ? 'RED: ' + s.failed.join(', ') : 'RUNNING (' + s.count + ' so far)');
+    console.log(s.green ? 'GREEN ' + s.count + ' checks' : s.done ? 'RED: ' + s.failed.join(', ') : 'RUNNING (' + s.count + ' so far' + (s.pending.length ? ', ' + s.pending.length + ' workflows not finished' : '') + ')');
     process.exit(s.green ? 0 : s.done ? 1 : 2);
   }
   const deadline = Date.now() + Number(get('--timeout-min') || 75) * 60000;
@@ -70,7 +103,7 @@ async function main() {
       if (code === 3) { console.log('LEASE LOST: stop writing'); process.exit(3); }
       lastRenew = Date.now();
     }
-    try { s = summarize(readRuns(repo, sha)); } catch (e) { s = null; }
+    try { s = readVerdict(repo, sha); } catch (e) { s = null; }
     if (s && s.done) {
       // Workflows register their checks a little apart: finish only after two quiet reads, never in the first 3 minutes.
       stableDone = s.count === lastCount ? stableDone + 1 : 0;
@@ -85,5 +118,5 @@ async function main() {
   process.exit(s.green ? 0 : 1);
 }
 
-module.exports = { summarize, repoSlug };
+module.exports = { summarize, readVerdict, repoSlug };
 if (require.main === module) main();

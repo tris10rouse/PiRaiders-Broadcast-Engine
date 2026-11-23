@@ -11,7 +11,7 @@ const { execFileSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const queue = require('../scripts/builder/queue.cjs');
 const tracker = require('../scripts/builder/tracker.cjs');
-const { summarize } = require('../scripts/builder/wait-checks.cjs');
+const { summarize, readVerdict } = require('../scripts/builder/wait-checks.cjs');
 const guard = require('../.claude/hooks/push-guard.js');
 const canary = require('../.claude/hooks/canary.js');
 
@@ -121,6 +121,45 @@ test('the check waiter is green only when every newest check finished well', () 
   // A rerun replaces the older result of the same check only when it is newer.
   const rerun = summarize([run('a', 'completed', 'failure', '2026-11-23T00:00:00Z'), run('a', 'completed', 'success', '2026-11-23T01:00:00Z')]);
   assert.equal(rerun.green, true);
+});
+
+test('the check waiter never reads GREEN while a workflow run of the commit has not finished (Q-003)', () => {
+  const SHA = 'a'.repeat(40);
+  const check = (name, suite, status = 'completed', conclusion = 'success') => ({ name, status, conclusion, started_at: '2026-11-23T00:00:00Z', check_suite: { id: suite } });
+  const wf = (name, suite, status, conclusion = null) => ({ name, status, conclusion, check_suite_id: suite });
+  const stub = (checks, workflows) => p => {
+    if (p.endsWith('/commits/' + SHA + '/check-runs')) return { check_runs: checks };
+    if (p.endsWith('/actions/runs')) return { workflow_runs: workflows };
+    throw new Error('unexpected ' + p);
+  };
+  const four = [check('a', 1), check('b', 1), check('c', 2), check('d', 2)];
+  // Four finished green check runs, one workflow still queued with no jobs yet: RUNNING, not GREEN.
+  const early = readVerdict('o/r', SHA, stub(four, [wf('One', 1, 'completed', 'success'), wf('Two', 2, 'completed', 'success'), wf('Slow', 3, 'queued')]));
+  assert.equal(early.green, false);
+  assert.equal(early.done, false);
+  assert.deepEqual(early.pending, ['Slow']);
+  // Every check run finished, but its workflow run still reports in progress: not done either.
+  const finishing = readVerdict('o/r', SHA, stub(four, [wf('One', 1, 'completed', 'success'), wf('Two', 2, 'in_progress')]));
+  assert.equal(finishing.done, false);
+  // The same after the slow workflow's jobs finish green: GREEN.
+  const later = readVerdict('o/r', SHA, stub(four.concat([check('e', 3)]), [wf('One', 1, 'completed', 'success'), wf('Two', 2, 'completed', 'success'), wf('Slow', 3, 'completed', 'success')]));
+  assert.equal(later.green, true);
+  assert.equal(later.count, 5);
+  // A workflow that ended badly without creating any job is a failure, named by the workflow.
+  const broken = readVerdict('o/r', SHA, stub(four, [wf('One', 1, 'completed', 'success'), wf('Two', 2, 'completed', 'success'), wf('Bad', 3, 'completed', 'startup_failure')]));
+  assert.equal(broken.done, true);
+  assert.equal(broken.green, false);
+  assert.deepEqual(broken.failed, ['Bad']);
+  // A run cancelled before any job and replaced by a newer run of the same workflow and event does not count.
+  const replaced = readVerdict('o/r', SHA, stub(four.concat([check('e', 4)]), [wf('One', 1, 'completed', 'success'), wf('Two', 2, 'completed', 'success'),
+    Object.assign(wf('Slow', 3, 'completed', 'cancelled'), { workflow_id: 9, event: 'push', run_number: 5 }),
+    Object.assign(wf('Slow', 4, 'completed', 'success'), { workflow_id: 9, event: 'push', run_number: 6 })]));
+  assert.equal(replaced.green, true);
+  // A branch name is resolved to its commit before the workflow runs are read.
+  const seen = [];
+  const named = readVerdict('o/r', 'master', p => { seen.push(p); return p.endsWith('/commits/master') ? { sha: SHA } : stub(four, [wf('One', 1, 'completed', 'success'), wf('Two', 2, 'completed', 'success')])(p); });
+  assert.equal(named.green, true);
+  assert.ok(seen.some(p => p.endsWith('/commits/master')));
 });
 
 test('the push guard denies every force push and every push to the default branch', () => {
