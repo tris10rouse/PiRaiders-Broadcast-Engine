@@ -68,7 +68,7 @@ function createExchangeSourceService(machine,trusted={}){
     provider=createExchangeSourceProvider({providerId:s.providerId,sourceRoot:machine.mediaRoot,cacheDir:machine.cacheRoot,
       journalDir:s.journalDirectory,storeId:s.journalStoreId,binding:{feedId:s.binding.feedId,epoch:s.binding.epoch}},trusted.provider??{});
   }catch(error){revalidator.close();throw error;}
-  let closed=false,attempt=0,browsable=false,catalogCode='CATALOG_NOT_READ',writing=false;
+  let closed=false,attempt=0,browsable=false,catalogCode='CATALOG_NOT_READ',writing=false,reading=null;
 
   // The configured media root may be an alias, but what it resolves to now
   // must be the canonical spelling retained in machine policy. The loader
@@ -93,9 +93,18 @@ function createExchangeSourceService(machine,trusted={}){
     if(closed)return denied('SOURCE_SERVICE_CLOSED');
     if(mine!==attempt)return denied('CATALOG_REFRESH_SUPERSEDED');
     if(rootCode){catalogCode=rootCode;return denied(rootCode);}
-    let value;
-    try{value=await provider.refreshCatalog(opts);}
+    // An older refresh of this service may still hold the provider's one
+    // slot. Wait for it rather than be refused BUSY: the older one is already
+    // overtaken and grants nothing, so a BUSY here would leave neither (Q-005).
+    while(reading){
+      await reading.then(()=>{},()=>{});
+      if(closed)return denied('SOURCE_SERVICE_CLOSED');
+      if(mine!==attempt)return denied('CATALOG_REFRESH_SUPERSEDED');
+    }
+    let value,call;
+    try{call=provider.refreshCatalog(opts);reading=call;value=await call;}
     catch(error){if(mine===attempt&&!closed)catalogCode=codeOf(error);return denied(closed?'SOURCE_SERVICE_CLOSED':mine!==attempt?'CATALOG_REFRESH_SUPERSEDED':codeOf(error));}
+    finally{if(call&&reading===call)reading=null;}
     if(closed)return denied('SOURCE_SERVICE_CLOSED');
     if(mine!==attempt)return denied('CATALOG_REFRESH_SUPERSEDED');
     browsable=true;catalogCode=null;

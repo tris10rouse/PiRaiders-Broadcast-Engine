@@ -101,8 +101,9 @@ test('a refresh while the page\'s own refresh runs is refused; the proof waits f
   // Two refreshes at once (the page's own and the proof's): not both succeed.
   // (Up to five tries: on a loaded machine one request can finish before the other arrives.)
   let both;for(let i=0;i<5;i++){both=await Promise.all([s.client.post('/game-day/api/source/refresh',{}),s.client.post('/game-day/api/source/refresh',{})]);if(both.some(r=>r.status!==200))break;}
-  assert.ok(both.some(r=>r.status===200),'one refresh succeeds');
-  assert.ok(both.some(r=>r.status===409&&['CATALOG_REFRESH_SUPERSEDED','BUSY'].includes(r.value.code)),'the other is refused: '+JSON.stringify(both.map(r=>[r.status,r.value.code])));
+  const answers=JSON.stringify(both.map(r=>[r.status,r.value?.code??null]));
+  assert.ok(both.some(r=>r.status===200),'one refresh succeeds: '+answers);
+  assert.ok(both.some(r=>r.status===409&&['CATALOG_REFRESH_SUPERSEDED','BUSY'].includes(r.value.code)),'the other is refused: '+answers);
   // The page's refresh in flight; the proof waits for it, then walks the routes.
   const page=s.client.post('/game-day/api/source/refresh',{});
   const settled=await routes.pageRefreshSettled(s.client,{timeoutMs:20000,intervalMs:20});
