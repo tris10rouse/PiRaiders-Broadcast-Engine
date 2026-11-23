@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261123T073308Z-a05ca6",
+  "status": "idle",
+  "owner": null,
   "fence": 76,
-  "task": "5b-4",
-  "workBranch": "feature/5b-4-windows-setup-cached",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-23T07:33:08.912Z",
-  "lastHeartbeat": "2026-11-23T08:13:32.998Z",
-  "expiresAt": "2026-11-23T09:43:32.998Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-23T08:13:43.841Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-23T08:13:43.841Z"
 }
