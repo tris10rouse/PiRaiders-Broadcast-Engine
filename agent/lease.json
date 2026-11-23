@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261123T053111Z-74a5ea",
+  "status": "idle",
+  "owner": null,
   "fence": 73,
-  "task": "5b",
-  "workBranch": "feature/5b-setup-cached-startup",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-23T05:31:11.168Z",
-  "lastHeartbeat": "2026-11-23T06:00:19.561Z",
-  "expiresAt": "2026-11-23T07:30:19.561Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-23T06:06:52.875Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-23T06:06:52.875Z"
 }
