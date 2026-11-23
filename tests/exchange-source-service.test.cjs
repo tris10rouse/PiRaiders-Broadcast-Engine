@@ -151,6 +151,40 @@ test('a refresh overtaken while the provider is reading grants nothing when it f
   holds[0].release();assert.equal((await newer).ok,true);assert.equal(service.catalogState().available,true);
 });
 
+test('a refresh that overtakes one still inside the provider waits for it and then reads; one of the two succeeds',async t=>{
+  // Q-005: the newer refresh reached the provider while the older held its one
+  // slot; the provider answered BUSY, the older then found itself overtaken,
+  // and neither granted a catalog.
+  const f=await fixture(t),m=source();await f.publish(m);
+  let gate=null,reads=0,entered=latch();
+  const createCoordinator=config=>{const real=createExchangeSourceCoordinator(config);
+    return Object.freeze({...real,refreshCatalog:async options=>{reads++;if(gate){entered.release();await gate.promise;}return real.refreshCatalog(options);}});};
+  const service=serviceFor(t,await machineFor(f),{provider:{createCoordinator}});
+  gate=latch();const older=service.refreshCatalog();await entered.promise;
+  const newer=service.refreshCatalog();
+  for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(reads,1,'the newer refresh does not reach the provider while the older holds it');
+  const held=gate;gate=null;held.release();
+  const answers=[await older,await newer];
+  assert.deepEqual(answers.map(a=>a.ok?'ok':a.code),['CATALOG_REFRESH_SUPERSEDED','ok']);
+  assert.equal(reads,2,'the newer refresh read the source itself');
+  assert.equal(service.catalogState().available,true);assert.equal(service.status().catalog.code,null);
+  // A third refresh that arrives while the second waits overtakes it before it reads.
+  gate=latch();entered=latch();const first=service.refreshCatalog();await entered.promise;
+  const second=service.refreshCatalog();for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));
+  const third=service.refreshCatalog();
+  const g=gate;gate=null;g.release();
+  assert.deepEqual([await first,await second,await third].map(a=>a.ok?'ok':a.code),['CATALOG_REFRESH_SUPERSEDED','CATALOG_REFRESH_SUPERSEDED','ok']);
+  assert.equal(reads,4,'the overtaken waiting refresh never read the source');
+  // Close while a refresh waits: it stops with the closed code and reads nothing.
+  gate=latch();entered=latch();const running=service.refreshCatalog();await entered.promise;
+  const waiting=service.refreshCatalog();for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));
+  service.close();const g2=gate;gate=null;g2.release();
+  assert.equal((await waiting).code,'SOURCE_SERVICE_CLOSED');
+  assert.equal((await running).code,'SOURCE_SERVICE_CLOSED');
+  assert.equal(reads,5,'the waiting refresh read nothing after close');assert.equal(service.status().catalog.available,false);
+});
+
 test('manager hooks and prepared media use this machine\'s approvals, reread every time',async t=>{
   const f=await fixture(t),m=source();await f.publish(m);
   const machine=await machineFor(f),append=await approvals(machine),service=serviceFor(t,machine);
