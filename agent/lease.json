@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261123T063658Z-b77369",
+  "status": "idle",
+  "owner": null,
   "fence": 75,
-  "task": "5b-3",
-  "workBranch": "feature/5b-3-offline-pins",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-23T06:36:58.648Z",
-  "lastHeartbeat": "2026-11-23T07:32:37.022Z",
-  "expiresAt": "2026-11-23T09:02:37.022Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-23T07:32:49.234Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-23T07:32:49.234Z"
 }
