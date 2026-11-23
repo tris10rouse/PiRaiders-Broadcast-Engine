@@ -1,5 +1,7 @@
 # Agent working contract: PiRaiders Broadcast Engine
 
+Builders: 1
+
 Read this document and `ROADMAP.md` before editing. This is a maintained SPX Solo fork used in live stadium production. Maintain original SPX behavior and attribution. An agent acts as an engineer: it does the implementation, runs all feasible tests itself, reports concrete evidence and exceptions, and does not delegate routine debugging to the district operator.
 
 ## Mission and user roles
@@ -52,3 +54,31 @@ For every change, provide in chat/PR: (1) plain-language summary, (2) files affe
 - Never commit OAuth tokens, IPs/hostnames that reveal protected network topology, student data, private Google Drive links, or operator credentials.
 - Keep operator-safe error graphics, last valid cache, graceful fallback, and retry bounds.
 - Human must approve production deployment, network changes, and code signing/release publication.
+
+## Links
+| What | Where |
+|---|---|
+| Repository | `tris10rouse/PiRaiders-Broadcast-Engine`, public, default branch `master`. Work lands only by pull request with every check on its final commit green |
+| Queue | `queue/ORDER.md` (the top line in `todo/` is next) and `queue/todo`, `needs-you`, `blocked`, `parked`. No private data in any queue file: `node scripts/builder/queue.cjs lint` refuses it |
+| Builder run | A new session made with `create_session`: `source_url` https://github.com/tris10rouse/PiRaiders-Broadcast-Engine, `model` claude-opus-5-5, `title` "Engine builder", `prompt` exactly: `You are a builder for this repository. Read AGENTS.md and follow its section "A run" exactly: one request, then stop. If AGENTS.md has no section "A run", do nothing and end.` |
+| Lease | `node scripts/builder/lease-git.mjs status / acquire / renew / assert / release` (git transport of `LOCKING_PROTOCOL.md`; owner and fence kept in `.git/builder-lease.json`) |
+| GitHub checks | `node scripts/builder/wait-checks.cjs <sha>` (reads check runs, renews the lease while it waits); `--once` for one read |
+| Status | `node scripts/builder/tracker.cjs` (the builders skill's "status") |
+| Scheduled task "Broadcast Engine takeover" | Off since 2026-11-20. The builders replace its runs. Do not change, enable or delete it without the owner's OK (his words, 2026-11-23). If it is switched on, the lease keeps it and a builder from writing at the same time |
+
+## A run
+1. If the session did not start with the line `HOOKS ON`, say "hooks off" in your closing line and carry on.
+2. Read `Builders: N` above. N of 0 means stop: end with no message.
+3. **The lease:** `node scripts/builder/lease-git.mjs acquire`. Exit 3 (another agent holds it, or won the race): end at once with one line, "Lock held; nothing done". Any other failure: fail closed, end. Renew it (`… renew`) at least every 15 minutes and before every push; exit 3 from any renew means stop all writes. Release it (`… release`) at the end of every run, also when the run fails.
+4. If `acquire` printed `resume` (a run died holding a row), that row and its branch are yours first: inspect the branch and any open pull request from it before doing anything else, then go to step 8 with that row.
+5. **Open pull requests:** for each open pull request from a `feature/` branch whose row is in `queue/` with a `PR:` line: read its checks (`wait-checks.cjs <sha> --once`); green and the whole diff read: merge it (land skill, step 7); red: that row is this run's row (step 8).
+6. **The default branch's checks:** `node scripts/builder/wait-checks.cjs master --once`. A red check is recorded in CLAUDE_HANDOFF.md with its cause or "cause unknown", never rerun to get green; if it is not already a queue row, a `Q-nnn` Fix row goes first in `queue/ORDER.md` (in this run's pull request). A parked row whose condition is now met moves to `todo/`, first in ORDER.md. For each file in `queue/needs-you/` with a `Link:`, read the owner's marks: all filled means go, move it to `todo/` (blank marks never build).
+7. Take the first row in `queue/ORDER.md` that is in `queue/todo/` (`node scripts/builder/queue.cjs next`). None: release the lease and end with no message.
+8. **Claim it:** `node scripts/builder/lease-git.mjs renew --task <row> --branch feature/<row>-<short-name>`. The lease is the claim; there is no claim commit.
+9. If the row needs the owner (what the operator or the audience sees with more than one sensible design, hardware, the stadium PC, a licence or an account): use the `proposal` skill, then step 12.
+10. Otherwise build it with the `build` skill (it splits an M or L row into S parts first) and land it with the `land` skill: a pull request, every check on its final commit green, the whole diff read, squash merge; the row's file and ORDER.md line deleted in it, the Road table and Run log in CLAUDE_HANDOFF.md updated in it.
+11. Keep the "Road to the evaluation build" count honest, as CLAUDE_HANDOFF.md says: a split or a new failing check adds a line the moment it is found.
+12. Release the lease. Then, if `queue/todo/` still holds a row and `Builders:` is above 0, start one builder run as Links › Builder run says (`create_session`). If `create_session` is refused (sessions started from sessions stop at 8 deep), send one push notification, "Engine builders paused after 8 runs in a row: say start the builders in a chat", and nothing else.
+13. **If anything fails:** never leave a row half-done without a trace. Push the branch as it is (without force); move the row's file to `queue/blocked/` with one plain line `Blocked: <why>` (or to `queue/needs-you/` with `Needs you:` if only the owner can clear it, then one push notification), add `Branch:` and `PR:` lines, land that queue change by its own pull request if the lease still holds, and release the lease. Lost the lease: stop all writes at once.
+14. End with at most 10 plain lines: what is now true, what failed, what is next, and the Road table's "Parts left · runs left" line. No other message to the owner unless step 9, 12 or 13 says so.
+
