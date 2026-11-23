@@ -12,7 +12,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black, close | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | merged on 2026-11-20 (#81, `ca9000f`, all 13 checks green on `f8459cd`) |
 | 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | landed by #86 on 2026-11-23 |
 | 5b Setup command and cached (offline) startup | L | Split on 2026-11-23 (fence 73) into 5b-1..5b-4 | split |
-| 5b-1 Setup command: source root, feed, journal and approval list once | S | One command and Linux tests on stores that exist | landed by #PR on 2026-11-23 (fence 73) |
+| 5b-1 Setup command: source root, feed, journal and approval list once | S | One command and Linux tests on stores that exist | landed by #91 on 2026-11-23 (fence 73) |
 | 5b-2 Linked source root: decide, record, test | S | One decision, the reader and setup made consistent | not started |
 | 5b-3 Offline pins and cached startup on Linux | S | One pin write path, one startup path, Linux tests | not started |
 | 5b-4 Windows job: setup command and cached start without the exchange folder | S | Changes the 5a Windows job only; Windows-only failures show up only in CI | not started |
@@ -38,7 +38,7 @@ Parts left · runs left: 7 parts (5b-2 to 5b-4, 5c to 5f) + 3 parked fix rows ·
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
-| 2026-11-23 | 73 | merged (#PR) | 5b split into 5b-1..5b-4; 5b-1: setup command `scripts/piraiders-setup.cjs` (source root, feed, journal and approval list once), 6 Linux tests |
+| 2026-11-23 | 73 | merged (#91) | 5b split into 5b-1..5b-4; 5b-1: setup command `scripts/piraiders-setup.cjs` (source root, feed, journal and approval list once), 6 Linux tests |
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
 | 2026-11-20 15:22 | 62 | fix merged (#79) | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
 | 2026-11-20 16:51 | 64–66 | merged (#81, #82) | Master green twice: three failing-check rows closed. 5a-2: new Windows job; fixed on the PR a CRLF test failure and the proof's refresh racing the page's own refresh (409 `BUSY`); merged with all 13 checks green; afterwards found two intermittent failures on its middle commits (late-review browser test, Caspar CEF proof), recorded at fence 65 |
