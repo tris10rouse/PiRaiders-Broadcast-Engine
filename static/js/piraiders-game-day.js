@@ -214,7 +214,7 @@
     APPROVAL_COMMIT_UNCERTAIN: 'The approval change may not have been saved. Check this button again to see what this PC has.'
   };
   const sourceText = code => sourceMessages[code] || 'The exchange catalog could not be read. Check the exchange folder, then refresh.';
-  const src = { gen: 0, flight: null, pages: 0, seq: { events: 0, selections: 0 }, summary: null, events: [], eventsNext: null, eventKey: null, selections: [], selectionsNext: null, selectionId: null, problem: null, statusTimer: null };
+  const src = { gen: 0, flight: null, pages: 0, seq: { events: 0, selections: 0 }, summary: null, events: [], eventsNext: null, eventKey: null, selections: [], selectionsNext: null, selectionId: null, problem: null, overtaken: false, statusTimer: null };
   // The review of the chosen button (item 4c). seq drops late answers; it
   // changes whenever the choice, the catalog or the review itself changes.
   const rev = { seq: 0, selectionId: null, busy: false, review: null, problem: null, confirm: null, saved: null, formError: null, formField: null };
@@ -288,16 +288,19 @@
     render(); return flight;
   }
   function adopt(summary) {
+    src.overtaken = false;
     if (src.summary && src.summary.revision === summary.revision) { src.summary = summary; src.problem = null; return Promise.resolve(); }
     clearCatalog(null); src.summary = summary; return sourcePage('events', 0);
   }
   function refreshSource() {
     if (src.flight || !csrf || accessIssue) return src.flight || Promise.resolve();
-    src.gen++; const gen = src.gen;
+    src.gen++; const gen = src.gen; src.overtaken = false;
     src.flight = api('source/refresh', {}).then(value => {
       if (gen !== src.gen) return null;
       if (value.ok && validSummary(value.catalog)) return value.catalog;
-      if (value.code === 'CATALOG_REFRESH_SUPERSEDED') return 'status';
+      // A newer refresh (another tab) overtook this one; its catalog is
+      // adopted by status, now or when the poll sees it read (Q-006).
+      if (value.code === 'CATALOG_REFRESH_SUPERSEDED') { src.overtaken = true; return 'status'; }
       clearCatalog(value.ok ? 'CATALOG_UNAVAILABLE' : value.code); return null;
     }).catch(error => { if (accessCodes.has(error.code)) setConnection(accessState(error.code)); else clearCatalog('CONNECTION_LOST'); return null; })
       .finally(() => { src.flight = null; render(); });
@@ -313,7 +316,7 @@
       setConnection('online');
       const live = value.catalog.available === true && validSummary(value.catalog.catalog) ? value.catalog.catalog : null;
       if (src.flight || src.pages > 0) return;
-      if (live && (adoptAvailable || !src.summary && !src.problem)) return adopt(live);
+      if (live && (adoptAvailable || src.overtaken || !src.summary && !src.problem)) return adopt(live);
       if (src.summary && live && live.revision !== src.summary.revision) { clearCatalog('CATALOG_REVISION_STALE'); render(); }
       if (adoptAvailable && !live && !src.problem) { clearCatalog(value.status.catalog?.code === 'CATALOG_NOT_READ' ? null : 'CATALOG_UNAVAILABLE'); render(); }
     }).catch(error => setConnection(accessState(error.code)))
