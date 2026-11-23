@@ -67,7 +67,7 @@ The service now writes PC confirmations to this machine's approval store (`EXCHA
 - `revokeSelection({identityTuple})`: appends a `revoke`; never reads the source. Nothing to revoke is `changed:false`.
 - One write at a time per service (`BUSY`); the store's expected revision and head turn a writer elsewhere into `APPROVAL_CONFLICT`. After every write attempt the revalidator rereads the store, so a revocation withdraws admission at once. A write during a manager admission reread overtakes that reread, which then denies (fails closed).
 - Results are path-free: codes, the inspection, the record's window and two flags.
-- Store setup stays explicit: no screen or route creates the store (decision: part of the setup increment, item 5). Cached-startup pins (`offline`) are not written here.
+- Store setup stays explicit: no screen or route creates the store (decision: part of the setup increment, item 5). Since 5b-1 that is `scripts/piraiders-setup.cjs` (`EXCHANGE_SETUP.md`). Cached-startup pins (`offline`) are not written here.
 
 | Route | Body | Calls |
 |---|---|---|
