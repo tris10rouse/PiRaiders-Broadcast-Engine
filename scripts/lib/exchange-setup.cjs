@@ -8,14 +8,16 @@
 // store that is there: a store it cannot open as this machine's is refused
 // with the store's own code, and the operator decides what to do with it.
 // A media root reached through a link is allowed when it resolves to the
-// retained canonical spelling (5b-2); the answer says which it was. Not here:
-// offline pins and cached startup (5b-3), and any screen. It reads the
-// source, it never writes it.
+// retained canonical spelling (5b-2); the answer says which it was. With
+// --pin-offline it then writes the offline pins of this machine's current
+// confirmations (5b-3) through the source service; cached startup itself is
+// the service's. No screen. It reads the source, it never writes it.
 const fs=require('node:fs/promises'),path=require('node:path');
 const {isGameDayMachineConfig}=require('./game-day-catalog.cjs');
 const {createExchangeCatalogReader}=require('./exchange-metadata-reader.cjs');
 const {createExchangeJournal}=require('./exchange-journal.cjs');
 const {createExchangeApprovalStore}=require('./exchange-approval-store.cjs');
+const {createExchangeSourceService}=require('./exchange-source-service.cjs');
 
 function frozen(value){if(value&&typeof value==='object'){Object.values(value).forEach(frozen);Object.freeze(value);}return value;}
 function refused(step,code,done){return frozen({ok:false,step,code,done});}
@@ -73,4 +75,24 @@ async function setupSourceMachine(machine,trusted={}){
   return frozen({ok:true,step:'done',code:null,done});
 }
 
-module.exports={setupSourceMachine};
+// Offline pins (5b-3), after the stores are set up. One answer step,
+// 'offline', with counts only: pinned now, already pinned to the current
+// playback, not prepared in the cache yet, or not eligible in the source.
+// A confirmation that is not prepared keeps whatever it had; the operator
+// prepares that button online and runs this again.
+async function pinOfflineApprovals(machine,trusted={}){
+  const ready=await setupSourceMachine(machine,trusted.setup??{});
+  if(!ready.ok)return ready;
+  const done={...ready.done};
+  let service;
+  try{service=createExchangeSourceService(machine,trusted.service??{});}
+  catch(error){return refused('offline',error&&error.code==='PROVIDER_ALREADY_OPEN'?'SETUP_SOURCE_IN_USE':'SETUP_SERVICE_FAILED',done);}
+  try{
+    const answer=await service.pinOfflineSelections();
+    if(!answer.ok)return refused('offline',answer.code,done);
+    done.offline={...answer.offline};
+    return frozen({ok:true,step:'done',code:null,done});
+  }finally{service.close();}
+}
+
+module.exports={setupSourceMachine,pinOfflineApprovals};

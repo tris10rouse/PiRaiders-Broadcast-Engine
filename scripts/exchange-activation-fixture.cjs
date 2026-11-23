@@ -36,21 +36,26 @@ function plain(v){return v!==null&&typeof v==='object'&&!Array.isArray(v);}
 function fail(code){throw Object.assign(Error(code),{code});}
 
 // The documents, sealed. Exported for tests so they can be checked against
-// the Engine's own readers without writing anything.
-function exchangeDocuments(){
-  const blobs=PICTURES.map(picture),tuple=[...TUPLE];
+// the Engine's own readers without writing anything. eligible:false marks the
+// event cancelled (tests of what an ineligible button may not do).
+// generation:2 is the same button republished with its pictures in reverse
+// order (another playback; catalog and generation sequence 2).
+function exchangeDocuments({eligible=true,generation=1}={}){
+  if(generation!==1&&generation!==2)fail('FIXTURE_OPTIONS_INVALID');
+  const pictures=generation===1?PICTURES:Object.freeze([...PICTURES].reverse());
+  const blobs=pictures.map(picture),tuple=[...TUPLE];
   const timing={timeZone:'America/Chicago',eventStartsAt:null,startSource:'missing',eventEndsAt:null,endSource:'missing',
     broadcastWindow:{startsAt:null,endsAt:null,startSource:'missing',endSource:'missing'},operatingWindow:null,unavailableReasons:['START_NOT_DEFINED','END_NOT_DEFINED']};
-  const event={eventKey:tuple[1],displayName:'Synthetic activation proof',eventDate:'2026-10-01',eligibility:{eligible:true,reasonCodes:[]},timing};
+  const event={eventKey:tuple[1],displayName:'Synthetic activation proof',eventDate:'2026-10-01',eligibility:eligible?{eligible:true,reasonCodes:[]}:{eligible:false,reasonCodes:['CANCELLED']},timing};
   const board={boardKey:tuple[2],displayName:'Synthetic proof board'};
-  const m={contractVersion:'piraiders-event-selection/1',feedId:FEED_ID,epoch:EPOCH,selectionId:'',identityTuple:tuple,generation:'',generationSequence:1,
+  const m={contractVersion:'piraiders-event-selection/1',feedId:FEED_ID,epoch:EPOCH,selectionId:'',identityTuple:tuple,generation:'',generationSequence:generation,
     generatedAt:STAMP,manifestState:'complete',problems:[],schoolYear:tuple[0],event,board,
     button:{origin:'event',displayLabel:tuple[4],normalizedLabel:tuple[4],templateButtonKey:null},
     sourceTicks:{onBoardAll:false,eventBoardLoaded:false,loadedForYear:null},
-    occurrences:PICTURES.map((p,i)=>({position:i+1,occurrenceKey:'row-'+(i+1),fileKey:'FILE-'+(i+1),assetKey:'a'+(i+1),problem:null,sourceName:'Synthetic',lineage:null})),
+    occurrences:pictures.map((p,i)=>({position:i+1,occurrenceKey:'row-'+(i+1),fileKey:'FILE-'+(i+1),assetKey:'a'+(i+1),problem:null,sourceName:'Synthetic',lineage:null})),
     assets:blobs.map((b,i)=>({assetKey:'a'+(i+1),originalDriveId:'synthetic-proof-'+(i+1),viaShortcutId:null,
       sourceRevision:{md5:null,size:null,modifiedTime:null,headRevisionId:null},
-      mimeType:PICTURES[i].format==='png'?'image/png':'image/jpeg',deliveryPath:'assets/'+sha(b)+(PICTURES[i].format==='png'?'.png':'.jpg'),
+      mimeType:pictures[i].format==='png'?'image/png':'image/jpeg',deliveryPath:'assets/'+sha(b)+(pictures[i].format==='png'?'.png':'.jpg'),
       byteLength:b.length,sha256:sha(b),width:WIDTH,height:HEIGHT})),
     playbackFingerprint:'',metadataFingerprint:''};
   m.selectionId=selectionId(m.identityTuple);
@@ -61,7 +66,7 @@ function exchangeDocuments(){
     templateButtonKey:null,labelShared:false,generation:m.generation,generationSequence:m.generationSequence,manifestPath,manifestSha256:sha(manifestBytes),
     playbackFingerprint:m.playbackFingerprint,metadataFingerprint:m.metadataFingerprint,occurrenceCount:m.occurrences.length,manifestState:m.manifestState};
   const feed={contractVersion:'piraiders-event-feed/1',feedId:FEED_ID,epoch:EPOCH,createdAt:STAMP,publisher:'PiRaiders Scheduler'};
-  const catalog={contractVersion:'piraiders-event-catalog/1',feedId:FEED_ID,epoch:EPOCH,catalogSequence:1,generatedAt:STAMP,sourceVersion:'0.0.0',schoolYear:tuple[0],
+  const catalog={contractVersion:'piraiders-event-catalog/1',feedId:FEED_ID,epoch:EPOCH,catalogSequence:generation,generatedAt:STAMP,sourceVersion:'0.0.0',schoolYear:tuple[0],
     events:[{...event,eventType:'Synthetic',homeSchool:'Synthetic',venue:'Synthetic',playbackArea:'Stadium Playback',boardOnly:true,eventBoard:board,selections:[entry]}]};
   const current={contractVersion:'piraiders-event-current/1',feedId:FEED_ID,epoch:EPOCH,selectionId:m.selectionId,identityTuple:tuple,generation:m.generation,
     generationSequence:m.generationSequence,manifestPath,manifestSha256:entry.manifestSha256,playbackFingerprint:m.playbackFingerprint,
@@ -70,7 +75,7 @@ function exchangeDocuments(){
     [manifestPath,manifestBytes],['selections/'+m.selectionId+'/current.json',Buffer.from(JSON.stringify(current))]]);
   m.assets.forEach((a,i)=>files.set(a.deliveryPath,blobs[i]));
   return{files,identityTuple:tuple,selectionId:m.selectionId,binding:{feedId:FEED_ID,epoch:EPOCH},
-    order:PICTURES.map(p=>({name:p.name,format:p.format,rgb:[...p.rgb]})),playbackFingerprint:m.playbackFingerprint};
+    order:pictures.map(p=>({name:p.name,format:p.format,rgb:[...p.rgb]})),playbackFingerprint:m.playbackFingerprint};
 }
 
 // Writes, under `root` (an empty proof folder):
