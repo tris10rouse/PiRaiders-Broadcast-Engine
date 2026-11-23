@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-23 (builder run, lock fence 70; Q-005 concurrent refresh fix). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-23 (builder run, lock fence 71; Q-003 wait-checks reads workflow runs). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -21,14 +21,14 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | Open failing check: NDI software proof (`actual-ndi-sdk-receiver`) failed with `NDI_PROOF_FAILED_CRASH_ENUMERATE` on PR #86's first commit `16f82e8` (job 137453014746) | fix | Cause unknown; #86 does not touch that proof; passed on its final commit `9431ebf`. Not rerun (queue `Q-004`, parked) | recorded |
 | Open failing check: Linux `static-contracts`, test "a refresh while the page's own refresh runs is refused" (`exchange-activation-routes.test.cjs:104`, no refresh of two answered 200), on #87's docs-only `f24c359` (job 137467496669) | fix | **Cause found (fence 70):** answers `[409 SUPERSEDED, 409 BUSY]` (reproduced, 2 of 8 parallel copies): the newer refresh overtook the older, then the provider's one slot, still held by the older, refused it. Service fix: the newer waits for the older provider call, then reads; 24 of 24 copies green | landed by #88 on 2026-11-23 |
 | Q-006 Game Day page after an overtaken refresh: may show the catalog unavailable while a newer refresh succeeds (reviewer reading, not reproduced; old code ended the same way) | S | One browser test, maybe a page fix | not started |
-| Q-003 wait-checks read GREEN before every workflow had started (PR #86: `GREEN 4 checks`, 10 in all) | S | Builder script and one stubbed test | not started |
+| Q-003 wait-checks read GREEN before every workflow had started (PR #86: `GREEN 4 checks`, 10 in all) | S | Builder script and one stubbed test | landed on 2026-11-23 (fence 71): RUNNING while any workflow run of the commit is unfinished |
 | Open failing check: Caspar software proof (`actual-caspar-cef-mixer`) failed at `MANAGED_CEF`, `PROTOCOL_REJECTED`, renderer `DISCONNECTED`, on `cf91a8c` (job 136445042248) | fix | Cause unknown; PR #81 does not touch that proof; passed on `f8459cd`. Not rerun | recorded |
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 3 M + 2 L = 12 sized runs. Pace from every merged part so far: 12 runs for 10 sized runs = 1.2. 12 x 1.2 + 1 (Q-003) + 1 (Q-006) + 3 open failing checks (full-app receiver start, Caspar CEF, NDI crash enumerate) = **about 19 runs** (Q-005 fixed at fence 70, Q-006 added the same run).
+**Estimate:** remaining sizes 3 M + 2 L = 12 sized runs. Pace from every merged part so far: 12 runs for 10 sized runs = 1.2. 12 x 1.2 + 1 (Q-006) + 3 open failing checks (full-app receiver start, Caspar CEF, NDI crash enumerate) = **about 18 runs** (Q-003 fixed at fence 71).
 
-Parts left · runs left: 5 parts (5b to 5f) + Q-003 + Q-006 + 3 parked fix rows · about 19 runs.
+Parts left · runs left: 5 parts (5b to 5f) + Q-006 + 3 parked fix rows · about 18 runs.
 
 ## Run log
 
@@ -38,6 +38,7 @@ Parts left · runs left: 5 parts (5b to 5f) + Q-003 + Q-006 + 3 parked fix rows 
 | 2026-11-20 15:22 | 62 | fix merged (#79) | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
 | 2026-11-20 16:51 | 64–66 | merged (#81, #82) | Master green twice: three failing-check rows closed. 5a-2: new Windows job; fixed on the PR a CRLF test failure and the proof's refresh racing the page's own refresh (409 `BUSY`); merged with all 13 checks green; afterwards found two intermittent failures on its middle commits (late-review browser test, Caspar CEF proof), recorded at fence 65 |
 | 2026-11-23 | 69 | merged (#86); rows Q-003, Q-004 | 5a-3 merged as `323524b` (all 10 checks green on `9431ebf`). wait-checks printed GREEN with 4 of 10 checks (Q-003). NDI proof `CRASH_ENUMERATE` on #86's first commit (Q-004, parked). Linux refresh test failed on #87 (Q-005, first). Earlier part of this line: | 5a-3: `scripts/proof-evidence-privacy.cjs` checks every retained file of the activation job (allowed names; no proof, exchange or private-store path in any form), in the proof and as a step before the upload; failure screenshot replaced by path-checked page text; design note `EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` |
+| 2026-11-23 | 71 | fix (Q-003) | wait-checks also reads the commit's workflow runs: RUNNING while one is unfinished, RED for a workflow that failed without a job |
 | 2026-11-23 | 70 | fix (#88, Q-005) | Linux refresh test: cause found and fixed in the source service (newer refresh waits for the older provider call); Q-006 added from review |
 | 2026-11-20 18:22 | 67 | 2 fixes merged (#83, #84) | Master `ee9b12a` green on every check; `ca9000f` had the full-app `RECEIVER_START_TIMEOUT` (recorded). Late-review browser test: cause found and fixed in the test (#83). The console proof failed on #83's docs commit: cause named (first process query over 15 s), warm-up step merged (#84)
 
