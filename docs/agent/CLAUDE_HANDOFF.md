@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-20 (seventeenth run, lock fence 67; late-review test fixed (#83); console proof START failure named and mitigated (#84)). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-23 (builder run, lock fence 69; 5a-3 evidence and privacy check of the activation job). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -10,7 +10,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 |---|---|---|---|
 | 5a-1 Synthetic exchange folder and setup step for the proof | S | One builder and Linux tests on code that already exists | merged on 2026-11-20 (#77, `bc679a3`) |
 | 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black, close | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | merged on 2026-11-20 (#81, `ca9000f`, all 13 checks green on `f8459cd`) |
-| 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | not started |
+| 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | landed by #86 on 2026-11-23 |
 | 5b Setup command and cached (offline) startup | L | New operator command, the linked-folder decision, offline pins, proven on Linux and Windows | not started |
 | 5c Diagnostics and recovery | L | Six distinct states on screen and by command, four tested fault recoveries | not started |
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
@@ -22,7 +22,9 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 1 S + 3 M + 2 L = 13 sized runs. Pace from every merged part so far: 11 runs for 9 sized runs = 1.22 (no part merged this run). 13 x 1.22 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 18 runs** (unchanged: the late-review row is fixed and closed, the full-app `RECEIVER_START_TIMEOUT` on `ca9000f` is a new row).
+**Estimate:** remaining sizes 3 M + 2 L = 12 sized runs. Pace from every merged part so far: 12 runs for 10 sized runs = 1.2. 12 x 1.2 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 16 runs** (5a-3 landed at fence 69).
+
+Parts left · runs left: 5 parts (5b to 5f) + 2 parked fix rows · about 16 runs.
 
 ## Run log
 
@@ -31,6 +33,7 @@ Closed (fence 64): the console proof's START failure, the Linux browser-suite ha
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
 | 2026-11-20 15:22 | 62 | fix merged (#79) | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
 | 2026-11-20 16:51 | 64–66 | merged (#81, #82) | Master green twice: three failing-check rows closed. 5a-2: new Windows job; fixed on the PR a CRLF test failure and the proof's refresh racing the page's own refresh (409 `BUSY`); merged with all 13 checks green; afterwards found two intermittent failures on its middle commits (late-review browser test, Caspar CEF proof), recorded at fence 65 |
+| 2026-11-23 | 69 | merged (#86) | 5a-3: `scripts/proof-evidence-privacy.cjs` checks every retained file of the activation job (allowed names; no proof, exchange or private-store path in any form), in the proof and as a step before the upload; failure screenshot replaced by path-checked page text; design note `EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` |
 | 2026-11-20 18:22 | 67 | 2 fixes merged (#83, #84) | Master `ee9b12a` green on every check; `ca9000f` had the full-app `RECEIVER_START_TIMEOUT` (recorded). Late-review browser test: cause found and fixed in the test (#83). The console proof failed on #83's docs commit: cause named (first process query over 15 s), warm-up step merged (#84)
 
 ## State of master
@@ -45,7 +48,7 @@ From 2026-11-23 the work is done by builders (AGENTS.md › A run) from `queue/`
 
 
 1. Read master's checks on #84's and #83's merge commits; a red one is recorded (cause or "cause unknown"), not rerun.
-2. 5a-3: evidence and privacy of the activation job. Today it keeps six received frames and `result.json`, and a failure screenshot of the page on failure. Add a check that fails the job if any retained file names the proof folder, the exchange folder or a private store (reuse the route-answer check in `scripts/exchange-activation-routes.cjs`), decide whether the failure screenshot stays, and write `docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` (what it proves, what it does not).
+2. Done (fence 69): 5a-3: evidence and privacy of the activation job. Today it keeps six received frames and `result.json`, and a failure screenshot of the page on failure. Add a check that fails the job if any retained file names the proof folder, the exchange folder or a private store (reuse the route-answer check in `scripts/exchange-activation-routes.cjs`), decide whether the failure screenshot stays, and write `docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` (what it proves, what it does not).
 3. If the full-app `RECEIVER_START_TIMEOUT` recurs (third time), look at the receiver start before 5b.
 4. Then 5b (setup command and cached startup), 5c, 5d, 5e, 5f.
 

@@ -92,6 +92,9 @@ jobs:
         env:
           PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/smoke-exchange-activation-windows.cjs
+      - name: Check that no retained evidence names the proof folder, exchange folder or a private store
+        if: always()
+        run: node scripts/proof-evidence-privacy.cjs activation build/exchange-activation-proof-evidence . build/caspar-proof-tools
       - name: Retain synthetic received pixels and sanitized evidence only
         if: always()
         uses: actions/upload-artifact@v4

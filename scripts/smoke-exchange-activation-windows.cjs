@@ -12,6 +12,13 @@
 // then full-frame black; closing the application must take every owned
 // process with it.
 //
+// Evidence (5a-3): only the received synthetic frames (PNG) and sanitized JSON
+// are kept; scripts/proof-evidence-privacy.cjs fails the proof if any retained
+// file names the proof folder, the exchange folder or a private store, here
+// and again in the job's step before the upload. No page screenshot is kept:
+// its pixels cannot be checked for paths. See
+// docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md.
+//
 // Same-machine CI evidence only: no hardware, stadium PC, board or
 // deployment claim. Synthetic data only.
 const assert=require('node:assert/strict');
@@ -29,6 +36,7 @@ const {sourceLocation}=require('./extracted-app-proof.cjs');
 const full=require('./smoke-full-app-windows.cjs');
 const {buildExchangeActivationFixture}=require('./exchange-activation-fixture.cjs');
 const routes=require('./exchange-activation-routes.cjs');
+const {auditEvidence,removeViolations}=require('./proof-evidence-privacy.cjs');
 const checkoutRoot=path.resolve(__dirname,'..');
 
 // The order the receiver must see. Names are the evidence file names.
@@ -114,11 +122,15 @@ async function scenario(location){
       closeReceiverQuiet:{connections:quiet.connections,durationMs:quiet.quietDurationMs},spxConfigUnchanged:true,timingsMs:timings,
       sameMachineOnly:true,windows10Tested:false,lanTransportTested:false,stadiumHardwareTested:false};
   }catch(error){
-    if(page)try{await page.screenshot({path:path.join(evidence,'failure-ui.png'),fullPage:true,timeout:5000});}catch{}
+    // The page's visible text instead of a screenshot, kept only when it names no private path.
+    // The whole text is checked before it is cut, so a cut cannot leave part of a path.
+    if(page)try{const allText=String(await page.locator('body').innerText({timeout:5000})),visibleText=allText.slice(0,4000);
+      if(!routes.namesPrivatePath([allText,allText.toLowerCase()],privatePaths.flatMap(p=>[p,p.toLowerCase(),p.split(path.sep).join('/')])))await fs.writeFile(path.join(evidence,'failure-page.json'),JSON.stringify({phase,visibleText},null,2));}catch{}
+    let evidenceViolations=null;try{const audit=await auditEvidence(evidence,privatePaths);evidenceViolations=audit.violations;if(audit.violations.length)await removeViolations(evidence,audit.violations);}catch{}
     let sourceStatus=null;if(page&&(phase==='APPROVE'||phase==='PAGE_REFRESH'))try{sourceStatus=routes.sourceStatusCodes((await client.get('/game-day/api/source/status')).value);}catch{}
     console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,
       routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,sourceStatus,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
-      processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),treeCounts:lastTreeCounts||null,
+      processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),evidenceViolations,treeCounts:lastTreeCounts||null,
       appCategories:app?[...app.categories]:[],timingsMs:timings}));
     throw Error('EXCHANGE_ACTIVATION_PROOF_FAILED');
   }finally{
@@ -131,7 +143,11 @@ async function scenario(location){
   report.captures=[];
   for(const name of(await fs.readdir(evidence)).sort())if(/^[a-z0-9-]+\.png$/.test(name)){const bytes=await fs.readFile(path.join(evidence,name));report.captures.push({name,bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')});}
   for(const f of frames)assert.ok(report.captures.some(c=>c.name===f.name+'.png'),'FRAME_CAPTURE_REQUIRED');
-  await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+  await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify(report,null,2));
+  const audit=await auditEvidence(evidence,privatePaths);
+  if(audit.violations.length){await removeViolations(evidence,audit.violations);
+    console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase:'EVIDENCE_PRIVACY',code:'EVIDENCE_NAMES_PRIVATE_PATH',evidenceViolations:audit.violations}));throw Error('EVIDENCE_NAMES_PRIVATE_PATH');}
+  console.log(JSON.stringify(report));
 }
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
