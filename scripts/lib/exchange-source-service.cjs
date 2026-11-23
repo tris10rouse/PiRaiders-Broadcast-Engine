@@ -19,8 +19,11 @@ const {normalizePreparedEventProfile}=require('./prepared-event-profile.cjs');
 const {createExchangeApprovalStore}=require('./exchange-approval-store.cjs');
 const {canonicalExchangeJSON}=require('./exchange-fingerprints.cjs');
 const {normalizeWindow}=require('./production-window.cjs');
+const {loadExchangeSnapshot}=require('./exchange-snapshot.cjs');
 
-const CODE=/^[A-Z][A-Z0-9_]{1,63}$/,SHA=/^[a-f0-9]{64}$/;
+const CODE=/^[A-Z][A-Z0-9_]{1,63}$/,SHA=/^[a-f0-9]{64}$/,UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+// Snapshot folders the offline pin step looks at, at most.
+const PIN_SCAN_LIMIT=512;
 function fault(code){const e=Error(code);e.code=code;return e;}
 function codeOf(error){return error&&typeof error.code==='string'&&CODE.test(error.code)?error.code:'SOURCE_SERVICE_FAILED';}
 function denied(code){return Object.freeze({ok:false,ready:false,code});}
@@ -194,7 +197,8 @@ function createExchangeSourceService(machine,trusted={}){
   // Confirm: the operator saw one inspection (its revision) and chose one
   // production window. The selection is inspected again here; a changed
   // generation, an ineligible event or an unreachable source writes nothing.
-  // Online confirmations only (offline:null); a cached-startup pin is later work.
+  // Online confirmations only (offline:null): a new confirmation drops an
+  // earlier offline pin; the setup command pins again (5b-3).
   function confirmSelection(request){
     if(closed)return Promise.resolve(denied('SOURCE_SERVICE_CLOSED'));
     if(!plainRequest(request,['identityTuple','inspectionRevision','productionWindow']))return Promise.resolve(denied('APPROVAL_REQUEST_INVALID'));
@@ -209,6 +213,70 @@ function createExchangeSourceService(machine,trusted={}){
       if(inspected.admissionEligible!==true)return denied('APPROVAL_SELECTION_INELIGIBLE');
       return write({type:'confirm',providerId:s.providerId,binding:{feedId:s.binding.feedId,epoch:s.binding.epoch},identityTuple:tuple,
         confirmation:true,machinePolicyFingerprint:revalidator.policyFingerprint,productionWindow:window,offline:null},tuple);
+    });
+  }
+  // Offline pins (item 5b-3). Only the setup command calls this; no screen
+  // or route does. For every current confirmation of this machine whose
+  // button the source shows as eligible and complete, it looks in the cache
+  // for a verified snapshot of exactly the current playback, and saves that
+  // snapshot's id and playback fingerprint in the confirmation, keeping its
+  // window, machine policy and confirmation. The confirmation stays good for
+  // online startup. Nothing is pinned from source data alone: the cache must
+  // hold the prepared pictures (prepared online earlier).
+  async function cachedSnapshotId(tuple,selectionId,playbackFingerprint){
+    let names;try{names=(await fs.readdir(machine.cacheRoot)).filter(n=>UUID.test(n)).sort();}catch{return null;}
+    if(names.length>PIN_SCAN_LIMIT)throw fault('OFFLINE_PIN_CACHE_TOO_LARGE');
+    for(const name of names){
+      if(closed)return null;
+      let prepared;try{prepared=await loadExchangeSnapshot(path.join(machine.cacheRoot,name));}catch{continue;}
+      const p=prepared&&prepared.manifest&&prepared.manifest.source;
+      if(p&&prepared.manifest.schemaVersion===2&&p.feedId===s.binding.feedId&&p.epoch===s.binding.epoch&&p.selectionId===selectionId&&
+        canonical(p.identityTuple)===canonical(tuple)&&p.playbackFingerprint===playbackFingerprint)return name;
+    }
+    return null;
+  }
+  function currentConfirmations(head){
+    const binding=canonical(s.binding);
+    return head.approvals.filter(a=>a&&a.type==='confirm'&&a.confirmation===true&&a.providerId===s.providerId&&canonical(a.binding)===binding&&
+      a.machinePolicyFingerprint===revalidator.policyFingerprint);
+  }
+  function pinOfflineSelections(){
+    return exclusive(async()=>{
+      const counts={pinned:0,unchanged:0,notPrepared:0,ineligible:0};
+      const first=await openStore();
+      if(closed)return denied('SOURCE_SERVICE_CLOSED');
+      if(!first.ok)return denied(first.code);
+      for(const approval of currentConfirmations(first)){
+        const tuple=ownTuple(approval.identityTuple);if(!tuple)continue;
+        const inspected=await inspectSelection(tuple);
+        if(closed)return denied('SOURCE_SERVICE_CLOSED');
+        if(!inspected||inspected.ok!==true||!inspected.inspection)return denied(inspected&&typeof inspected.code==='string'?inspected.code:'SOURCE_SERVICE_FAILED');
+        const selection=inspected.inspection.selection;
+        if(inspected.admissionEligible!==true){counts.ineligible++;continue;}
+        if(selection.manifestState!=='complete'||!SHA.test(String(selection.playbackFingerprint))){counts.notPrepared++;continue;}
+        let snapshotId;
+        try{snapshotId=await cachedSnapshotId(tuple,selection.selectionId,selection.playbackFingerprint);}
+        catch(error){await revalidator.refresh();return denied(codeOf(error));}
+        if(closed)return denied('SOURCE_SERVICE_CLOSED');
+        if(!snapshotId){counts.notPrepared++;continue;}
+        const offline={snapshotId,playbackFingerprint:selection.playbackFingerprint};
+        if(canonical(approval.offline)===canonical(offline)){counts.unchanged++;continue;}
+        // The confirmation must still be exactly the one read above: a
+        // revoke or a new confirmation since then wins, and nothing is pinned.
+        const head=await openStore();
+        if(closed)return denied('SOURCE_SERVICE_CLOSED');
+        if(!head.ok)return denied(head.code);
+        if(canonical(recordFor(head.approvals,tuple))!==canonical(approval)){await revalidator.refresh();return denied('APPROVAL_CONFLICT');}
+        let next;
+        try{next=await store.append(s.approvalDirectory,{expectedStoreId:s.approvalStoreId,expectedRevision:head.revision,expectedHeadSha256:head.headSha256,
+          approval:{type:'confirm',providerId:approval.providerId,binding:{feedId:approval.binding.feedId,epoch:approval.binding.epoch},identityTuple:tuple,
+            confirmation:true,machinePolicyFingerprint:approval.machinePolicyFingerprint,productionWindow:{...approval.productionWindow},offline}});}
+        catch{next=null;}
+        if(!next||next.ok!==true){await revalidator.refresh();return denied(next&&typeof next.code==='string'&&CODE.test(next.code)?next.code:'APPROVAL_IO_FAILED');}
+        counts.pinned++;
+      }
+      await revalidator.refresh();
+      return Object.freeze({ok:true,ready:false,offline:Object.freeze(counts)});
     });
   }
   // Revoke never reads the source: it works with the exchange folder gone.
@@ -255,7 +323,7 @@ function createExchangeSourceService(machine,trusted={}){
       if(!a||a.type!=='confirm'||a.confirmation!==true||a.providerId!==s.providerId||canonical(a.binding)!==binding||
         a.machinePolicyFingerprint!==revalidator.policyFingerprint||!a.productionWindow)continue;
       const tuple=ownTuple(a.identityTuple);if(!tuple)continue;
-      entries.push({eventId:selectionEventId(tuple),tuple,productionWindow:a.productionWindow});
+      entries.push({eventId:selectionEventId(tuple),tuple,productionWindow:a.productionWindow,offline:a.offline});
     }
     // Soonest window first; the manager lists at most 128, so keep the latest.
     entries.sort((x,y)=>x.productionWindow.start<y.productionWindow.start?-1:x.productionWindow.start>y.productionWindow.start?1:x.eventId<y.eventId?-1:x.eventId>y.eventId?1:0);
@@ -269,12 +337,22 @@ function createExchangeSourceService(machine,trusted={}){
     if(typeof eventId!=='string'||!/^sel-[a-f0-9]{40}$/.test(eventId))throw fault('CATALOG_INVALID');
     const entry=(await approvedEntries()).find(e=>e.eventId===eventId);
     if(!entry)throw fault('CATALOG_INVALID');
+    // Cached startup (5b-3) only when the exchange folder is gone and this
+    // confirmation carries an offline pin. A folder that resolves elsewhere
+    // stays a source startup and is refused there; the provider and the
+    // revalidator still check the pin, the snapshot and the approval.
+    let startup={mode:'source'};
+    if(entry.offline){
+      const rootCode=await sourceRootCode();
+      if(closed)throw fault('SOURCE_SERVICE_CLOSED');
+      if(rootCode==='SOURCE_UNAVAILABLE')startup={mode:'cached',snapshotId:entry.offline.snapshotId,playbackFingerprint:entry.offline.playbackFingerprint};
+    }
     const profile=normalizePreparedEventProfile({schemaVersion:1,provider:'exchange-v1',eventId,productionWindow:{...entry.productionWindow},
       spx:machine.spx,caspar:{...machine.caspar,runtimeDir:path.join(machine.runtimeRoot,eventId)},
       media:{provider:'exchange-ordered-v1',providerId:s.providerId,binding:{feedId:s.binding.feedId,epoch:s.binding.epoch},identityTuple:[...entry.tuple],
-        cacheDir:machine.cacheRoot,startup:{mode:'source'}},
+        cacheDir:machine.cacheRoot,startup},
       presentation:machine.presentation,rossTalk:machine.rossTalk,output:machine.output});
-    const revision=sha256(canonical({eventId,identityTuple:entry.tuple,productionWindow:profile.productionWindow,policyFingerprint:revalidator.policyFingerprint}));
+    const revision=sha256(canonical({eventId,identityTuple:entry.tuple,productionWindow:profile.productionWindow,policyFingerprint:revalidator.policyFingerprint,startup}));
     return Object.freeze({profile,descriptor:Object.freeze({eventId,displayName:approvedName(entry.tuple)}),revision});
   }
   // Wraps a prepared-event runtime factory: each exchange runtime gets this
@@ -302,6 +380,8 @@ function createExchangeSourceService(machine,trusted={}){
     catalogEventsPage:query=>browse('catalogEventsPage',query),
     catalogSelectionsPage:query=>browse('catalogSelectionsPage',query),
     inspectSelection,reviewSelection,confirmSelection,revokeSelection,preparedMedia,
+    // The setup command's offline pin step (5b-3); no screen or route.
+    pinOfflineSelections,
     // Pass to createGameDayManager as {catalog} and wrap its runtime factory.
     playbackCatalog:Object.freeze({list:listApproved,read:readApproved}),preparedRuntimeFactory,
     refreshApprovals:()=>revalidator.refresh(),
