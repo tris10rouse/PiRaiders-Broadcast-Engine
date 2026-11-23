@@ -84,6 +84,21 @@ async function approveAndActivate(client,{identityTuple,window}){
   return{eventId,candidateId:prepared.candidateId,answers};
 }
 
+// The cached start (5b-4): with the exchange folder gone there is no source
+// catalog to review or approve, only the approved list (it reads the approval
+// list alone). approved list → prepare → activate of its one button; the
+// service decides whether the button may start from the cache.
+async function startApproved(client){
+  if(!client||typeof client.get!=='function'||typeof client.post!=='function')fail('ROUTE_OPTIONS_INVALID');
+  const listed=ok(await client.get('/game-day/api/events'),'APPROVED_LIST_FAILED').events;
+  if(!Array.isArray(listed)||listed.length!==1||typeof listed[0].eventId!=='string')fail('APPROVED_BUTTON_NOT_LISTED');
+  const eventId=listed[0].eventId;
+  const prepared=ok(await client.post('/game-day/api/prepare',await expectation(client,{eventId})),'PREPARE_FAILED');
+  if(typeof prepared.candidateId!=='string')fail('PREPARE_FAILED');
+  ok(await client.post('/game-day/api/activate',await expectation(client,{candidateId:prepared.candidateId})),'ACTIVATE_FAILED');
+  return{eventId,candidateId:prepared.candidateId};
+}
+
 async function command(client,action){
   return ok(await client.post('/game-day/api/command',await expectation(client,{action})),'COMMAND_FAILED');
 }
@@ -93,4 +108,4 @@ function namesPrivatePath(texts,paths){
   return texts.some(text=>typeof text==='string'&&paths.some(p=>typeof p==='string'&&p.length>0&&(text.includes(p)||text.includes(JSON.stringify(p).slice(1,-1)))));
 }
 
-module.exports={approvalWindow,approveAndActivate,command,namesPrivatePath,sourceStatusCodes,pageRefreshSettled};
+module.exports={approvalWindow,approveAndActivate,startApproved,command,namesPrivatePath,sourceStatusCodes,pageRefreshSettled};

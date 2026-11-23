@@ -64,9 +64,11 @@ jobs:
 
   # BE-006 item 5a part 2: a source machine on a synthetic exchange folder,
   # approved, prepared, activated, played and Stopped through the real routes.
+  # 5b-4: its stores set up by the setup command, then a cached start with the
+  # exchange folder moved away.
   actual-exchange-activation-private-ndi:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -88,7 +90,7 @@ jobs:
         run: node scripts/prepare-ndi-proof.cjs
       - name: Install pinned headless browser for actual workstation controls
         run: npx --no-install playwright install --with-deps --only-shell chromium
-      - name: Prove a synthetic exchange button from approval to Stop on the actual CLI
+      - name: Prove a synthetic exchange button from setup and approval to Stop, then a cached start without the exchange folder, on the actual CLI
         env:
           PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/smoke-exchange-activation-windows.cjs

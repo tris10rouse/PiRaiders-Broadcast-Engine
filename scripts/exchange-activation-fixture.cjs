@@ -78,34 +78,46 @@ function exchangeDocuments({eligible=true,generation=1}={}){
     order:pictures.map(p=>({name:p.name,format:p.format,rgb:[...p.rgb]})),playbackFingerprint:m.playbackFingerprint};
 }
 
+// The pictures' content hashes in play order, from the manifest itself.
+function pictureHashes(docs){
+  const [,bytes]=[...docs.files].find(([name])=>name.endsWith('/manifest.json')),m=JSON.parse(bytes);
+  const sha=new Map(m.assets.map(a=>[a.assetKey,a.sha256]));return m.occurrences.map(o=>sha.get(o.assetKey));
+}
+
 // Writes, under `root` (an empty proof folder):
 //   exchange/            the synthetic exchange folder (the source root)
 //   private/journal/     the Engine's journal, binding confirmed
 //   private/approvals/   an empty approval list (unless initializeApprovals is false)
+//                        (with setUpStores false neither store nor private/ is
+//                        made: the setup command makes them, 5b-4)
 //   cache/ runtime/ catalog/
 //   machine.json         a source machine file for scripts/piraiders-app.cjs
 // `machine` carries the PC-specific parts the proof chooses (spxConfigFile
 // relative to appRoot, caspar, output, rossTalk, presentation).
-async function buildExchangeActivationFixture({root,machine,initializeApprovals=true}={}){
-  if(typeof root!=='string'||!path.isAbsolute(root)||!plain(machine))fail('FIXTURE_OPTIONS_INVALID');
+async function buildExchangeActivationFixture({root,machine,initializeApprovals=true,setUpStores=true}={}){
+  if(typeof root!=='string'||!path.isAbsolute(root)||!plain(machine)||typeof setUpStores!=='boolean')fail('FIXTURE_OPTIONS_INVALID');
   await fs.mkdir(root,{recursive:true});root=await fs.realpath(root);
   if((await fs.readdir(root)).length)fail('FIXTURE_ROOT_NOT_EMPTY');
   const docs=exchangeDocuments(),sourceRoot=path.join(root,'exchange');
   for(const [relative,bytes] of docs.files){const file=path.join(sourceRoot,...relative.split('/'));await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes,{flag:'wx'});}
   const dirs={journal:path.join(root,'private','journal'),approvals:path.join(root,'private','approvals'),cache:path.join(root,'cache'),runtime:path.join(root,'runtime'),catalog:path.join(root,'catalog')};
-  await fs.mkdir(path.join(root,'private'));for(const key of ['cache','runtime','catalog'])await fs.mkdir(dirs[key]);
-  const journalStoreId=crypto.randomUUID(),approvalStoreId=crypto.randomUUID(),journal=createExchangeJournal();
-  let head=await journal.initialize(dirs.journal,journalStoreId);if(!head.ok)fail('FIXTURE_JOURNAL_FAILED');
-  head=await journal.append(dirs.journal,{expectedStoreId:journalStoreId,expectedRevision:head.revision,expectedHeadSha256:head.headSha256,
-    event:{type:'confirm-binding',expectedRevision:head.revision,expectedBinding:null,binding:{...docs.binding},confirm:true}});
-  if(!head.ok)fail('FIXTURE_JOURNAL_FAILED');
-  if(initializeApprovals&&!(await createExchangeApprovalStore().initialize(dirs.approvals,approvalStoreId)).ok)fail('FIXTURE_APPROVALS_FAILED');
+  for(const key of ['cache','runtime','catalog'])await fs.mkdir(dirs[key]);
+  const journalStoreId=crypto.randomUUID(),approvalStoreId=crypto.randomUUID();
+  if(setUpStores){
+    await fs.mkdir(path.join(root,'private'));
+    const journal=createExchangeJournal();
+    let head=await journal.initialize(dirs.journal,journalStoreId);if(!head.ok)fail('FIXTURE_JOURNAL_FAILED');
+    head=await journal.append(dirs.journal,{expectedStoreId:journalStoreId,expectedRevision:head.revision,expectedHeadSha256:head.headSha256,
+      event:{type:'confirm-binding',expectedRevision:head.revision,expectedBinding:null,binding:{...docs.binding},confirm:true}});
+    if(!head.ok)fail('FIXTURE_JOURNAL_FAILED');
+    if(initializeApprovals&&!(await createExchangeApprovalStore().initialize(dirs.approvals,approvalStoreId)).ok)fail('FIXTURE_APPROVALS_FAILED');
+  }
   const raw={schemaVersion:1,...machine,catalogDirectory:dirs.catalog,mediaRoot:sourceRoot,cacheRoot:dirs.cache,runtimeRoot:dirs.runtime,
     source:{providerId:PROVIDER_ID,journalDirectory:dirs.journal,journalStoreId,approvalDirectory:dirs.approvals,approvalStoreId,
       expectedCanonicalRoot:sourceRoot,binding:{...docs.binding}}};
   const machineFile=path.join(root,'machine.json');await fs.writeFile(machineFile,JSON.stringify(raw,null,2),{flag:'wx'});
   return{machineFile,sourceRoot,privateRoots:[dirs.journal,dirs.approvals,dirs.cache,dirs.runtime,dirs.catalog],
-    identityTuple:docs.identityTuple,selectionId:docs.selectionId,order:docs.order,playbackFingerprint:docs.playbackFingerprint};
+    identityTuple:docs.identityTuple,selectionId:docs.selectionId,order:docs.order,playbackFingerprint:docs.playbackFingerprint,pictureHashes:pictureHashes(docs)};
 }
 
 module.exports={buildExchangeActivationFixture,exchangeDocuments,ACTIVATION_PICTURES:PICTURES,ACTIVATION_SIZE:Object.freeze({width:WIDTH,height:HEIGHT})};
