@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-23 (builder run, lock fence 73; 5b split, 5b-1 setup command). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-23 (builder run, lock fence 74; 5b-2 linked source root). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -13,7 +13,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | landed by #86 on 2026-11-23 |
 | 5b Setup command and cached (offline) startup | L | Split on 2026-11-23 (fence 73) into 5b-1..5b-4 | split |
 | 5b-1 Setup command: source root, feed, journal and approval list once | S | One command and Linux tests on stores that exist | landed by #91 on 2026-11-23 (fence 73) |
-| 5b-2 Linked source root: decide, record, test | S | One decision, the reader and setup made consistent | not started |
+| 5b-2 Linked source root: decide, record, test | S | One decision, the reader and setup made consistent | landed by #PRNUM on 2026-11-23 (fence 74): an alias that resolves to the retained spelling is allowed; everything is read through that spelling |
 | 5b-3 Offline pins and cached startup on Linux | S | One pin write path, one startup path, Linux tests | not started |
 | 5b-4 Windows job: setup command and cached start without the exchange folder | S | Changes the 5a Windows job only; Windows-only failures show up only in CI | not started |
 | 5c Diagnostics and recovery | L | Six distinct states on screen and by command, four tested fault recoveries | not started |
@@ -30,14 +30,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 3 S + 3 M + 1 L = 12 sized runs. Pace from every merged part so far: 13 runs for 11 sized runs = 1.2. 12 x 1.2 + 3 open failing checks (full-app receiver start, Caspar CEF, NDI crash enumerate) = **about 17 runs** (Q-003 fixed at fence 71, Q-006 at fence 72).
+**Estimate:** remaining sizes 2 S + 3 M + 1 L = 11 sized runs. Pace from every merged part so far: 14 runs for 12 sized runs = 1.2. 11 x 1.2 + 3 open failing checks (full-app receiver start, Caspar CEF, NDI crash enumerate) = **about 16 runs** (Q-003 fixed at fence 71, Q-006 at fence 72).
 
-Parts left · runs left: 7 parts (5b-2 to 5b-4, 5c to 5f) + 3 parked fix rows · about 17 runs.
+Parts left · runs left: 6 parts (5b-3, 5b-4, 5c to 5f) + 3 parked fix rows · about 16 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-23 | 74 | merged (#PRNUM) | 5b-2: linked source root decided (alias allowed when it resolves to the retained spelling; reads go through that spelling); setup answers `source: direct` or `linked`; 3 Linux tests, each guard removed fails one |
 | 2026-11-23 | 73 | merged (#91) | 5b split into 5b-1..5b-4; 5b-1: setup command `scripts/piraiders-setup.cjs` (source root, feed, journal and approval list once), 6 Linux tests |
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
 | 2026-11-20 15:22 | 62 | fix merged (#79) | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
@@ -78,7 +79,7 @@ From 2026-11-23 the work is done by builders (AGENTS.md › A run) from `queue/`
 - **A stalled program page fails Stop.** On hosted Windows (PR #74's first two commits, push runs, jobs 136283857459 and 136291022984) Stop answered `HANDLER_FAILED` because the program page stalled past the 2.5 s heartbeat; the page blacks itself on the disconnect, and the operator sees Stop refused. That is the intended fail-closed answer, but if the stadium PC's renderer ever stalls that long, Stop will be reported as failed while the output is black. The warm-up in PR #75 is a mitigation of the CI symptom, not a fix of slow renderers; no timing constant was changed.
 - Under load Chromium's DevTools can report a fully read answer as `net::ERR_ABORTED` (seen fence 67 on status, state, selections and review answers; the page saw no error). Any browser test that waits on Playwright's `response.finished()` or `requestfinished` can hang this way; use Resource Timing or a page-side signal.
 - This sandbox cannot run `npm ci` exactly: one locked package (the spreadsheet reader) comes from a host the sandbox blocks. Local Linux runs use the registry's 0.18.5 as a stand-in, with `package.json` and the lock file restored afterwards; the stand-in lacks `set_fs`, so add a no-op `set_fs` export to the local copy or the 7 real-SPX startup tests fail. GitHub's checks are the authority.
-- The source reader refuses a linked source root (`UNSAFE_INPUT`), although `SOURCE_MACHINE_POLICY.md` allows "a configured alias". The service's root check accepts one; the reader then refuses it. Whether the stadium PC's Drive folder is reached through a link is unknown; decide when setup is written.
+- A linked media root is allowed (5b-2, `SOURCE_MACHINE_POLICY.md` › Linked source root) and tested on Linux only; a Windows junction and a synced Drive folder are untested.
 - The browser suite's file `tests/browser/game-day-source.browser.cjs` is in `npm run test:browser`; locally it needs `PIRAIDERS_BROWSER_EXECUTABLE=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`, and no `--test-timeout` (that flag times out the whole file).
 - The approval screen's window inputs use the PC's own clock; the confirmation shows Central time. If the stadium PC is not set to Central time the operator sees both; not tested on Windows.
 - Two old Codex branches are not in master and have no pull request: `feature/be-008-extracted-app-output` (Nov 15) and `feature/windows-development-bundle` (Nov 13). Not reviewed; do not merge them blind.

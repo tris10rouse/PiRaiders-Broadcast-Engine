@@ -24,6 +24,18 @@ UUIDs and paths above are synthetic. Configure `mediaRoot` as the corresponding 
 
 Config loading reads only its configured machine JSON and established config ancestry. It neither scans source files nor opens/creates/resets journals, caches, runtime directories or approval stores. Invalid source fields retain the existing fixed MACHINE_CONFIG_INVALID category; paths and values are not echoed. `createLocalEventCatalog(machine)` refuses a source-enabled machine: the exchange contract cannot silently fall back to a lexical folder listing or the flat128 local-event model. Until source service/web wiring is complete, the existing application therefore does not enable source mode merely because this optional configuration parses.
 
+## Linked source root (5b-2, decided 2026-11-23)
+
+`mediaRoot` may be the canonical folder itself or a link or alias to it (a symbolic link, a Windows junction, or a path with a linked parent). The rule, the same for setup, refresh, review and preparation:
+
+1. Before every operation that reads the source, `realpath(mediaRoot)` must equal `expectedCanonicalRoot` (case-insensitive on Windows). Otherwise `SOURCE_ROOT_MISMATCH` (`SETUP_SOURCE_ROOT_MISMATCH` in setup); an unreachable root is `SOURCE_UNAVAILABLE`.
+2. Once that holds, everything is read through `expectedCanonicalRoot`, never through the alias: the setup command's feed check and the service's provider (catalog, selected inspection, media staging) are given that spelling.
+3. The reader keeps its rule unchanged: any link at or inside the root it reads, or any file whose real path leaves that root, is `UNSAFE_INPUT`.
+
+Why this rule: it works whichever way the stadium PC reaches its Drive folder (directly, or through a link the operator made), which is not known, and an alias can still never point the engine at another folder, because the alias is resolved and compared on every operation. A retained spelling that itself contains a link never matches `realpath`, so it is refused, not followed.
+
+The setup command records which case it saw, without a path: `done.source` is `direct` (the media root is the canonical spelling) or `linked`. Tests: `tests/exchange-setup.test.cjs` (a linked media root through setup, refresh and review; a link inside still refused) and `tests/exchange-source-service.test.cjs` (alias refresh, review and media staging; alias re-pointed elsewhere refused; link inside refused). Linux only; a Windows junction on the stadium PC or a synced Drive folder has not been tested.
+
 ## Same-capture selected inspection
 
 `provider.inspectSelection(tuple,{signal?})` preserves its existing result fields and adds an immutable `inspection`. It derives all fields from that operation's fully verified selected manifest and timing-gate result, not the earlier catalog summary or a later coordinator snapshot overwritten by catalog refresh.

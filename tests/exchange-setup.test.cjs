@@ -34,14 +34,14 @@ async function listing(dir){return(await fs.readdir(dir)).sort();}
 test('setup makes the journal with its binding and an empty approval list, once; a second run changes nothing',async t=>{
   const m=await machineFile(t),s=m.raw.source;
   const first=await setupSourceMachine(await load(m));
-  assert.deepEqual({...first,done:{...first.done}},{ok:true,step:'done',code:null,done:{machine:'checked',source:'checked',feed:'checked',journal:'initialized',approvals:'initialized'}});
+  assert.deepEqual({...first,done:{...first.done}},{ok:true,step:'done',code:null,done:{machine:'checked',source:'direct',feed:'checked',journal:'initialized',approvals:'initialized'}});
   const journal=await createExchangeJournal().open(s.journalDirectory,s.journalStoreId);
   assert.equal(journal.ok,true);assert.deepEqual({...journal.state.binding},m.binding);assert.equal(journal.revision,1);
   const approvals=await createExchangeApprovalStore().open(s.approvalDirectory,s.approvalStoreId);
   assert.equal(approvals.ok,true);assert.equal(approvals.revision,0);assert.deepEqual([...approvals.approvals],[]);
   const before=[await listing(s.journalDirectory),await listing(s.approvalDirectory)];
   const second=await setupSourceMachine(await load(m));
-  assert.equal(second.ok,true);assert.deepEqual({...second.done},{machine:'checked',source:'checked',feed:'checked',journal:'present',approvals:'present'});
+  assert.equal(second.ok,true);assert.deepEqual({...second.done},{machine:'checked',source:'direct',feed:'checked',journal:'present',approvals:'present'});
   assert.deepEqual([await listing(s.journalDirectory),await listing(s.approvalDirectory)],before);
 });
 
@@ -127,7 +127,7 @@ test('setup finishes a half-done setup: a journal without its binding, or withou
   await fs.mkdir(path.dirname(s.journalDirectory));
   assert.equal((await createExchangeJournal().initialize(s.journalDirectory,s.journalStoreId)).ok,true);
   const r=await setupSourceMachine(await load(m));
-  assert.equal(r.ok,true);assert.deepEqual({...r.done},{machine:'checked',source:'checked',feed:'checked',journal:'bound',approvals:'initialized'});
+  assert.equal(r.ok,true);assert.deepEqual({...r.done},{machine:'checked',source:'direct',feed:'checked',journal:'bound',approvals:'initialized'});
   const journal=await createExchangeJournal().open(s.journalDirectory,s.journalStoreId);
   assert.deepEqual({...journal.state.binding},m.binding);
 
@@ -136,6 +136,30 @@ test('setup finishes a half-done setup: a journal without its binding, or withou
   assert.equal((await setupSourceMachine(await load(half))).ok,true);
   await fs.rm(h.approvalDirectory,{recursive:true});
   const before=await listing(h.journalDirectory),again=await setupSourceMachine(await load(half));
-  assert.equal(again.ok,true);assert.deepEqual({...again.done},{machine:'checked',source:'checked',feed:'checked',journal:'present',approvals:'initialized'});
+  assert.equal(again.ok,true);assert.deepEqual({...again.done},{machine:'checked',source:'direct',feed:'checked',journal:'present',approvals:'initialized'});
   assert.deepEqual(await listing(h.journalDirectory),before);
+});
+
+// 5b-2: a media root reached through a link (SOURCE_MACHINE_POLICY.md ›
+// Linked source root). Setup says so without a path, and the service built
+// from the same machine file refreshes and reviews through it.
+test('a linked media root: setup says linked, then the service refreshes and reviews through it',async t=>{
+  const {createExchangeSourceService}=require('../scripts/lib/exchange-source-service.cjs');
+  const m=await machineFile(t,(raw,parent)=>({...raw,mediaRoot:path.join(parent,'exchange link')}));
+  await fs.symlink(m.exchange,path.join(m.parent,'exchange link'),'junction');
+  const machine=await load(m);
+  const r=await setupSourceMachine(machine);
+  assert.equal(r.ok,true,r.code);assert.deepEqual({...r.done},{machine:'checked',source:'linked',feed:'checked',journal:'initialized',approvals:'initialized'});
+  for(const secret of [m.parent,'exchange link'])assert.equal(JSON.stringify(r).includes(secret),false,'no path in the answer');
+  const service=createExchangeSourceService(machine);t.after(()=>service.close());
+  const refreshed=await service.refreshCatalog();
+  assert.equal(refreshed.ok,true,refreshed.code);assert.equal(service.catalogState().available,true);
+  const tuple=[...exchangeDocuments().identityTuple];
+  const review=await service.reviewSelection(tuple);
+  assert.equal(review.ok,true,review.code);assert.equal(review.approval.read,true);assert.equal(review.approval.record,null);
+  // A link inside the canonical folder is still refused, alias or not.
+  const catalog=path.join(m.exchange,'catalog.json'),moved=path.join(m.parent,'catalog-elsewhere.json');
+  await fs.rename(catalog,moved);await fs.symlink(moved,catalog,'file');
+  assert.equal((await service.refreshCatalog()).code,'UNSAFE_INPUT');
+  assert.equal((await setupSourceMachine(await load(m))).code,'SETUP_FEED_UNSAFE_INPUT');
 });

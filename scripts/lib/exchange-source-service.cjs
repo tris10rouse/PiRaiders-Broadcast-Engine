@@ -65,7 +65,12 @@ function createExchangeSourceService(machine,trusted={}){
   const revalidator=createApprovalRevalidator({machine,store});
   let provider;
   try{
-    provider=createExchangeSourceProvider({providerId:s.providerId,sourceRoot:machine.mediaRoot,cacheDir:machine.cacheRoot,
+    // The provider reads through the retained canonical spelling, never the
+    // configured alias (5b-2, SOURCE_MACHINE_POLICY.md › Linked source root):
+    // every read below is preceded by sourceRootCode(), which proves the alias
+    // resolves to exactly that spelling, and the reader still refuses any link
+    // at or inside it.
+    provider=createExchangeSourceProvider({providerId:s.providerId,sourceRoot:s.expectedCanonicalRoot,cacheDir:machine.cacheRoot,
       journalDir:s.journalDirectory,storeId:s.journalStoreId,binding:{feedId:s.binding.feedId,epoch:s.binding.epoch}},trusted.provider??{});
   }catch(error){revalidator.close();throw error;}
   let closed=false,attempt=0,browsable=false,catalogCode='CATALOG_NOT_READ',writing=false,reading=null;
