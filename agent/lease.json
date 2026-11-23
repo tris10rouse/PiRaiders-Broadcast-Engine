@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 67,
-  "task": null,
+  "status": "active",
+  "owner": "claude-20261123T0200Z",
+  "fence": 68,
+  "task": "Builder workflow setup (queue, skills, hooks)",
   "workBranch": null,
-  "acquiredAt": "2026-11-20T18:22:07.000Z",
-  "lastHeartbeat": "2026-11-20T19:44:49.000Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-20T19:44:49.000Z"
+  "acquiredAt": "2026-11-23T01:58:41.000Z",
+  "lastHeartbeat": "2026-11-23T01:58:41.000Z",
+  "expiresAt": "2026-11-23T03:28:41.000Z",
+  "releasedAt": null
 }
