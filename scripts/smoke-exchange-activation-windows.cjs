@@ -19,6 +19,14 @@
 // its pixels cannot be checked for paths. See
 // docs/design/EXCHANGE_ACTIVATION_WINDOWS_PROOF.md.
 //
+// Setup and cached start (5b-4): the private stores are set up by the
+// operator's setup command (scripts/piraiders-setup.cjs), run twice (the
+// second run changes nothing). After the online run and close, the command
+// pins the button offline, the exchange folder is moved away, and the
+// application started again plays the same button from the cache through the
+// approved list alone: the same pictures in order, then Stop black, then a
+// clean close.
+//
 // Same-machine CI evidence only: no hardware, stadium PC, board or
 // deployment claim. Synthetic data only.
 const assert=require('node:assert/strict');
@@ -35,19 +43,21 @@ const {processTable,observeTree,identityReason,identityCaptureDiagnostics}=requi
 const {sourceLocation}=require('./extracted-app-proof.cjs');
 const full=require('./smoke-full-app-windows.cjs');
 const {buildExchangeActivationFixture}=require('./exchange-activation-fixture.cjs');
+const setup=require('./exchange-activation-setup.cjs');
 const routes=require('./exchange-activation-routes.cjs');
 const {auditEvidence,removeViolations}=require('./proof-evidence-privacy.cjs');
 const checkoutRoot=path.resolve(__dirname,'..');
 
 // The order the receiver must see. Names are the evidence file names.
-function expectedFrames(order){
-  assert.ok(Array.isArray(order)&&order.length===3,'ACTIVATION_ORDER');
+// `prefix` names the run: 'exchange' (online) or 'cached' (5b-4).
+function expectedFrames(order,prefix='exchange'){
+  assert.ok(Array.isArray(order)&&order.length===3,'ACTIVATION_ORDER');assert.ok(prefix==='exchange'||prefix==='cached','ACTIVATION_PREFIX');
   const [first,second,third]=order;
   return[
-    {step:'launch',name:'exchange-launch-'+first.name,rgb:first.rgb},
-    {step:'next-rosstalk',name:'exchange-next-'+second.name,rgb:second.rgb},
-    {step:'next-route',name:'exchange-next-'+third.name,rgb:third.rgb},
-    {step:'previous-route',name:'exchange-previous-'+second.name,rgb:second.rgb}];
+    {step:'launch',name:prefix+'-launch-'+first.name,rgb:first.rgb},
+    {step:'next-rosstalk',name:prefix+'-next-'+second.name,rgb:second.rgb},
+    {step:'next-route',name:prefix+'-next-'+third.name,rgb:third.rgb},
+    {step:'previous-route',name:prefix+'-previous-'+second.name,rgb:second.rgb}];
 }
 
 async function scenario(location){
@@ -66,13 +76,14 @@ async function scenario(location){
     templatesource:'spx-ip-address',langfile:'english.json',username:'',password:'',apikey:'',resolution:'HD',recents:[]},casparcg:{servers:[]},osc:{enable:false},globalExtras:{}});
   await fs.writeFile(configFile,configBytes);
   const casparExe=path.join(toolInfo.casparDirectory,'casparcg.exe');
-  const built=await buildExchangeActivationFixture({root:path.join(work,'proof'),machine:{
+  const built=await buildExchangeActivationFixture({root:path.join(work,'proof'),setUpStores:false,machine:{
     spxConfigFile:path.relative(location.appRoot,configFile).split(path.sep).join('/'),
     caspar:{executable:casparExe,cwd:toolInfo.casparDirectory,rendererProfile:'mesa-llvmpipe-compat'},
     output:{type:'ndi',name:label,runtimeDirectory:ndi.runtimeDirectory},presentation:{port:0},
     rossTalk:{host:'127.0.0.1',port:talk,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',3:'previous',8:'stop'},acknowledgements:true}}});
-  const privatePaths=[work,built.sourceRoot,...built.privateRoots,tools,toolInfo.casparDirectory];
-  const plan=expectedFrames(built.order),frames=[],timings={};let probe,app,browser,page,phase='SETUP',sourceIdentity,report,cleanupTree,lastTreeCounts;
+  const awayRoot=path.join(path.dirname(built.sourceRoot),'exchange-away');
+  const privatePaths=[work,built.sourceRoot,awayRoot,...built.privateRoots,tools,toolInfo.casparDirectory];
+  const plan=expectedFrames(built.order),cachedPlan=expectedFrames(built.order,'cached'),frames=[],timings={};let probe,app,browser,page,phase='SETUP',sourceIdentity,report,cleanupTree,lastTreeCounts;
   const started=performance.now(),mark=name=>{timings[name]=Math.round(performance.now()-started);};
   const answers=[];
   const client={
@@ -88,38 +99,78 @@ async function scenario(location){
     if(rgb.every(x=>x===0))checkConsolePixels(await fs.readFile(path.join(evidence,name+'.png')),rgb);
     frames.push({name,distinctTimestamps:result.distinctTimestamps,matchedFrames:result.matchedFrames,format:result.format});
   }
-  try{
-    phase='RECEIVER';probe=await full.receiver(tools,ndi.dllPath,label,evidence);
-    phase='APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location);mark('applicationReady');
-    browser=await chromium.launch({headless:true,args:['--no-sandbox']});page=await browser.newPage({viewport:{width:1440,height:1000}});
+  const runSetup=pin=>setup.runSetupCommand(built.machineFile,{appRoot:location.appRoot,nodeExecutable:location.nodeExecutable,pin});
+  // Open the Game Day page of the running application (a new session each start).
+  async function openPage(){
+    if(page)try{await page.close();}catch{}
+    page=await browser.newPage({viewport:{width:1440,height:1000}});
     await page.goto(origin+'/game-day');await page.locator('#connection').filter({hasText:'Connected to application'}).waitFor();
     assert.equal(await page.locator('body').getAttribute('data-mode'),'source','SOURCE_MODE_PAGE');
+  }
+  // Renderer ready, owned sender captured, NDI source (same identity), then
+  // black, Launch, Next over RossTalk, Next and Previous over the route, Stop black.
+  async function playAndStop(eventId,steps,tag){
+    phase=tag+'RENDERER_READY';await full.until(async()=>{const value=await state();return value.active&&value.active.eventId===eventId&&value.active.runtime.ready;},'APP_RENDERER_READY',90000);mark(tag.toLowerCase()+'rendererReady');
+    phase=tag+'SENDER_IDENTITY';const sender=await full.captureOwnedCaspar(app.parentIdentity,casparExe,{deadline:performance.now()+15000,jobHost:location.jobHost});cleanupTree=sender.tree;
+    phase=tag+'NDI_DISCOVERY';const discovered=await probe.request('discover',{timeoutMs:30000},35000);
+    if(sourceIdentity===undefined){sourceIdentity=discovered.sourceIdentityHash;assert.match(sourceIdentity,/^[a-f0-9]{64}$/,'NDI_SOURCE_IDENTITY');}
+    else assert.equal(discovered.sourceIdentityHash,sourceIdentity,'SOURCE_IDENTITY_CHANGED');
+    const prefix=steps[0].name.split('-')[0];
+    phase=tag+'BLACK_BEFORE_LAUNCH';await frame(prefix+'-before-launch-black',[0,0,0]);
+    phase=tag+'LAUNCH';await page.locator('#launch').click();await frame(steps[0].name,steps[0].rgb);
+    phase=tag+'NEXT_ROSSTALK';await rossTalk(talk,'GPI 2',{prefix:'OK ',timeoutMs:30000});await frame(steps[1].name,steps[1].rgb);
+    phase=tag+'NEXT_ROUTE';await routes.command(client,'next');await frame(steps[2].name,steps[2].rgb);
+    phase=tag+'PREVIOUS_ROUTE';await routes.command(client,'previous');await frame(steps[3].name,steps[3].rgb);mark(tag.toLowerCase()+'sequenceSeen');
+    phase=tag+'STOP';await page.locator('#stop').click();await frame(prefix+'-stop-black',[0,0,0],{minFrames:10,minDurationMs:1500});mark(tag.toLowerCase()+'stoppedBlack');
+  }
+  // Close the application: every owned process gone, the receiver quiet.
+  async function closeApplication(tag){
+    phase=tag+'CLOSE_CAPTURE';lastTreeCounts=null;cleanupTree=(await full.capturePinnedTree(app.parentIdentity,{deadline:performance.now()+15000})).tree;
+    assert.ok(cleanupTree.some(row=>full.normalized(row.ExecutablePath)===full.normalized(casparExe)),'CLOSE_ACTIVE_CASPAR');
+    phase=tag+'CLOSE';app.child.kill();await full.settledChild(app.child);
+    phase=tag+'CLOSE_GONE';await full.until(()=>{lastTreeCounts=observeTree(processTable(),cleanupTree);return lastTreeCounts.surviving===0&&lastTreeCounts.unknown===0;},'APP_TREE_SURVIVED_CLOSE',10000);
+    phase=tag+'CLOSE_QUIET';const quiet=await probe.request('quiet',{durationMs:1500,timeoutMs:20000},25000);assert.equal(quiet.connections,0,'RECEIVER_NOT_QUIET');assert.ok(quiet.quietDurationMs>=1500,'RECEIVER_NOT_QUIET');mark(tag.toLowerCase()+'closed');
+    return{connections:quiet.connections,durationMs:quiet.quietDurationMs};
+  }
+  try{
+    // The operator's setup command sets up both private stores; run again it changes nothing.
+    phase='SETUP_COMMAND';const setupRuns=setup.checkSetupTwice(await runSetup(false),await runSetup(false));mark('setUp');
+    phase='RECEIVER';probe=await full.receiver(tools,ndi.dllPath,label,evidence);
+    phase='APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location);mark('applicationReady');
+    browser=await chromium.launch({headless:true,args:['--no-sandbox']});await openPage();
     // The page refreshes the source catalog by itself on opening; let that finish first.
     phase='PAGE_REFRESH';const pageRefresh=await routes.pageRefreshSettled(client);mark('pageRefreshSettled');
-    phase='APPROVE';const window=routes.approvalWindow(Date.now());
+    // The window covers the online run and the cached start after it.
+    phase='APPROVE';const window=routes.approvalWindow(Date.now(),{afterMs:30*60000});
     const flow=await routes.approveAndActivate(client,{identityTuple:built.identityTuple,window});mark('activated');
-    phase='RENDERER_READY';await full.until(async()=>{const value=await state();return value.active&&value.active.eventId===flow.eventId&&value.active.runtime.ready;},'APP_RENDERER_READY',90000);mark('rendererReady');
-    phase='SENDER_IDENTITY';const sender=await full.captureOwnedCaspar(app.parentIdentity,casparExe,{deadline:performance.now()+15000,jobHost:location.jobHost});cleanupTree=sender.tree;
-    phase='NDI_DISCOVERY';const discovered=await probe.request('discover',{timeoutMs:30000},35000);sourceIdentity=discovered.sourceIdentityHash;assert.match(sourceIdentity,/^[a-f0-9]{64}$/,'NDI_SOURCE_IDENTITY');
-    phase='BLACK_BEFORE_LAUNCH';await frame('exchange-before-launch-black',[0,0,0]);
-    phase='LAUNCH';await page.locator('#launch').click();await frame(plan[0].name,plan[0].rgb);
-    phase='NEXT_ROSSTALK';await rossTalk(talk,'GPI 2',{prefix:'OK ',timeoutMs:30000});await frame(plan[1].name,plan[1].rgb);
-    phase='NEXT_ROUTE';await routes.command(client,'next');await frame(plan[2].name,plan[2].rgb);
-    phase='PREVIOUS_ROUTE';await routes.command(client,'previous');await frame(plan[3].name,plan[3].rgb);mark('sequenceSeen');
-    phase='STOP';await page.locator('#stop').click();await frame('exchange-stop-black',[0,0,0],{minFrames:10,minDurationMs:1500});mark('stoppedBlack');
+    await playAndStop(flow.eventId,plan,'');
     phase='PRIVACY';assert.equal(routes.namesPrivatePath(answers,privatePaths),false,'ROUTE_ANSWER_NAMES_PRIVATE_PATH');
-    phase='CLOSE_CAPTURE';lastTreeCounts=null;cleanupTree=(await full.capturePinnedTree(app.parentIdentity,{deadline:performance.now()+15000})).tree;
-    assert.ok(cleanupTree.some(row=>full.normalized(row.ExecutablePath)===full.normalized(casparExe)),'CLOSE_ACTIVE_CASPAR');
-    phase='CLOSE';app.child.kill();await full.settledChild(app.child);
-    phase='CLOSE_GONE';await full.until(()=>{lastTreeCounts=observeTree(processTable(),cleanupTree);return lastTreeCounts.surviving===0&&lastTreeCounts.unknown===0;},'APP_TREE_SURVIVED_CLOSE',10000);
-    phase='CLOSE_QUIET';const quiet=await probe.request('quiet',{durationMs:1500,timeoutMs:20000},25000);assert.equal(quiet.connections,0,'RECEIVER_NOT_QUIET');assert.ok(quiet.quietDurationMs>=1500,'RECEIVER_NOT_QUIET');mark('closed');
+    const quiet=await closeApplication('');
+    // Cached start (5b-4): pin with the app closed, move the exchange folder away, start again.
+    phase='PIN_OFFLINE';const offlinePin=setup.checkPinned(await runSetup(true));mark('pinned');
+    phase='EXCHANGE_AWAY';await fs.rename(built.sourceRoot,awayRoot);
+    await assert.rejects(fs.access(built.sourceRoot),{code:'ENOENT'},'EXCHANGE_FOLDER_STILL_THERE');
+    phase='CACHED_APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location);mark('cachedApplicationReady');
+    await openPage();
+    phase='CACHED_PAGE_REFRESH';const cachedRefresh=await routes.pageRefreshSettled(client);
+    assert.equal(cachedRefresh.catalog.available,false,'CACHED_SOURCE_CATALOG_AVAILABLE');
+    phase='CACHED_START';const cachedStart=await routes.startApproved(client);mark('cachedActivated');
+    assert.equal(cachedStart.eventId,flow.eventId,'CACHED_START_OTHER_BUTTON');
+    await playAndStop(cachedStart.eventId,cachedPlan,'CACHED_');
+    phase='CACHED_PRIVACY';assert.equal(routes.namesPrivatePath(answers,privatePaths),false,'ROUTE_ANSWER_NAMES_PRIVATE_PATH');
+    await assert.rejects(fs.access(built.sourceRoot),{code:'ENOENT'},'EXCHANGE_FOLDER_STILL_THERE');
+    const cachedQuiet=await closeApplication('CACHED_');
     assert.equal(await fs.readFile(configFile,'utf8'),configBytes,'SPX_CONFIG_UNCHANGED');
     report={event:'exchange-activation-windows-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:toolInfo.provenance,ndiProvenance:ndi.provenance,
       runtimeVersion:probe.info.runtimeVersion,actualCLI:true,sourceMachine:true,syntheticExchangeFolder:true,approvalListSetUpBeforeStart:true,
+      storesSetUpBySetupCommand:true,setupCommandRuns:setupRuns,
       routes:['source/refresh','source/events','source/selections','source/review','source/approve','events','prepare','activate','command'],
       pageOwnRefresh:{catalogAvailable:pageRefresh.catalog.available,code:pageRefresh.catalog.code},approvalWindowContainsNow:true,prewarmMinutes:window.prewarmMinutes,publishedOrder:built.order.map(p=>p.name),sourceIdentityHash:sourceIdentity,sourceIdentityStable:true,
       frames,fullFrameOpaqueBlackBeforeLaunch:true,fullFrameOpaqueBlackAfterStop:true,routeAnswersPathFree:true,closeTookEveryOwnedProcess:true,
-      closeReceiverQuiet:{connections:quiet.connections,durationMs:quiet.quietDurationMs},spxConfigUnchanged:true,timingsMs:timings,
+      closeReceiverQuiet:quiet,
+      cachedStart:{offlinePin,exchangeFolderAbsent:true,sourceCatalogAvailable:false,sourceCatalogCode:cachedRefresh.catalog.code,sameButton:true,routes:['events','prepare','activate','command'],
+        publishedOrder:built.order.map(p=>p.name),sourceIdentityStable:true,fullFrameOpaqueBlackBeforeLaunch:true,fullFrameOpaqueBlackAfterStop:true,closeTookEveryOwnedProcess:true,closeReceiverQuiet:cachedQuiet},
+      spxConfigUnchanged:true,timingsMs:timings,
       sameMachineOnly:true,windows10Tested:false,lanTransportTested:false,stadiumHardwareTested:false};
   }catch(error){
     // The page's visible text instead of a screenshot, kept only when it names no private path.
@@ -127,9 +178,9 @@ async function scenario(location){
     if(page)try{const allText=String(await page.locator('body').innerText({timeout:5000})),visibleText=allText.slice(0,4000);
       if(!routes.namesPrivatePath([allText,allText.toLowerCase()],privatePaths.flatMap(p=>[p,p.toLowerCase(),p.split(path.sep).join('/')])))await fs.writeFile(path.join(evidence,'failure-page.json'),JSON.stringify({phase,visibleText},null,2));}catch{}
     let evidenceViolations=null;try{const audit=await auditEvidence(evidence,privatePaths);evidenceViolations=audit.violations;if(audit.violations.length)await removeViolations(evidence,audit.violations);}catch{}
-    let sourceStatus=null;if(page&&(phase==='APPROVE'||phase==='PAGE_REFRESH'))try{sourceStatus=routes.sourceStatusCodes((await client.get('/game-day/api/source/status')).value);}catch{}
+    let sourceStatus=null;if(page&&['APPROVE','PAGE_REFRESH','CACHED_PAGE_REFRESH','CACHED_START'].includes(phase))try{sourceStatus=routes.sourceStatusCodes((await client.get('/game-day/api/source/status')).value);}catch{}
     console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,
-      routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,sourceStatus,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
+      routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,setupExitCode:error&&Number.isInteger(error.exitCode)?error.exitCode:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,sourceStatus,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
       processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),evidenceViolations,treeCounts:lastTreeCounts||null,
       appCategories:app?[...app.categories]:[],timingsMs:timings}));
     throw Error('EXCHANGE_ACTIVATION_PROOF_FAILED');

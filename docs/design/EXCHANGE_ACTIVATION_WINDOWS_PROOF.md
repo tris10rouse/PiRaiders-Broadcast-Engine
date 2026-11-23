@@ -1,26 +1,27 @@
 # Exchange activation proof on hosted Windows
 
-BE-006 item 5a (parts 5a-1 to 5a-3). Job `actual-exchange-activation-private-ndi` in `.github/workflows/full-app-proof.yml`; script `scripts/smoke-exchange-activation-windows.cjs`; route steps `scripts/exchange-activation-routes.cjs`; fixture `scripts/exchange-activation-fixture.cjs`; evidence check `scripts/proof-evidence-privacy.cjs`.
+BE-006 item 5a (parts 5a-1 to 5a-3) and part 5b-4. Job `actual-exchange-activation-private-ndi` in `.github/workflows/full-app-proof.yml`; script `scripts/smoke-exchange-activation-windows.cjs`; route steps `scripts/exchange-activation-routes.cjs`; setup steps `scripts/exchange-activation-setup.cjs`; fixture `scripts/exchange-activation-fixture.cjs`; evidence check `scripts/proof-evidence-privacy.cjs`.
 
 ## What it proves
 
 On a disposable GitHub-hosted Windows runner, with the real application entry (`scripts/piraiders-app.cjs --no-browser`), pinned CasparCG with app-local CI Mesa, and the pinned private NDI runtime:
 
-1. A synthetic exchange folder (three full-frame 1920 x 1080 pictures, PNG and JPEG, three colours in a fixed published order), a journal with its confirmed binding and an empty approval list made as a setup step, before the application starts.
+1. A synthetic exchange folder (three full-frame 1920 x 1080 pictures, PNG and JPEG, three colours in a fixed published order). Before the application starts, the operator's setup command (`node scripts/piraiders-setup.cjs --machine <file>`, its own process) makes the journal with its confirmed binding and an empty approval list (`initialized`, `initialized`); run again it answers `present`, `present` (5b-4; until then the fixture made the stores).
 2. Through the real Game Day routes, in operator order: catalog refresh, events, selections, review, approve (a window that contains now, prewarm 0), the approved list, prepare, activate. Every route answer is checked to name no private path.
 3. The renderer reports ready; the owned Caspar process is identified; the pinned NDI SDK receiver discovers the source.
 4. Full-frame black before Launch; Launch on the page, Next over allowlisted RossTalk, Next and Previous over the command route: the receiver sees the pictures in the published order (fresh frames, stable source identity, 1920 x 1080, BGRA/BGRX); Stop on the page: full-frame opaque black for at least 1.5 s.
-5. Closing the application takes every owned process with it; the receiver then sees no connection for 1.5 s; SPX's config file is unchanged.
+5. Closing the application takes every owned process with it; the receiver then sees no connection for 1.5 s.
+6. **Cached start (5b-4).** With the application closed, `--pin-offline` pins exactly the one button (`pinned: 1`). The exchange folder is renamed away (it is checked to be gone before and after). The application started again opens the page in source mode; its own catalog refresh finds no source (`available: false`). Through the approved list alone (events, prepare, activate; no review or approval) the same button starts from the cache; steps 3 to 5 repeat with `cached-*` frame names: black, the same pictures in the same order, Stop black, same NDI source identity, a clean close. The approval window is 30 minutes from a minute before now, so it covers both starts. SPX's config file is unchanged at the end.
 
 ## What it does not prove
 
-Same-machine CI evidence only. Not Windows 10, not the stadium PC, not a synced or linked Drive folder, not NDI over a network, not a board input, not on-air. Sender running, source discovered and receiver connected are what is shown; board input selected and on-air are not. Hardware compatibility is not established by this job. It also does not cover setup by an operator command (5b), recovery from faults (5c), cold-start or console close (5d) or a long run (5e).
+Same-machine CI evidence only. Not Windows 10, not the stadium PC, not a synced or linked Drive folder, not NDI over a network, not a board input, not on-air. Sender running, source discovered and receiver connected are what is shown; board input selected and on-air are not. Hardware compatibility is not established by this job. It does not show the cached start from a cold boot or after a crash, a Windows junction or synced folder as the source root, or a pin to an older playback. It also does not cover recovery from faults (5c), cold-start or console close (5d) or a long run (5e).
 
 ## Evidence kept (5a-3)
 
 The job uploads `build/exchange-activation-proof-evidence` for 14 days. Allowed there: lower-case `<name>.png` and `<name>.json` files directly in the folder, nothing else.
 
-- The received synthetic frames (`exchange-*.png`), written by the SDK receiver.
+- The received synthetic frames (`exchange-*.png`, and `cached-*.png` of the cached start), written by the SDK receiver.
 - `result.json` on success: the routes walked, frame names and counts, provenance hashes of the pinned tools, timings, the source commit SHA and the explicit "not tested" flags. No paths.
 - `failure-page.json` on failure only: the Game Day page's visible text (at most 4000 characters), written only when it names no private path. It replaces the earlier failure screenshot: the screenshot's pixels could show a path that no check can read, and the page is synthetic, so its text says as much.
 - The failure line on the job log carries fixed codes, counts and timings only.
@@ -33,4 +34,4 @@ It runs three times: in the proof after `result.json` is written (a violation fa
 
 ## Tests
 
-`tests/proof-evidence-privacy.test.cjs` (Linux): clean evidence passes; each match form fails; disallowed names fail; reports carry no private text; removal; the command line's exit codes; and that the Windows script and the job run the check before the upload. `tests/exchange-activation-routes.test.cjs` runs the same route steps against the real web adapter on Linux. The Windows job itself runs only on GitHub.
+`tests/proof-evidence-privacy.test.cjs` (Linux): clean evidence passes; each match form fails; disallowed names fail; reports carry no private text; removal; the command line's exit codes; and that the Windows script and the job run the check before the upload. `tests/exchange-activation-routes.test.cjs` runs the same route steps against the real web adapter on Linux. `tests/exchange-activation-setup.test.cjs` (5b-4, Linux) runs the setup steps with the real command (first and unchanged second run, store bytes compared), then approve online, pin, folder renamed away and the cached start through a new web adapter (startup mode `cached`, the pictures in the published order, Next, Next, Previous, Stop, answers path-free); without the pin preparation is refused (`PREPARE_FAILED`, 422) and pinning with the folder gone is refused (`SETUP_SOURCE_UNAVAILABLE`); the cached frame names are distinct and fit the receiver. The Windows job itself runs only on GitHub.
