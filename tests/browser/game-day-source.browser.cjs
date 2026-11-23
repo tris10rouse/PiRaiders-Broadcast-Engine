@@ -54,6 +54,8 @@ function catalog(){
 async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
   const data=catalog();
   const model={revision:'a'.repeat(64),sequence:7,available:false,statusHidden:false,refreshCode,pageCode:null,hold:null,requests:[],
+    // Q-006: the next refresh is overtaken by a newer one (another tab); status then reads no catalog with notReadCode.
+    supersede:false,notReadCode:'CATALOG_NOT_READ',
     // Item 4c: review, approve and revoke.
     inspectionRevision:'f'.repeat(64),eligible:true,held:[],approvalRead:true,approvals:new Map(),storeRevision:0,reviewHold:null,timing:true};
   const summary=()=>({scope:'source-catalog-metadata',ready:false,revision:model.revision,feedId:'synthetic-feed',epoch:1,schoolYear:'2026-2027',catalogSequence:model.sequence,eventCount:data.events.length});
@@ -69,8 +71,9 @@ async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
     const route=url.pathname.replace('/game-day/api/','');model.requests.push({method:req.method,route,body,csrf:req.headers['x-piraiders-csrf']});
     const answer=(status,value)=>{res.statusCode=status;res.end(JSON.stringify(value));};
     if(route==='source/status'&&req.method==='GET'){const live=model.available&&!model.statusHidden;
-      return answer(200,{ok:true,ready:false,status:{scope:'exchange-source-service',ready:false,catalog:{available:live,code:live?null:'CATALOG_NOT_READ'}},catalog:{available:live,catalog:live?summary():null}});}
+      return answer(200,{ok:true,ready:false,status:{scope:'exchange-source-service',ready:false,catalog:{available:live,code:live?null:model.notReadCode}},catalog:{available:live,catalog:live?summary():null}});}
     if(route==='source/refresh'&&req.method==='POST'){
+      if(model.supersede){model.supersede=false;model.available=false;return answer(409,{ok:false,ready:false,code:'CATALOG_REFRESH_SUPERSEDED'});}
       if(model.refreshCode){model.available=false;return answer(model.refreshCode==='BUSY'?409:503,{ok:false,ready:false,code:model.refreshCode});}
       model.available=true;return answer(200,{ok:true,ready:false,catalogSequence:model.sequence,catalog:summary()});}
     if((route==='source/events'||route==='source/selections')&&req.method==='POST'){
@@ -188,6 +191,28 @@ test('source machine: a changed catalog empties the lists until the operator ref
   model.pageCode='BUSY';await page.locator('#source-events button').nth(4).click();
   await page.getByText('The exchange folder is being read. Try again in a moment.',{exact:true}).waitFor();
   assert.equal(await page.locator('#source-events > li').count(),25,'lists stay while the source is busy');
+  onlySource(model);
+});
+
+// Q-006: the page's own refresh is overtaken while a newer one (another tab,
+// or the activation proof) is still reading. After an earlier good refresh the
+// service's status then reads no catalog and no code, so the page shows the
+// catalog unavailable. When the newer refresh succeeds, the status poll must
+// show its catalog without the operator clicking Refresh.
+test('source machine: an overtaken refresh shows the newer catalog once it is read',async t=>{
+  const {page,model}=await scripted(t);
+  await page.getByText('School year 2026-2027 · 30 events · catalog 7',{exact:true}).waitFor();
+  model.supersede=true;model.notReadCode=null;
+  await page.getByRole('button',{name:'Refresh from exchange',exact:true}).click();
+  await page.getByText('The exchange catalog is not available right now. Refresh to read it again.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#source-events-block').isVisible(),false,'no list from the overtaken refresh');
+  // The newer refresh finishes with a new catalog.
+  model.revision='e'.repeat(64);model.sequence=8;model.available=true;
+  await page.getByText('School year 2026-2027 · 30 events · catalog 8',{exact:true}).waitFor({timeout:10000});
+  await page.locator('#source-events > li').nth(24).waitFor();
+  assert.equal(await page.locator('#source-problem').isVisible(),false);
+  assert.equal(model.requests.filter(r=>r.route==='source/refresh').length,2,'the page sent no refresh of its own');
+  assert.ok(model.requests.filter(r=>r.route==='source/events').at(-1).body.revision==='e'.repeat(64));
   onlySource(model);
 });
 
