@@ -10,7 +10,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 |---|---|---|---|
 | 5a-1 Synthetic exchange folder and setup step for the proof | S | One builder and Linux tests on code that already exists | merged on 2026-11-20 (#77, `bc679a3`) |
 | 5a-2 Windows job: real app, approve, prepare, activate, frames in order, Stop black, close | M | New Windows script on the real app and receiver; Windows-only failures show up only in CI | merged on 2026-11-20 (#81, `ca9000f`, all 13 checks green on `f8459cd`) |
-| 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | landed by #PRNUM on 2026-11-23 |
+| 5a-3 Evidence and privacy checks of that job, design note | S | Reuses the full-app proof's evidence rules | landed by #86 on 2026-11-23 |
 | 5b Setup command and cached (offline) startup | L | New operator command, the linked-folder decision, offline pins, proven on Linux and Windows | not started |
 | 5c Diagnostics and recovery | L | Six distinct states on screen and by command, four tested fault recoveries | not started |
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
@@ -33,7 +33,7 @@ Parts left · runs left: 5 parts (5b to 5f) + 2 parked fix rows · about 16 runs
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
 | 2026-11-20 15:22 | 62 | fix merged (#79) | Merged the handoff note #78; console proof failed again on master `bc679a3`: diagnostics PR #79; its push run hit the browser-suite hang: bounds added to #79; NDI proof failed on master `f89a8b1` (recorded) |
 | 2026-11-20 16:51 | 64–66 | merged (#81, #82) | Master green twice: three failing-check rows closed. 5a-2: new Windows job; fixed on the PR a CRLF test failure and the proof's refresh racing the page's own refresh (409 `BUSY`); merged with all 13 checks green; afterwards found two intermittent failures on its middle commits (late-review browser test, Caspar CEF proof), recorded at fence 65 |
-| 2026-11-23 | 69 | merged (#PRNUM) | 5a-3: `scripts/proof-evidence-privacy.cjs` checks every retained file of the activation job (allowed names; no proof, exchange or private-store path in any form), in the proof and as a step before the upload; failure screenshot replaced by path-checked page text; design note `EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` |
+| 2026-11-23 | 69 | merged (#86) | 5a-3: `scripts/proof-evidence-privacy.cjs` checks every retained file of the activation job (allowed names; no proof, exchange or private-store path in any form), in the proof and as a step before the upload; failure screenshot replaced by path-checked page text; design note `EXCHANGE_ACTIVATION_WINDOWS_PROOF.md` |
 | 2026-11-20 18:22 | 67 | 2 fixes merged (#83, #84) | Master `ee9b12a` green on every check; `ca9000f` had the full-app `RECEIVER_START_TIMEOUT` (recorded). Late-review browser test: cause found and fixed in the test (#83). The console proof failed on #83's docs commit: cause named (first process query over 15 s), warm-up step merged (#84)
 
 ## State of master
