@@ -105,13 +105,33 @@ test('a source folder that no longer resolves to the retained spelling is refuse
   assert.equal(service.catalogState().available,false);
 });
 
-test('a linked alias passes the root check but the source reader still refuses links',async t=>{
+// 5b-2 (SOURCE_MACHINE_POLICY.md › Linked source root): a configured alias
+// that resolves to the retained spelling is read through that spelling.
+test('a linked alias that resolves to the retained spelling is read through that spelling',async t=>{
   const f=await fixture(t),m=source();await f.publish(m);
   const alias=path.join(f.parent,'source alias');await fs.symlink(f.config.sourceRoot,alias,'junction');
-  let seen=null;const service=serviceFor(t,await machineFor(f,{mediaRoot:alias}),{realpath:async p=>(seen=await fs.realpath(p))});
+  let seen=null;const machine=await machineFor(f,{mediaRoot:alias});await approvals(machine);
+  const service=serviceFor(t,machine,{realpath:async p=>(seen=await fs.realpath(p))});
   const refreshed=await service.refreshCatalog();
   assert.equal(seen,f.config.sourceRoot,'the alias resolves to the retained spelling');
-  assert.deepEqual(refreshed,{ok:false,ready:false,code:'UNSAFE_INPUT'},'the service does not weaken the reader\'s no-link rule');
+  assert.equal(refreshed.ok,true,refreshed.code);assert.equal(service.catalogState().available,true);
+  const review=await service.reviewSelection([...m.identityTuple]);noPaths(review,f);
+  assert.equal(review.ok,true,review.code);
+  const driver=await service.preparedMedia(profileFor(f,m));
+  try{const prepared=await driver.initial();assert.equal(typeof prepared.snapshotDir,'string','media are staged through the canonical spelling');}finally{driver.close();}
+  // The root check still runs on the alias: pointed elsewhere, it refuses.
+  const elsewhere=path.join(f.parent,'other source');await fs.mkdir(elsewhere);
+  await fs.unlink(alias);await fs.symlink(elsewhere,alias,'junction');
+  assert.equal((await service.refreshCatalog()).code,'SOURCE_ROOT_MISMATCH');
+  assert.equal(service.catalogState().available,false);
+});
+test('an alias does not weaken the reader\'s no-link rule inside the source',async t=>{
+  const f=await fixture(t),m=source();await f.publish(m);
+  const alias=path.join(f.parent,'source alias');await fs.symlink(f.config.sourceRoot,alias,'junction');
+  const catalog=path.join(f.config.sourceRoot,'catalog.json'),moved=path.join(f.parent,'catalog-elsewhere.json');
+  await fs.rename(catalog,moved);await fs.symlink(moved,catalog,'file');
+  const service=serviceFor(t,await machineFor(f,{mediaRoot:alias}));
+  assert.deepEqual(await service.refreshCatalog(),{ok:false,ready:false,code:'UNSAFE_INPUT'});
   assert.equal(service.catalogState().available,false);
 });
 

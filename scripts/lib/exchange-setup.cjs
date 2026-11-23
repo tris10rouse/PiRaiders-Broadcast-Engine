@@ -7,8 +7,10 @@
 // both and changes nothing. It never reinitializes, repairs or replaces a
 // store that is there: a store it cannot open as this machine's is refused
 // with the store's own code, and the operator decides what to do with it.
-// Not here: the linked-root decision, offline pins and cached startup (5b-2,
-// 5b-3), and any screen. It reads the source, it never writes it.
+// A media root reached through a link is allowed when it resolves to the
+// retained canonical spelling (5b-2); the answer says which it was. Not here:
+// offline pins and cached startup (5b-3), and any screen. It reads the
+// source, it never writes it.
 const fs=require('node:fs/promises'),path=require('node:path');
 const {isGameDayMachineConfig}=require('./game-day-catalog.cjs');
 const {createExchangeCatalogReader}=require('./exchange-metadata-reader.cjs');
@@ -21,7 +23,8 @@ function comparable(value){return process.platform==='win32'?value.toLowerCase()
 
 // Steps, in order. Each answer names only steps and codes: no paths, no ids.
 //   machine  the machine file is a source machine (loaded by the caller)
-//   source   the media root resolves to the retained canonical spelling
+//   source   'direct' (the media root is the retained canonical spelling)
+//            or 'linked' (it reaches that spelling through a link or alias)
 //   feed     feed and catalog read and validated with the retained binding
 //   journal  'initialized' (made now, binding confirmed), 'bound' (it was
 //            there without a binding; binding confirmed now) or 'present'
@@ -35,7 +38,7 @@ async function setupSourceMachine(machine,trusted={}){
 
   let actual;try{actual=await realpath(machine.mediaRoot);}catch{return refused('source','SETUP_SOURCE_UNAVAILABLE',done);}
   if(typeof actual!=='string'||comparable(path.resolve(actual))!==comparable(s.expectedCanonicalRoot))return refused('source','SETUP_SOURCE_ROOT_MISMATCH',done);
-  done.source='checked';
+  done.source=comparable(path.resolve(machine.mediaRoot))===comparable(s.expectedCanonicalRoot)?'direct':'linked';
 
   // Read from the canonical spelling just proven equal; the reader refuses
   // links inside it. REBIND_REQUIRED means the folder holds another feed.
