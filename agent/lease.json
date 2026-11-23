@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261123T043533Z-3b1466",
+  "status": "idle",
+  "owner": null,
   "fence": 71,
-  "task": "Q-003",
-  "workBranch": "feature/Q-003-wait-checks-workflows",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-23T04:35:33.952Z",
-  "lastHeartbeat": "2026-11-23T04:58:44.839Z",
-  "expiresAt": "2026-11-23T06:28:44.839Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-23T05:01:04.656Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-23T05:01:04.656Z"
 }
