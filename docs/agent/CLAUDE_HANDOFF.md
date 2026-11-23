@@ -38,7 +38,7 @@ Parts left · runs left: 5 parts (5b-4, 5c to 5f) + 3 parked fix rows · about 1
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
-| 2026-11-23 | 75 | merged (#93) | 5b-3: `--pin-offline` writes offline pins of prepared confirmations (reread before each write); cached startup when the folder is gone and the button is pinned; 5 Linux tests, each of 7 guards removed fails one |
+| 2026-11-23 | 75 | merged (#93) | 5b-3: `--pin-offline` writes offline pins of prepared confirmations (reread before each write); cached startup when the folder is gone and the button is pinned; 6 Linux tests, each of 8 guards removed fails one; review found the scan bound's code hidden, fixed with a test |
 | 2026-11-23 | 74 | merged (#92) | 5b-2: linked source root decided (alias allowed when it resolves to the retained spelling; reads go through that spelling); setup answers `source: direct` or `linked`; 3 Linux tests, each guard removed fails one |
 | 2026-11-23 | 73 | merged (#91) | 5b split into 5b-1..5b-4; 5b-1: setup command `scripts/piraiders-setup.cjs` (source root, feed, journal and approval list once), 6 Linux tests |
 | 2026-11-20 14:44 | 61 | merged | 5a split into 5a-1..5a-3; 5a-1 merged as #77 (all 12 checks green on `abe8904`) |
