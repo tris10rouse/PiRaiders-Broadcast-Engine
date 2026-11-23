@@ -51,6 +51,14 @@ test('lint names a bad header, a missing rule line, a short body and an unordere
   assert.doesNotMatch(p, /todo\/5b\.md/);
 });
 
+test('a queue file checked out with CRLF line endings (Windows) reads the same', () => {
+  const d = tmp('crlf');
+  write(d, 'queue/ORDER.md', '5b\r\n');
+  write(d, 'queue/todo/5b.md', row().replace(/\n/g, '\r\n'));
+  assert.deepEqual(queue.lint(d), []);
+  assert.equal(queue.readQueue(d).rows.todo[0].fields.Title, 'A part');
+});
+
 test('lint refuses anything private in a public queue', () => {
   const cases = {
     'an email address': 'Ask someone@example.org about it.',

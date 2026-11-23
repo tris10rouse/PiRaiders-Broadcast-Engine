@@ -24,7 +24,7 @@ const KEYS = ['Title', 'Kind', 'Area', 'Size', 'Added', 'Needs you', 'Blocked', 
 const ID = /^(?:[0-9]+[a-z]?(?:-[0-9]+)?|Q-[0-9]{3})$/;
 
 function header(text) {
-  const out = {}, lines = String(text).split('\n');
+  const out = {}, lines = String(text).split(/\r?\n/);
   let i = 0;
   for (; i < lines.length; i++) {
     if (/^---\s*$/.test(lines[i])) break;
