@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "idle",
-  "owner": null,
-  "fence": 72,
-  "task": null,
+  "status": "active",
+  "owner": "claude-20261123T053111Z-74a5ea",
+  "fence": 73,
+  "task": "builder run",
   "workBranch": null,
-  "acquiredAt": "2026-11-23T05:01:21.466Z",
-  "lastHeartbeat": "2026-11-23T05:30:58.831Z",
-  "expiresAt": null,
-  "releasedAt": "2026-11-23T05:30:58.831Z"
+  "acquiredAt": "2026-11-23T05:31:11.168Z",
+  "lastHeartbeat": "2026-11-23T05:31:11.168Z",
+  "expiresAt": "2026-11-23T07:01:11.168Z",
+  "releasedAt": null
 }
