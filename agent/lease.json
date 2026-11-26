@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261126T022557Z-6adee4",
   "fence": 80,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "5c-4",
+  "workBranch": "feature/5c-4-folder-cache-recovery",
   "acquiredAt": "2026-11-26T02:25:57.386Z",
-  "lastHeartbeat": "2026-11-26T02:25:57.386Z",
-  "expiresAt": "2026-11-26T03:55:57.386Z",
+  "lastHeartbeat": "2026-11-26T02:26:22.971Z",
+  "expiresAt": "2026-11-26T03:56:22.971Z",
   "releasedAt": null
 }
