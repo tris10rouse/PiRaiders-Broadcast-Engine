@@ -1,6 +1,7 @@
 'use strict';
-// BE-006 item 5c part 4: recovery from a missing exchange folder and from a
-// corrupt cached snapshot. Real loader, reader, journal, approval store,
+// BE-006 item 5c parts 4 and 5: recovery from a missing exchange folder, a
+// corrupt cached snapshot (5c-4), an unreadable approval list and a renderer
+// (Caspar) process that dies while playing (5c-5). Real loader, reader, journal, approval store,
 // cache, source service, manager and diagnostics on temporary folders;
 // synthetic exchange documents from the activation fixture. The folder test
 // runs the real prepared-event runtime and RossTalk session with a synthetic
@@ -21,7 +22,7 @@ const WINDOW={start:'2026-10-01T00:00:00Z',end:'2026-10-01T23:00:00Z',prewarmMin
 const NOON=Date.parse('2026-10-01T12:00:00Z');
 const until=async(fn,ms=10000)=>{const end=Date.now()+ms;while(!fn()){if(Date.now()>end)throw Error('UNTIL_TIMEOUT');await new Promise(r=>setTimeout(r,10));}};
 
-async function machineFile(t){
+async function machineFile(t,{output}={}){
   const parent=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders recovery ')));
   t.after(()=>fs.rm(parent,{recursive:true,force:true,maxRetries:10,retryDelay:100}));
   const appRoot=path.join(parent,'app'),exchange=path.join(parent,'exchange'),docs=exchangeDocuments();
@@ -30,8 +31,10 @@ async function machineFile(t){
   await fs.mkdir(path.join(appRoot,'components'),{recursive:true});await fs.writeFile(path.join(appRoot,'components','casparcg.exe'),'synthetic');
   for(const [relative,bytes] of docs.files){const file=path.join(exchange,...relative.split('/'));await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
   for(const dir of ['cache','runtime','catalog'])await fs.mkdir(path.join(parent,dir));
+  // An NDI output needs only the runtime library's file name here; nothing loads it.
+  if(output==='ndi'){await fs.mkdir(path.join(parent,'ndi'));await fs.writeFile(path.join(parent,'ndi','Processing.NDI.Lib.x64.dll'),'synthetic');}
   const raw={schemaVersion:1,spxConfigFile:'config/spx.json',catalogDirectory:path.join(parent,'catalog'),mediaRoot:exchange,cacheRoot:path.join(parent,'cache'),runtimeRoot:path.join(parent,'runtime'),
-    caspar:{executable:path.join(appRoot,'components','casparcg.exe'),cwd:path.join(appRoot,'components')},output:{type:'none'},
+    caspar:{executable:path.join(appRoot,'components','casparcg.exe'),cwd:path.join(appRoot,'components')},output:output==='ndi'?{type:'ndi',name:'PiRaiders Recovery',runtimeDirectory:path.join(parent,'ndi')}:{type:'none'},
     rossTalk:{host:'127.0.0.1',port:7788,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',5:'reload',8:'stop'}},
     source:{providerId:'recovery-test',journalDirectory:path.join(parent,'private','journal'),journalStoreId:crypto.randomUUID(),
       approvalDirectory:path.join(parent,'private','approvals'),approvalStoreId:crypto.randomUUID(),expectedCanonicalRoot:exchange,binding:{...docs.binding}}};
@@ -40,6 +43,11 @@ async function machineFile(t){
   m.load=()=>loadGameDayMachineConfig(file,{appRoot,nodeExecutable:process.execPath});
   m.away=()=>fs.rename(exchange,path.join(parent,'exchange-away'));
   m.back=()=>fs.rename(path.join(parent,'exchange-away'),exchange);
+  // A stray file in the approval folder: the store refuses the whole list
+  // (APPROVAL_INVALID) and nothing in its history changes; removed, it reads again.
+  const stray=path.join(raw.source.approvalDirectory,'stray');
+  m.approvalsUnreadable=()=>fs.writeFile(stray,'not an approval');
+  m.approvalsReadable=()=>fs.rm(stray);
   return m;
 }
 async function confirm(m){
@@ -64,14 +72,18 @@ function recorder(){
   return{seen,base};
 }
 // The real prepared-event runtime with a synthetic Caspar process and console.
-function realRuntime(){
-  const sessions=[];
-  const base=(profile,options)=>createPreparedEventRuntime(profile,{...options,supervisorOptions:{platform:'linux',maxRestarts:0},
-    spawnProcess:()=>{const child=new EventEmitter();child.pid=4242;child.stdin={end(){setImmediate(()=>child.emit('exit',1));}};
-      child.kill=()=>setImmediate(()=>child.emit('exit',0));setImmediate(()=>child.emit('spawn'));return child;},
+// supervisor: the Caspar restart policy (5c-5 lets it restart).
+function realRuntime(supervisor={maxRestarts:0}){
+  const sessions=[],children=[];
+  const base=(profile,options)=>createPreparedEventRuntime(profile,{...options,supervisorOptions:{platform:'linux',...supervisor},
+    spawnProcess:()=>{const child=new EventEmitter();child.pid=4242+children.length;child.stdin={end(){setImmediate(()=>child.emit('exit',1));}};
+      child.kill=()=>setImmediate(()=>child.emit('exit',0));
+      // The process dies on its own, as a killed renderer does.
+      child.crash=()=>child.emit('exit',null,'SIGKILL');
+      children.push(child);setImmediate(()=>child.emit('spawn'));return child;},
     consoleFactory:child=>{const client=new EventEmitter();client.close=()=>child.stdin.end();client.request=async value=>({status:value==='VERSION'?201:202});return client;},
     sessionFactory:async raw=>{const session=await createRossTalkSession({...raw,rossTalk:{...raw.rossTalk,port:0}},{allowEphemeral:true});sessions.push(session);return session;}});
-  return{sessions,base};
+  return{sessions,children,base};
 }
 // A scripted program page: it joins the session, says ready and acknowledges every command.
 async function programPage(t,session){
@@ -226,4 +238,115 @@ test('a cached snapshot corrupted after an online preparation is refused when th
   const d=await diagnose({source:service,manager});
   assert.deepEqual(d.states.prepared,{state:'none',code:'CACHE_CHANGED'});
   assert.deepEqual(d.states.exchangeFolder,{state:'reachable',code:null});
+});
+
+// Activates the only approved event on the real runtime, joins a program page and plays two pictures.
+async function playing(t,m,supervisor){
+  const machine=await m.load(),service=createExchangeSourceService(machine);t.after(()=>service.close());
+  const runtime=realRuntime(supervisor),manager=managerFor(t,service,machine,runtime.base);
+  const [listed]=(await manager.listEvents()).events,prepared=await manager.prepare(listed.eventId,request(manager));
+  assert.equal(prepared.ok,true,prepared.code);
+  assert.equal((await manager.activate(request(manager,{candidateId:prepared.candidateId}))).ok,true);
+  await until(()=>runtime.sessions.length===1);const page=await programPage(t,runtime.sessions[0]);
+  await until(()=>manager.snapshot().active?.runtime.ready===true);
+  assert.equal((await manager.dispatch('launch',request(manager))).ok,true);
+  assert.equal((await manager.dispatch('next',request(manager))).ok,true);
+  return{machine,service,manager,runtime,page,listed};
+}
+
+test('the approval list becomes unreadable while an event plays: the event keeps its content, nothing new is listed, the diagnostics say unreadable; readable again, it recovers',async t=>{
+  const m=await machineFile(t);await confirm(m);
+  const {service,manager,page,listed}=await playing(t,m);
+  const blacks=()=>page.commands.filter(c=>c.type==='black').length,blackBefore=blacks(),before=manager.snapshot().active.runtime;
+  let d=await diagnose({source:service,manager});
+  assert.deepEqual(states(d),{exchangeFolder:'reachable',catalogSequence:'unavailable',approvals:'readable',prepared:'none',renderer:'acknowledged',ndiSender:'not-configured'});
+
+  await m.approvalsUnreadable();
+  // The page lists the approved events: refused, and the diagnostics say why (the listing is a read of the list).
+  const listing=await manager.listEvents();assert.deepEqual([listing.ok,listing.code],[false,'CATALOG_INVALID']);
+  d=await diagnose({source:service,manager});
+  assert.deepEqual(d.states.approvals,{state:'unreadable',code:'APPROVAL_INVALID'});
+  assert.deepEqual([d.states.renderer.state,d.states.exchangeFolder.state],['acknowledged','reachable'],'the event keeps playing');
+  // The active event was admitted from a completed read; it keeps its deck and picture, and the operator keeps control.
+  assert.equal((await manager.dispatch('next',request(manager))).ok,true);
+  let now=manager.snapshot().active.runtime;
+  assert.deepEqual([now.deckId,now.ready,now.state],[before.deckId,true,'ready']);assert.equal(now.index,(before.index+1)%before.slideCount);
+  assert.equal(blacks(),blackBefore,'never blacked by the unreadable list');
+  // Nothing new can be prepared from an unreadable list (the window is open, so the manager refuses first; the list is
+  // the second guard and is covered by the next test).
+  const refused=await manager.prepare(listed.eventId,request(manager));assert.equal(refused.ok,false);
+  assert.equal(manager.snapshot().candidate,null);
+
+  await m.approvalsReadable();
+  const again=await manager.listEvents();assert.equal(again.ok,true,again.code);assert.deepEqual(again.events.map(e=>e.eventId),[listed.eventId]);
+  d=await diagnose({source:service,manager});assert.deepEqual(d.states.approvals,{state:'readable',code:null});
+  assert.equal((await manager.dispatch('stop',request(manager))).ok,true);
+  await until(()=>blacks()>blackBefore);
+  assert.equal(JSON.stringify(d).includes(m.parent),false,'no path in the diagnostics');
+});
+
+test('an approval list unreadable at activation: the prepared button is refused, never played, the output stays black; readable again, it activates',async t=>{
+  const m=await machineFile(t);await confirm(m);
+  const machine=await m.load(),service=createExchangeSourceService(machine);t.after(()=>service.close());
+  const {sessions,base}=realRuntime(),manager=managerFor(t,service,machine,base);
+  const [listed]=(await manager.listEvents()).events,prepared=await manager.prepare(listed.eventId,request(manager));
+  assert.equal(prepared.ok,true,prepared.code);
+
+  await m.approvalsUnreadable();
+  const refused=await manager.activate(request(manager,{candidateId:prepared.candidateId}));
+  assert.deepEqual([refused.ok,refused.code],[false,'ADMISSION_DENIED']);
+  let s=manager.snapshot();assert.equal(s.active,null,'nothing plays');assert.equal(sessions.length,0,'no renderer session was opened: the output stays black');
+  let d=await diagnose({source:service,manager});
+  assert.deepEqual(d.states.approvals,{state:'unreadable',code:'APPROVAL_INVALID'});
+  assert.deepEqual([d.states.renderer.state,d.states.ndiSender.state],['not-active','not-running']);
+  // Preparing again reads the list first: refused before any runtime is built.
+  const again=await manager.prepare(listed.eventId,request(manager));assert.deepEqual([again.ok,again.code],[false,'CATALOG_INVALID']);
+  assert.equal(manager.snapshot().candidate,null);
+
+  await m.approvalsReadable();
+  const ready=await manager.prepare(listed.eventId,request(manager));assert.equal(ready.ok,true,ready.code);
+  assert.equal((await manager.activate(request(manager,{candidateId:ready.candidateId}))).ok,true);
+  d=await diagnose({source:service,manager});assert.deepEqual(d.states.approvals,{state:'readable',code:null});
+  await until(()=>sessions.length===1);await programPage(t,sessions[0]);
+  await until(()=>manager.snapshot().active?.runtime.ready===true);
+  assert.equal((await manager.dispatch('launch',request(manager))).ok,true);
+});
+
+test('the renderer (Caspar) dies while playing: acknowledged and sender running drop at once, one bounded restart brings the same deck back, a second death within the window stays down',async t=>{
+  const m=await machineFile(t,{output:'ndi'});await confirm(m);
+  const {service,manager,runtime}=await playing(t,m,{maxRestarts:1,restartDelayMs:50,windowMs:60000});
+  const before=manager.snapshot().active.runtime;
+  let d=await diagnose({source:service,manager});
+  assert.deepEqual([d.states.renderer.state,d.states.ndiSender.state],['acknowledged','running']);
+  assert.equal(runtime.children.length,1);
+
+  // Killed: the program session closes with it (a real program page blacks itself on that disconnect), and the
+  // diagnostics stop saying acknowledged and running before any restart.
+  runtime.children[0].crash();
+  d=await diagnose({source:service,manager});
+  assert.deepEqual([d.states.renderer,d.states.ndiSender],[{state:'waiting',code:null},{state:'not-running',code:null}]);
+  assert.equal(manager.snapshot().active.runtime.ready,false);
+  await until(()=>runtime.sessions[0].snapshot().state==='closed');
+  const control=await manager.dispatch('next',request(manager));assert.equal(control.ok,false,'no control of a dead renderer');
+
+  // One restart: a new Caspar process and a new program session on the same accepted deck.
+  await until(()=>runtime.sessions.length===2);assert.equal(runtime.children.length,2);
+  await programPage(t,runtime.sessions[1]);
+  await until(()=>manager.snapshot().active?.runtime.ready===true);
+  let now=manager.snapshot().active.runtime;assert.equal(now.deckId,before.deckId,'last good deck, not new content');
+  d=await diagnose({source:service,manager});assert.deepEqual([d.states.renderer.state,d.states.ndiSender.state],['acknowledged','running']);
+  // The restarted renderer shows nothing until Launch: black, not a picture from before the crash.
+  assert.equal(now.index,null,'not playing after the restart');
+  assert.equal((await manager.dispatch('next',request(manager))).ok,false,'Next has nothing to advance');
+  assert.equal((await manager.dispatch('launch',request(manager))).ok,true);
+  assert.equal((await manager.dispatch('next',request(manager))).ok,true);
+
+  // Killed again within the restart window: the limit holds, no third process, and the diagnostics say not acknowledged.
+  runtime.children[1].crash();
+  await new Promise(r=>setTimeout(r,400));
+  assert.equal(runtime.children.length,2,'restarts are bounded');assert.equal(runtime.sessions.length,2);
+  d=await diagnose({source:service,manager});
+  assert.deepEqual(d.states.renderer,{state:'waiting',code:'SERVICE_FAULT'});assert.deepEqual(d.states.ndiSender,{state:'not-running',code:'SERVICE_FAULT'});
+  assert.equal((await manager.dispatch('next',request(manager))).ok,false);
+  assert.equal(JSON.stringify(d).includes(m.parent),false,'no path in the diagnostics');
 });

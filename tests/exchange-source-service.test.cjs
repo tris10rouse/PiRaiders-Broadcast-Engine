@@ -21,6 +21,7 @@ async function machineFor(f,{mediaRoot=f.config.sourceRoot,expectedCanonicalRoot
   await fs.writeFile(file,JSON.stringify(edit(raw)));
   return loadGameDayMachineConfig(file,{appRoot:f.parent,nodeExecutable:process.execPath});
 }
+const until=async(fn,ms=5000)=>{const end=Date.now()+ms;while(!fn()){if(Date.now()>end)throw Error('UNTIL_TIMEOUT');await new Promise(r=>setTimeout(r,5));}};
 function serviceFor(t,machine,trusted){const service=createExchangeSourceService(machine,trusted);t.after(()=>service.close());return service;}
 async function approvals(machine){
   const store=createExchangeApprovalStore();await fs.mkdir(path.dirname(machine.source.approvalDirectory),{recursive:true});
@@ -377,4 +378,51 @@ test('a runtime that is never built closes the service driver it was given',asyn
   // The source root is checked before a driver exists.
   await fs.rename(f.config.sourceRoot,path.join(f.parent,'disconnected-source'));media=null;
   await assert.rejects(factory(profile,{}),{code:'SOURCE_UNAVAILABLE'});assert.equal(media,null);
+});
+
+test('the approvals status is the newest completed read of the list, by the listing or an admission; an older read never replaces it; a rollback holds (5c-5)',async t=>{
+  const f=await fixture(t),machine=await machineFor(f),pending=[];
+  const scripted={open:()=>new Promise(resolve=>pending.push(resolve)),append:async()=>({ok:false,code:'APPROVAL_IO_FAILED'})};
+  const service=serviceFor(t,machine,{approvalStore:scripted});
+  const head=revision=>({ok:true,storeId:machine.source.approvalStoreId,revision,headSha256:String(revision%10).repeat(64),approvals:[]});
+  const approvalsNow=()=>{const a=service.status().approvals;return[a.read,a.revision,a.code];};
+  assert.deepEqual(approvalsNow(),[false,null,'APPROVAL_NOT_READ']);
+  // A listing that cannot read the list says so.
+  let listing=service.playbackCatalog.list();await until(()=>pending.length===1);pending[0]({ok:false,code:'APPROVAL_INVALID'});
+  await assert.rejects(listing,{code:'APPROVAL_INVALID'});
+  assert.deepEqual(approvalsNow(),[false,null,'APPROVAL_INVALID']);
+  // Two reads in flight; the newer (an admission) finishes first and readable, the older listing then fails: the newer stays.
+  listing=service.playbackCatalog.list();await until(()=>pending.length===2);
+  const admission=service.refreshApprovals();await until(()=>pending.length===3);
+  pending[2](head(3));assert.equal(await admission,true);
+  pending[1]({ok:false,code:'APPROVAL_INVALID'});await assert.rejects(listing,{code:'APPROVAL_INVALID'});
+  assert.deepEqual(approvalsNow(),[true,3,null],'an older read never replaces a newer one');
+  // The list reads readable again from a listing after an admission could not read it.
+  const failed=service.refreshApprovals();await until(()=>pending.length===4);pending[3]({ok:false,code:'APPROVAL_MISSING'});assert.equal(await failed,false);
+  assert.deepEqual(approvalsNow(),[false,null,'APPROVAL_MISSING']);
+  listing=service.playbackCatalog.list();await until(()=>pending.length===5);pending[4](head(3));assert.deepEqual(await listing,[]);
+  assert.deepEqual(approvalsNow(),[true,3,null]);
+  // A shrunken history is a rollback: it holds until a restart, whatever a later listing reads.
+  const rolled=service.refreshApprovals();await until(()=>pending.length===6);pending[5](head(2));assert.equal(await rolled,false);
+  listing=service.playbackCatalog.list();await until(()=>pending.length===7);pending[6](head(3));await listing;
+  assert.deepEqual(approvalsNow(),[false,null,'APPROVAL_ROLLBACK']);assert.equal(service.status().approvals.rolledBack,true);
+});
+
+test('a trusted approval store keeps its own methods and receiver under the read observer; a malformed head is not readable (5c-5 review)',async t=>{
+  const f=await fixture(t),machine=await machineFor(f),real=createExchangeApprovalStore();
+  await fs.mkdir(path.dirname(machine.source.approvalDirectory),{recursive:true});
+  assert.equal((await real.initialize(machine.source.approvalDirectory,machine.source.approvalStoreId)).ok,true);
+  class Counting{constructor(){this.opens=0;this.appends=0;}
+    async open(...a){this.opens++;return real.open(...a);} async append(...a){this.appends++;return real.append(...a);}}
+  const counting=new Counting(),service=serviceFor(t,machine,{approvalStore:counting});
+  const m=source();seal(m);await f.publish(m);const tuple=[...m.identityTuple],profile=profileFor(f,m);
+  const review=await service.reviewSelection(tuple);assert.equal(review.ok,true,review.code);
+  const confirmed=await service.confirmSelection({identityTuple:tuple,inspectionRevision:review.inspection.revision,productionWindow:profile.productionWindow});
+  assert.equal(confirmed.ok,true,confirmed.code);assert.equal(counting.appends,1,'append reached the store with its own receiver');
+  assert.ok(counting.opens>=2);assert.deepEqual([service.status().approvals.read,service.status().approvals.code],[true,null]);
+  service.close();
+  // A head without its approvals and head hash is not a read list, for the status as for the listing.
+  const malformed=serviceFor(t,machine,{approvalStore:{open:async()=>({ok:true,revision:1}),append:async()=>({ok:false})}});
+  await assert.rejects(malformed.playbackCatalog.list(),{code:'APPROVAL_IO_FAILED'});
+  assert.deepEqual([malformed.status().approvals.read,malformed.status().approvals.code],[false,'APPROVAL_IO_FAILED']);
 });

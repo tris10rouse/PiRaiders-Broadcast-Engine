@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-26 (builder run, lock fence 83; Q-008, the Windows diagnostics browser test, fixed by #101). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-26 (builder run, lock fence 84; 5c-5, approval list and renderer crash recovery; 5c done). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -16,14 +16,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5b-2 Linked source root: decide, record, test | S | One decision, the reader and setup made consistent | landed by #92 on 2026-11-23 (fence 74): an alias that resolves to the retained spelling is allowed; everything is read through that spelling |
 | 5b-3 Offline pins and cached startup on Linux | S | One pin write path, one startup path, Linux tests | landed by #93 on 2026-11-23 (fence 75): `piraiders-setup.cjs --pin-offline`; a pinned button starts cached when the exchange folder is gone (Linux, stand-in runtime) |
 | 5b-4 Windows job: setup command and cached start without the exchange folder | S | Changes the 5a Windows job only; Windows-only failures show up only in CI | landed by #94 on 2026-11-23 (fence 76): the job's stores set up by `piraiders-setup.cjs` (twice, second unchanged); after the online run `--pin-offline`, folder moved away, the app restarted plays the same button from the cache in order, Stop black, clean close (hosted Windows, real Caspar/NDI software) |
-| 5c Diagnostics and recovery | L | Split on 2026-11-26 (fence 77) into 5c-1..5c-5 | in progress |
+| 5c Diagnostics and recovery | L | Split on 2026-11-26 (fence 77) into 5c-1..5c-5 | done with 5c-5 (fence 84) |
 | 5c-1 Diagnostics states: one model and a read-only route | S | One module, one GET route, Linux tests | landed by #95 on 2026-11-26 (fence 77): `game-day-diagnostics.cjs`, `GET /game-day/api/diagnostics`, design note `GAME_DAY_DIAGNOSTICS.md` |
 | 5c-2 Diagnostics on the Game Day page | S | One panel and one browser test | landed by #96 on 2026-11-26 (fence 78): Diagnostics panel under both columns, read every 5 s; `tests/browser/game-day-diagnostics.browser.cjs` at 1440 and 390 px |
 | 5c-3 Diagnostics command | S | One Node command over the stores and the route, Linux tests | landed by #97 on 2026-11-26 (fence 79): `scripts/piraiders-diagnose.cjs --machine <file>`; store states read without the app and without writes, runtime states from the app's route or `unknown` with `APP_NOT_RUNNING` (login, 503, wrong mode and bad answers have their own codes) |
 | 5c-4 Recovery: missing exchange folder, corrupt cache | S | Two faults, Linux tests on real stores | landed by #98 on 2026-11-26 (built fence 80, merged fence 82 after Q-004): `tests/game-day-recovery.test.cjs`; folder gone mid-event keeps the deck (real runtime and session), back reads again; a corrupt cache is refused, never played, `prepared: none` names `CACHE_CHANGED` |
 | Q-007 Corrupt reused snapshot refused until the app restarts | S | Found by 5c-4; one decision and a test | not started |
 | Open failing check: Windows `static-contracts`, browser test "source machine: six distinct states…" (`game-day-diagnostics.browser.cjs:68`: the first diagnostics read, held by the test, already showed "could not be read") on #99's docs-only `3e19eb7` (job 139667346571) | fix | **Cause found (fence 83):** the test took 5615 ms there, first test of the job on a cold browser, past the page's own 5 s GET bound, so the page aborted the held read and showed it failed, as designed (reproduced by a 5.2 s hold). Test-only fix: the page's clock stands still while the read is held (a 5.5 s real hold fails without it); a new test checks the 5 s bound and recovery. 32 of 32 copies green under load. Page code unchanged | fixed: landed by #101 on 2026-11-26 (fence 83) |
-| 5c-5 Recovery: unreadable approval list, renderer crash | S | Two faults, Linux tests; a renderer crash may need a stand-in | not started |
+| 5c-5 Recovery: unreadable approval list, renderer crash | S | Two faults, Linux tests; a renderer crash may need a stand-in | landed by #PRNUM on 2026-11-26 (fence 84): 3 tests in `tests/game-day-recovery.test.cjs` (synthetic Caspar killed, bounded restart); the approvals state is the newest completed read of the list |
+| Q-009 A dead event past the restart limit cannot be replaced inside its window | S | Found by 5c-5; one decision and a test | not started |
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
@@ -37,14 +38,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 2 S (5c-5, Q-007) + 3 M = 8 sized runs. Pace from every merged part so far: 21 runs for 19 sized runs = 1.11. 8 x 1.11 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 11 runs**.
+**Estimate:** remaining sizes 2 S (Q-007, Q-009) + 3 M = 8 sized runs. Pace from every merged part so far: 22 runs for 20 sized runs = 1.10. 8 x 1.10 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 11 runs**.
 
-Parts left · runs left: 5 parts (5c-5, Q-007, 5d to 5f) + 2 parked fix rows · about 11 runs.
+Parts left · runs left: 5 parts (Q-007, Q-009, 5d to 5f) + 2 parked fix rows · about 11 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-26 | 84 | merged (#PRNUM) | 5c-5: unreadable approval list keeps the playing event, refuses listing and activation (black), recovers; Caspar killed: acknowledged and sender running drop at once, one bounded restart on the same deck (black until Launch), past the limit stays down; a failed listing showed approvals readable, fixed (newest completed read); review: a class-based store lost its methods, a malformed head read as readable, two weak assertions, each fixed with a test. Found Q-009 |
 | 2026-11-26 | 83 | fix (#101, Q-008) | Windows diagnostics browser test: cause found (page's own 5 s GET bound passed on a cold first test, 5615 ms); test-only fix, the page's clock still while the read is held; new test of the bound; review: none confirmed |
 | 2026-11-26 | 82 | merged (#98) | 5c-4: master (Q-004's NDI crash-listing retry) merged into `feature/5c-4-folder-cache-recovery`, no force push; checks rerun on the new head, not on the old red commit |
 | 2026-11-26 | 81 | fix (#100, Q-004) | NDI proof `CRASH_ENUMERATE`: the crash phase's single process listing (timed out at 15 s on `16f82e8` and `730b0f1`) reads through the bounded capture, timed-out queries repeated at most 3 and counted; Linux test fails without it; review: none confirmed. #98 (5c-4) red only on that check, waits for its checks next run |
