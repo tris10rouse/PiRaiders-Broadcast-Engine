@@ -24,6 +24,8 @@ A third start without `--no-browser`: the application reports `browserOpened: tr
 
 **What is kept.** `result.json` › `coldStart` (written under the evidence privacy check, `scripts/proof-evidence-privacy.cjs`): `evidence: "hosted-ci"`, `targetPcEvidence: false`, `run: "first-application-start-fresh-runner"`, `senderState: "sender-running"`, `warmUpMs`, the two figures, `controllerMarginMs`, `senderMarginMs`, `withinWarmUp`. Numbers and fixed words only: no path, command line or machine name. The job's `timingsMs` (from the proof's own start) stay as before.
 
+**Recorded (hosted-CI evidence, not target-PC evidence).** PR #109's head `03348f0`, job `actual-exchange-activation-private-ndi` (job 139864357367, 2026-11-26, GitHub-hosted `windows-latest`): process start to controller available **1,749 ms**, to sender running **8,991 ms**; warm-up 900,000 ms; margins 898,251 ms and 891,009 ms. One run; runner speed varies.
+
 **Not shown.** A cold boot of the PC (the runner's OS was already up), antivirus first-scan costs of a district image, a slower disk or CPU, Windows 10, the Drive-synced folder, or the second and later starts (the cached start's `timingsMs` show those only as job timings). Whether the stadium PC fits inside its warm-up is unmeasured: the first target-PC start should record the same two figures by hand.
 
 Rules and Linux tests: `scripts/cold-start-proof.cjs`, `tests/cold-start-proof.test.cjs` (the bound equals the production window default; margins; exactly the warm-up passes, one millisecond over fails; missing, negative or out-of-order times refused; the job takes the spawn time before its first start only and keeps `coldStart` in `result.json` and on the failure line).
