@@ -133,3 +133,18 @@ test('a private path with non-ASCII letters is matched (UTF-8 and UTF-16)',async
   await fs.writeFile(path.join(evidence,'frame.png'),Buffer.concat([Buffer.from([0x89,0x50]),Buffer.from(accented,'utf16le')]));
   assert.deepEqual((await auditEvidence(evidence,[accented])).violations,[{name:'frame.png',reason:'NAMES_PRIVATE_PATH'},{name:'result.json',reason:'NAMES_PRIVATE_PATH'}]);
 });
+
+test('the soak job (5e-2) has its own work folder and the command line takes its mode; any other mode is refused',async t=>{
+  const {dir,evidence}=await folder(t);
+  const tools=path.join(dir,'build','caspar-proof-tools');await fs.mkdir(tools,{recursive:true});
+  await fs.writeFile(path.join(tools,'tools.json'),JSON.stringify({casparDirectory:path.join(tools,'caspar')}));
+  const paths=await activationPrivatePaths(dir,tools,'soak'),work=path.join(dir,'build','soak-proof');
+  for(const p of [work,path.join(work,'proof','exchange'),path.join(work,'proof','private','approvals'),tools])assert.ok(paths.includes(p),p);
+  await assert.rejects(activationPrivatePaths(dir,tools,'other'),{code:'USAGE'});
+  const run=mode=>spawnSync(process.execPath,[path.join(ROOT,'scripts','proof-evidence-privacy.cjs'),mode,evidence,dir,tools],{encoding:'utf8'});
+  await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify({ok:true}));
+  let r=run('soak');assert.equal(r.status,0,r.stderr);
+  await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify({where:path.join(work,'proof','exchange')}));
+  r=run('soak');assert.equal(r.status,1);assert.match(r.stderr,/EVIDENCE_NAMES_PRIVATE_PATH/);
+  r=run('other');assert.equal(r.status,1);assert.match(r.stderr,/USAGE/);
+});

@@ -11,6 +11,7 @@
 //
 // Command line (the activation job's step before its upload):
 //   node scripts/proof-evidence-privacy.cjs activation <evidence> <checkout> <tools>
+//   node scripts/proof-evidence-privacy.cjs soak <evidence> <checkout> <tools>   (the soak job, 5e-2)
 // Removes offending entries so the upload stays clean, exits 1 if any were found.
 const fs=require('node:fs/promises');
 const path=require('node:path');
@@ -65,9 +66,12 @@ async function removeViolations(dir,violations){
 
 // The activation job's private paths: its proof folder (holding the exchange
 // folder and every private store), the proof tools and Caspar's folder, each
-// also as its real path when it exists.
-async function activationPrivatePaths(checkout,tools){
-  const work=path.join(checkout,'build','exchange-activation-proof'),proof=path.join(work,'proof');
+// also as its real path when it exists. The soak job (5e-2) builds the same
+// fixture in its own work folder.
+const WORK_FOLDERS=Object.freeze({activation:'exchange-activation-proof',soak:'soak-proof'});
+async function activationPrivatePaths(checkout,tools,job='activation'){
+  if(!Object.hasOwn(WORK_FOLDERS,job))fail('USAGE');
+  const work=path.join(checkout,'build',WORK_FOLDERS[job]),proof=path.join(work,'proof');
   const list=[work,proof,path.join(proof,'exchange'),path.join(proof,'private'),path.join(proof,'private','journal'),path.join(proof,'private','approvals'),
     path.join(proof,'cache'),path.join(proof,'runtime'),path.join(proof,'catalog'),tools];
   try{const info=JSON.parse(await fs.readFile(path.join(tools,'tools.json'),'utf8'));if(typeof info.casparDirectory==='string')list.push(info.casparDirectory);}catch{}
@@ -77,8 +81,8 @@ async function activationPrivatePaths(checkout,tools){
 
 async function main(argv){
   const [mode,evidence,checkout,tools]=argv;
-  if(mode!=='activation'||!evidence||!checkout||!tools)fail('USAGE');
-  const privatePaths=await activationPrivatePaths(path.resolve(checkout),path.resolve(tools));
+  if(!Object.hasOwn(WORK_FOLDERS,mode||'')||!evidence||!checkout||!tools)fail('USAGE');
+  const privatePaths=await activationPrivatePaths(path.resolve(checkout),path.resolve(tools),mode);
   const dir=path.resolve(evidence),audit=await auditEvidence(dir,privatePaths);
   if(audit.violations.length){
     const removed=await removeViolations(dir,audit.violations);

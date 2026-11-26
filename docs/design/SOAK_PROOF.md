@@ -30,9 +30,20 @@ Shares are rounded down to whole bytes and handles; exactly the bound passes. A 
 
 **Record.** `soakRecord` returns numbers, booleans and fixed words only (no path, command line or machine name) for `result.json`: `evidence: "hosted-ci"`, `targetPcEvidence: false`, `run`, `soak`, cycles planned and completed, Stops planned, issued and seen black (by transport), the slowest Stop to black, baseline, bounds, largest and largest growth, samples taken and unreadable. A broken rule throws with the same record and `rule`.
 
-## Windows job (5e-2) and the four-hour run (5e-3)
+## Windows job (5e-2)
 
-Not built yet. The job is triggered by hand, not on every pull request.
+`.github/workflows/soak-proof.yml` runs `scripts/smoke-soak-windows.cjs` on hosted Windows; its Linux-testable parts are `scripts/soak-windows-job.cjs` (tests in `tests/soak-windows-job.test.cjs`).
+
+- **Triggers.** By hand (`workflow_dispatch`, input `minutes`, default 240; 240 to 300 is the soak, 5 to 239 a check run), job `actual-soak-dispatched`. On a pull request that touches the workflow, the job script, `soak-proof.cjs` or `soak-windows-job.cjs`: job `actual-soak-check-run`, five cycles, `run: "check-run"`. Never on push and never on every pull request.
+- **Set-up.** As the activation job: the setup command (run twice) sets up the stores of a synthetic exchange folder; the real application starts in a console of its own; the real routes refresh, review, approve (a window covering the run plus 30 minutes), prepare and activate the button; renderer ready, owned Caspar sender captured, NDI source discovered, black before the first Launch.
+- **Manual first.** Exchange buttons start in Auto (10 s). Auto's own advance would race the plan's 8 s offsets (a Reload keeps the Auto deadline), so the job sends Manual once over the command route before cycle 0. The cycles themselves are exactly the plan above.
+- **Each step** waits for its offset on the job's clock (never early; the largest lateness is kept, `maxStepLateMs`). RossTalk uses the allowlisted map 1 Launch, 2 Next, 3 Previous, 5 Reload, 8 Stop. Every picture must be seen within 20 s (else the job fails at once, naming cycle and step). A Stop's black is looked for for 8 s, past the 5 s rule, so a slow black is measured and judged by the rules; a black not seen counts as a lost Stop.
+- **Sample.** After each cycle's Stop: one listing of every process with its working set and handle count; the application process (same id and start time as started) and its descendants are summed. A gone or replaced application, an unreadable owned process or a failed listing is an unreadable sample.
+- **End.** The 5e-1 rules judge the run (`soakRecord`); then Ctrl+C at the console must take every owned process, free the SPX port and leave the receiver quiet. `result.json` keeps the record, every sample (numbers only), the close and the lateness; the received frames of the last cycle are kept (names repeat every cycle). `proof-evidence-privacy.cjs soak` checks the evidence before upload.
+
+## The four-hour run (5e-3)
+
+Not run yet: one run triggers `soak-proof.yml` by hand with 240 minutes and records its result here.
 
 ## Not shown
 
