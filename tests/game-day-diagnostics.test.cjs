@@ -143,6 +143,11 @@ test('the route reads six path-free states on a source machine, through a folder
   assert.deepEqual([d.states.catalogSequence.state,d.states.approvals.state,d.states.renderer.state],['read','readable','acknowledged']);
   await fs.rename(away,f.config.sourceRoot);
   d=await read();assert.deepEqual(d.states.exchangeFolder,{state:'reachable',code:null});
+  // A file where the folder was is not a reachable folder (review, fence 77).
+  await fs.rename(f.config.sourceRoot,away);await fs.writeFile(f.config.sourceRoot,'not a folder');
+  d=await read();assert.deepEqual(d.states.exchangeFolder,{state:'unreachable',code:'SOURCE_UNAVAILABLE'});
+  await fs.rm(f.config.sourceRoot);await fs.rename(away,f.config.sourceRoot);
+  d=await read();assert.deepEqual(d.states.exchangeFolder,{state:'reachable',code:null});
   // A plain read: no POST, and login policy as for every Game Day route.
   assert.equal((await s.post(p,'/game-day/api/diagnostics',{})).status,404);
   for(const text of answers)noPaths(text,f);

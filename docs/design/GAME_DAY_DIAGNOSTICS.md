@@ -12,7 +12,7 @@ these six, in this order; each is `{state, code}` (the catalog adds `sequence`).
 
 | State | Values | Read from |
 |---|---|---|
-| `exchangeFolder` | `reachable`, `unreachable` (`SOURCE_UNAVAILABLE`), `mismatch` (`SOURCE_ROOT_MISMATCH`), `unknown`, `not-used` | the source service's `rootState()`: does the media root resolve now to the retained canonical spelling |
+| `exchangeFolder` | `reachable`, `unreachable` (`SOURCE_UNAVAILABLE`), `mismatch` (`SOURCE_ROOT_MISMATCH`), `unknown`, `not-used` | the source service's `rootState()`: does the media root resolve now to the retained canonical spelling, and is it a folder (a file there is `unreachable`) |
 | `catalogSequence` | `read` with `sequence`, `unavailable` with the catalog's code, `not-used` | the catalog the newest refresh read (`catalogState()`) |
 | `approvals` | `readable`, `unreadable` with the store's code (also `APPROVAL_ROLLBACK`), `not-read`, `unknown`, `not-used` | the approval revalidator's last read (`status().approvals`). The app reads the list when it lists, prepares or admits; the diagnostics never read it themselves, so they do not change admission |
 | `prepared` | `prepared`, `preparing`, `cleanup`, `none`, `unknown` | the manager's candidate. An active event is not "prepared" |
