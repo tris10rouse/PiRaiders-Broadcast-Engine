@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261126T095504Z-1e2f89",
+  "status": "idle",
+  "owner": null,
   "fence": 90,
-  "task": "5d-3",
-  "workBranch": "feature/5d-3-default-browser",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-26T09:55:04.350Z",
-  "lastHeartbeat": "2026-11-26T10:42:30.505Z",
-  "expiresAt": "2026-11-26T12:12:30.505Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-26T10:44:55.388Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-26T10:44:55.388Z"
 }
