@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261126T005138Z-321e3e",
   "fence": 78,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "5c-2",
+  "workBranch": "feature/5c-2-gameday-diagnostics",
   "acquiredAt": "2026-11-26T00:51:38.616Z",
-  "lastHeartbeat": "2026-11-26T00:51:38.616Z",
-  "expiresAt": "2026-11-26T02:21:38.616Z",
+  "lastHeartbeat": "2026-11-26T00:52:00.999Z",
+  "expiresAt": "2026-11-26T02:22:00.999Z",
   "releasedAt": null
 }
