@@ -156,7 +156,7 @@ test('the route reads six path-free states on a source machine, through a folder
 test('the route on a local machine, on an injected service and behind the SPX login',async t=>{
   const root=path.join(__dirname,'..');
   const manager={snapshot:()=>({state:'idle',candidate:null,active:null,preparing:false,operation:null}),listEvents:async()=>({ok:true,events:[]}),prepare:async()=>({ok:true}),
-    activate:async()=>({ok:true}),discardCandidate:async()=>({ok:true}),dispatch:async()=>({ok:true}),close:()=>Promise.resolve({ok:true})};
+    activate:async()=>({ok:true}),discardCandidate:async()=>({ok:true}),endDeadEvent:async()=>({ok:true}),dispatch:async()=>({ok:true}),close:()=>Promise.resolve({ok:true})};
   const s=await serve(t,{manager,appRoot:root});const p=await s.page();
   const local=(await s.request('/game-day/api/diagnostics',{headers:{Cookie:p.cookie}})).value.diagnostics;
   onlySix(local);assert.equal(local.mode,'local');

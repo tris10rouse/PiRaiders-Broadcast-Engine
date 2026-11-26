@@ -167,9 +167,9 @@ function createGameDayManager(options = {}) {
     const value=status(record);
     const runtime=value ? Object.freeze({state:['prepared','waiting','starting','ready','closing','closed'].includes(value.state)?value.state:'unknown',
       ready:value.ready===true,windowAllowed:value.windowAllowed===true,preparing:value.preparing,output:record.profile.output.type,slideCount:Number.isSafeInteger(value.slideCount)&&value.slideCount>=1&&value.slideCount<=500?value.slideCount:null,sourceName:record.profile.output.type==='ndi'?record.profile.output.name:null,
-      mode:['auto','manual'].includes(value.mode)?value.mode:null,index:Number.isSafeInteger(value.index)&&value.index>=0?value.index:null,
+      mode:['auto','manual'].includes(value.mode)?value.mode:null,index:Number.isSafeInteger(value.index)&&value.index>=0?value.index:null,restartsExhausted:value.restartsExhausted===true,
       lastError:RUNTIME_ERRORS.has(value.lastError)?value.lastError:value.lastError?'STATE_UNAVAILABLE':null}) :
-      Object.freeze({state:'unknown',ready:false,windowAllowed:false,preparing:true,output:record.profile.output.type,slideCount:null,sourceName:record.profile.output.type==='ndi'?record.profile.output.name:null,mode:null,index:null,lastError:'STATE_UNAVAILABLE'});
+      Object.freeze({state:'unknown',ready:false,windowAllowed:false,preparing:true,output:record.profile.output.type,slideCount:null,sourceName:record.profile.output.type==='ndi'?record.profile.output.name:null,mode:null,index:null,restartsExhausted:false,lastError:'STATE_UNAVAILABLE'});
     return Object.freeze({...record.descriptor,revision:record.revision,...(candidateRecord?{candidateId:record.id}:{}),
       productionWindow:record.profile.productionWindow,cleanup:record.closeState,runtime});
   }
@@ -352,6 +352,28 @@ function createGameDayManager(options = {}) {
       if(!fresh(token))return result(false,'CLOSED');if(candidate===old)candidate=null;lastError=null;physicalBarrier();return result(true);
     });
   }
+  // Q-009: the operator ends an active event whose renderer the supervisor gave up on (restart limit) inside
+  // its window. Only that dead event: never a live or acknowledged one, never one with a restart pending.
+  // Nothing plays afterwards; the next event is prepared and activated as usual.
+  function dead(record){const value=status(record);return !!value&&value.restartsExhausted===true&&value.ready!==true&&value.preparing===false;}
+  function endDeadEvent(raw) {
+    const code=admission(raw);if(code)return Promise.resolve(result(false,code));
+    const target=active;
+    // A failed close of that dead event stays retryable here (closeRecord allows it); 'closing' is another operation's.
+    if(!target||!target.started||!['open','failed'].includes(target.closeState))return Promise.resolve(result(false,'NOT_READY'));
+    if(!dead(target))return Promise.resolve(result(false,'EVENT_NOT_DEAD'));
+    // The snapshot callback is trusted code and may reenter: check again before the epoch moves.
+    const again=admission(raw);if(again)return Promise.resolve(result(false,again));
+    if(active!==target||!dead(target))return Promise.resolve(result(false,'EVENT_NOT_DEAD'));
+    if(selection>=Number.MAX_SAFE_INTEGER)return Promise.resolve(result(false,'SELECTION_LIMIT'));
+    selection++;
+    return reserve('ending',async token=>{
+      try{await closeRecord(target);}catch{return result(false,'CLOSE_FAILED');}
+      if(!fresh(token))return result(false,'CLOSED');
+      if(active===target)active=null;lastError=null;physicalBarrier();
+      return result(true,null,{expectedSelection:selection});
+    });
+  }
   function dispatch(action,raw) {
     if(typeof action!=='string'||!ACTIONS.has(action)||!expected(raw))return Promise.resolve(result(false,'INVALID_REQUEST'));
     if(closed)return Promise.resolve(result(false,'CLOSED'));
@@ -380,6 +402,6 @@ function createGameDayManager(options = {}) {
     });
     return pendingClose;
   }
-  return Object.freeze({listEvents,snapshot,prepare,activate,discardCandidate,dispatch,close});
+  return Object.freeze({listEvents,snapshot,prepare,activate,discardCandidate,endDeadEvent,dispatch,close});
 }
 module.exports={createGameDayManager};

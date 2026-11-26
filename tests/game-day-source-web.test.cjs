@@ -129,7 +129,7 @@ test('source routes follow the existing SPX login policy',async t=>{
 
 test('a local-folder adapter has no source routes, and the trusted options are exact',async t=>{
   const calls=[];const manager={snapshot:()=>({state:'idle'}),listEvents:async()=>({ok:true,events:[]}),prepare:async()=>({ok:true}),activate:async()=>({ok:true}),
-    discardCandidate:async()=>({ok:true}),dispatch:async action=>{calls.push(action);return{ok:true};},close:()=>Promise.resolve({ok:true})};
+    discardCandidate:async()=>({ok:true}),endDeadEvent:async()=>({ok:true}),dispatch:async action=>{calls.push(action);return{ok:true};},close:()=>Promise.resolve({ok:true})};
   const root=path.join(__dirname,'..');
   const s=await serve(t,()=>({manager,appRoot:root}));const p=await s.page();
   assert.equal((await s.request('/game-day/api/source/status',{headers:{Cookie:p.cookie}})).status,404);

@@ -251,3 +251,18 @@ test('close never waits a hung inventory and retains its physical flight after l
  const closing=m.close();assert.equal(r.closeCalls,1,'native cleanup starts immediately despite inventory');assert.equal((await closing).ok,true);const values=await Promise.all([shared,...followers]);assert.ok(values.every(value=>value===values[0]));assert.equal(values[0].code,'CLOSED');assert.equal(m.snapshot().listing,true,'physical listing reference retained');assert.equal((await m.listEvents()).code,'CLOSED');assert.equal(calls,1);
  gate.reject(Error('/private/late-list'));await until(()=>m.snapshot().listing===false);assert.equal(m.snapshot().closed,true);assert.equal(calls,1);assert.equal(m.snapshot().lastError,null);
 });
+
+// Q-009 review: a failed close while ending a dead event leaves it active; the operator can retry the end.
+test('ending a dead event whose close fails can be retried; then the next event prepares inside the window',async t=>{
+ const f=fixture(t),m=f.manager;f.now=BASE+3700000;const r=await f.activate('alpha');
+ const dead=()=>({eventId:'alpha',state:'waiting',lastError:'SERVICE_FAULT',ready:false,preparing:false,mode:'manual',index:null,windowAllowed:true,output:'none',restartsExhausted:true});
+ assert.equal((await m.endDeadEvent(req(m))).code,'EVENT_NOT_DEAD','a ready event is never ended');
+ r.snapshotHook=dead;assert.equal(m.snapshot().active.runtime.restartsExhausted,true);
+ r.closeHook=()=>Promise.reject(Error('stop failed'));
+ assert.equal((await m.endDeadEvent(req(m))).code,'CLOSE_FAILED');
+ assert.equal(m.snapshot().active.cleanup,'failed');assert.equal((await m.prepare('beta',req(m))).code,'WINDOW_ACTIVE');
+ r.closeHook=null;
+ const retried=await m.endDeadEvent(req(m));assert.equal(retried.ok,true,retried.code);
+ assert.equal(m.snapshot().active,null);assert.equal(r.closeCalls,2);
+ await f.prepare('beta');
+});

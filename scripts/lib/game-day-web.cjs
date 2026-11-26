@@ -38,7 +38,7 @@ function metadata(req,mutation){
 function id(value){return typeof value==='string'&&value.length<=64&&ID.test(value);}
 function body(raw,keys){return !!raw&&typeof raw==='object'&&!Array.isArray(raw)&&Object.getPrototypeOf(raw)===Object.prototype&&Reflect.ownKeys(raw).length===keys.length&&keys.every(key=>Object.hasOwn(raw,key))&&Reflect.ownKeys(raw).every(key=>typeof key==='string'&&keys.includes(key));}
 function tuple(raw){return(raw.expectedEventId===null||id(raw.expectedEventId))&&Number.isSafeInteger(raw.expectedSelection)&&raw.expectedSelection>=0;}
-function apiStatus(value){if(value?.ok===true)return 200;switch(value?.code){case'INVALID_REQUEST':return 400;case'STALE_SELECTION':case'STALE_CANDIDATE':case'BUSY':case'WINDOW_ACTIVE':case'CANDIDATE_CLOSED':case'NOT_READY':case'CONTROL_INHIBITED':return 409;case'CATALOG_INVALID':case'PREPARE_FAILED':return 422;default:return 503;}}
+function apiStatus(value){if(value?.ok===true)return 200;switch(value?.code){case'INVALID_REQUEST':return 400;case'STALE_SELECTION':case'STALE_CANDIDATE':case'BUSY':case'WINDOW_ACTIVE':case'CANDIDATE_CLOSED':case'NOT_READY':case'CONTROL_INHIBITED':case'EVENT_NOT_DEAD':return 409;case'CATALOG_INVALID':case'PREPARE_FAILED':return 422;default:return 503;}}
 function sourceApiStatus(value){if(value?.ok===true)return 200;switch(value?.code){case'CATALOG_QUERY_INVALID':case'APPROVAL_REQUEST_INVALID':case'APPROVAL_WINDOW_INVALID':case'SOURCE_SELECTION_INVALID':return 400;case'CATALOG_EVENT_MISSING':return 404;
  case'CATALOG_REVISION_STALE':case'CATALOG_UNAVAILABLE':case'CATALOG_REFRESH_SUPERSEDED':case'BUSY':case'APPROVAL_INSPECTION_STALE':case'APPROVAL_SELECTION_INELIGIBLE':case'APPROVAL_CONFLICT':return 409;default:return 503;}}
 // Source browsing bodies. The service validates queries itself; these checks
@@ -56,7 +56,7 @@ const SERVICE_KEYS=['refreshCatalog','catalogState','catalogEventsPage','catalog
 function createGameDayWeb({manager,sourceService,runtimeFactory,port,appRoot,machineFile,configFile}={}){
  if(!Number.isSafeInteger(port)||port<1||port>65535||typeof appRoot!=='string'||!path.isAbsolute(appRoot)||(manager&&sourceService)||
   (!manager&&!sourceService&&(typeof machineFile!=='string'||machineFile.length>4096||/[\x00-\x1f\x7f]/.test(machineFile)||!path.isAbsolute(machineFile))))throw failure('APP_CONFIG_INVALID');
- if(manager&&!['snapshot','listEvents','prepare','activate','discardCandidate','dispatch','close'].every(key=>typeof manager[key]==='function'))throw failure('APP_CONFIG_INVALID');
+ if(manager&&!['snapshot','listEvents','prepare','activate','discardCandidate','endDeadEvent','dispatch','close'].every(key=>typeof manager[key]==='function'))throw failure('APP_CONFIG_INVALID');
  if(sourceService&&!SERVICE_KEYS.every(key=>typeof sourceService[key]==='function'))throw failure('APP_CONFIG_INVALID');
  // runtimeFactory is a trusted Node seam for a loaded source machine's
  // playback (tests); it is never read from a profile, the environment or HTTP.
@@ -187,6 +187,8 @@ function createGameDayWeb({manager,sourceService,runtimeFactory,port,appRoot,mac
  const mutations=[['prepare',['eventId','expectedEventId','expectedSelection'],raw=>id(raw.eventId), (value,raw)=>value.prepare(raw.eventId,{expectedEventId:raw.expectedEventId,expectedSelection:raw.expectedSelection})],
   ['activate',['candidateId','expectedEventId','expectedSelection'],raw=>typeof raw.candidateId==='string'&&/^[a-f0-9]{48}$/.test(raw.candidateId),(value,raw)=>value.activate(raw)],
   ['discard',['candidateId','expectedEventId','expectedSelection'],raw=>typeof raw.candidateId==='string'&&/^[a-f0-9]{48}$/.test(raw.candidateId),(value,raw)=>value.discardCandidate(raw)],
+  // Q-009: end an active event whose renderer is past its restart limit; the manager refuses any other.
+  ['end-dead',['expectedEventId','expectedSelection'],()=>true,(value,raw)=>value.endDeadEvent({expectedEventId:raw.expectedEventId,expectedSelection:raw.expectedSelection})],
   ['command',['action','expectedEventId','expectedSelection'],raw=>typeof raw.action==='string'&&ACTIONS.has(raw.action),(value,raw)=>value.dispatch(raw.action,{expectedEventId:raw.expectedEventId,expectedSelection:raw.expectedSelection})]];
  for(const[name,keys,valid,invoke]of mutations)router.post('/game-day/api/'+name,managerReady,(req,res)=>{
   if(!body(req.body,keys)||!tuple(req.body)||!valid(req.body))return send(res,400,'INVALID_REQUEST');

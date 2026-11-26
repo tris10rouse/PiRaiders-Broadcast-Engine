@@ -59,6 +59,8 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
   }catch(error){if(directory)await fs.rm(directory,{recursive:true,force:true}).catch(()=>{});throw failure(['PROFILE_INVALID','PROFILE_PATHS','NDI_RUNTIME_MISSING','MESA_RUNTIME_MISSING','WINDOWS_REQUIRED','EVENT_OPTIONS_INVALID'].includes(error.code)?error.code:'EVENT_PREPARE_FAILED');}
   const spawn=spawnProcess||((exe,args,options,privateInput)=>spawnSupervisedProcess(exe,args,options,{forwardStdin:privateInput,...(privateInput?{productionWindow:nativeWindowPolicy}:{})}));
   let launcher,windowExpired=false,closed=false,started=false,startPromise,closePromise,state='prepared',lastError=null,stamp=0,current=null,standby=null;
+  // Q-009: the supervisor gave up on the renderer (restart limit) for this event; only a new event clears it.
+  let restartsExhausted=false;
   let accepted=initial,lastMode=profile.playback.mode,flight=null,candidate=null;
   const retiring=new Set(),creating=new Set();let retirementFailed=false;
   function syncAccepted(gen){
@@ -150,8 +152,11 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
   // cwd; the ASCII basename and relative config paths resolve there. Component
   // loading still uses the unchanged real executable and absolute NDI env.
   launcher=new LauncherRuntime({productionWindow:profile.productionWindow,services:[{name:'spx',command:profile.spx.executable,args:profile.spx.args,cwd:profile.spx.cwd},{name:'casparcg',command:profile.caspar.executable,args:['caspar.config','--log-severity=disable','--disable-logging'],cwd:directory}]},{clock:()=>windowExpired?NaN:clock(),schedule,cancel,manageSpx,supervisorOptions:{...supervisorOptions,spawnProcess:ownedSpawn},onSenderRetiring:()=>{retire();}});
-  launcher.on('fault',value=>{if(!windowExpired&&(value?.name==='spx'||!current?.ready))lastError='SERVICE_FAULT';});
-  function snapshot(){syncAccepted(current);const owned=current?.session?.snapshot(),p=owned?.presentation;return Object.freeze({eventId:profile.eventId,state,lastError:lastError||owned?.lastError||null,windowAllowed:launcher.allowed(),generation:stamp,ready:!!current&&gate(current),deckId:accepted.deck.id,slideCount:accepted.deck.slides.length,sourceName:profile.output.type==='ndi'?profile.output.name:null,mode:p?.controller?.mode||lastMode,index:p?.controller?.index??null,output:profile.output.type,preparing:flight!==null,closed});}
+  launcher.on('fault',value=>{
+    if(!windowExpired&&(value?.name==='spx'||!current?.ready))lastError='SERVICE_FAULT';
+    if(!closed&&value?.name==='casparcg'&&value?.error==='Restart limit exceeded')restartsExhausted=true;
+  });
+  function snapshot(){syncAccepted(current);const owned=current?.session?.snapshot(),p=owned?.presentation;return Object.freeze({eventId:profile.eventId,state,lastError:lastError||owned?.lastError||null,windowAllowed:launcher.allowed(),generation:stamp,ready:!!current&&gate(current),deckId:accepted.deck.id,slideCount:accepted.deck.slides.length,sourceName:profile.output.type==='ndi'?profile.output.name:null,mode:p?.controller?.mode||lastMode,index:p?.controller?.index??null,output:profile.output.type,preparing:flight!==null,closed,restartsExhausted:restartsExhausted&&!current});}
   function close(){
     if(closePromise)return closePromise;
     let resolveClose,rejectClose;
