@@ -387,6 +387,9 @@ function createExchangeSourceService(machine,trusted={}){
     refreshApprovals:()=>revalidator.refresh(),
     // Pass these to createGameDayManager as {admitCandidate,refreshAdmission}.
     admission:Object.freeze({admitCandidate:revalidator.admitCandidate,refreshAdmission:revalidator.refreshAdmission}),
+    // Diagnostics (5c-1): whether the exchange folder resolves to the
+    // retained spelling now; a code only, never the path.
+    rootState:async()=>Object.freeze({code:closed?'SOURCE_SERVICE_CLOSED':await sourceRootCode()}),
     status,close});
 }
 module.exports={createExchangeSourceService};
