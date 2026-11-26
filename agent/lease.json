@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261126T005138Z-321e3e",
+  "status": "idle",
+  "owner": null,
   "fence": 78,
-  "task": "5c-2",
-  "workBranch": "feature/5c-2-gameday-diagnostics",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-26T00:51:38.616Z",
-  "lastHeartbeat": "2026-11-26T01:33:45.136Z",
-  "expiresAt": "2026-11-26T03:03:45.136Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-26T01:41:21.000Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-26T01:41:21.000Z"
 }
