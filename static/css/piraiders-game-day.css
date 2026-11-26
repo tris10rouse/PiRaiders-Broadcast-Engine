@@ -45,3 +45,4 @@ body[data-mode=source] .playback-section{grid-column:2;grid-row:1/span 2}
 @media(max-width:900px){.diagnostics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.diagnostics-section{padding:21px 18px}.diagnostics{grid-template-columns:1fr;gap:12px}.diagnostics div{display:flex;justify-content:space-between;gap:15px}.diagnostics dt{margin:0}.diagnostics dd{text-align:right}}
 .diag-time{margin-top:2px;font-size:12px}
+.dead-event{margin:0 0 22px}.dead-event p{color:var(--text)}.dead-event>button,.dead-event .button-pair{margin-top:12px}.dead-event .button-pair{max-width:440px}.dead-event button{margin-left:0}.dead-event .button-pair button{margin:0}
