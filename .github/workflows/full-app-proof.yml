@@ -67,6 +67,9 @@ jobs:
   # 5b-4: its stores set up by the setup command, then a cached start with the
   # exchange folder moved away. 5d-2: the app runs in its own console; the
   # online run is closed by Ctrl+C, the cached run by closing the console window.
+  # 5d-3: a third start without --no-browser opens Game Day in the runner's
+  # default browser; the job finds that browser by its URL, closes it, then
+  # closes the app by Ctrl+C.
   actual-exchange-activation-private-ndi:
     runs-on: windows-latest
     timeout-minutes: 25
@@ -92,7 +95,7 @@ jobs:
         run: node scripts/prepare-ndi-proof.cjs
       - name: Install pinned headless browser for actual workstation controls
         run: npx --no-install playwright install --with-deps --only-shell chromium
-      - name: Prove a synthetic exchange button from setup and approval to Stop, then a cached start without the exchange folder, on the actual CLI
+      - name: Prove a synthetic exchange button from setup and approval to Stop, then a cached start without the exchange folder, then a start that opens the default browser, on the actual CLI
         env:
           PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/smoke-exchange-activation-windows.cjs

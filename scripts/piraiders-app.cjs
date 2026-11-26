@@ -88,8 +88,13 @@ function probeStartupIdentity(port, secret, { timeoutMs = 500, signal } = {}) {
     signal?.addEventListener('abort', aborted, { once: true }); if (signal?.aborted) aborted();
   });
 }
-function systemBrowser(url) {
-  return new Promise((resolve, reject) => execFile('rundll32.exe', ['url.dll,FileProtocolHandler', url], { windowsHide: true, timeout: 5000, maxBuffer: 1024 }, error => error ? reject(failure('BROWSER_OPEN_FAILED')) : resolve()));
+// The system's default handler opens the URL (5d-3: proved on hosted Windows).
+// Any failure, a timeout included, is BROWSER_OPEN_FAILED and nothing more.
+function systemBrowser(url, { run = execFile } = {}) {
+  return new Promise((resolve, reject) => {
+    try { run('rundll32.exe', ['url.dll,FileProtocolHandler', url], { windowsHide: true, timeout: 5000, maxBuffer: 1024 }, error => error ? reject(failure('BROWSER_OPEN_FAILED')) : resolve()); }
+    catch { reject(failure('BROWSER_OPEN_FAILED')); }
+  });
 }
 class PersistentAppLauncher extends EventEmitter {
   #secret = null;
@@ -225,4 +230,4 @@ async function main() {
   console.log(JSON.stringify({component:'piraiders-app',event:'controller-available',url:app.settings.url,browserOpened:status.browserOpened}));
 }
 if (require.main === module) main().catch(error => { console.error(/^[A-Z_]+$/.test(error?.code || '') ? error.code : 'APP_START_FAILED'); process.exitCode = 1; });
-module.exports = { loadAppSettings, assertPortFree, probeStartupIdentity, PersistentAppLauncher };
+module.exports = { loadAppSettings, assertPortFree, probeStartupIdentity, PersistentAppLauncher, systemBrowser };

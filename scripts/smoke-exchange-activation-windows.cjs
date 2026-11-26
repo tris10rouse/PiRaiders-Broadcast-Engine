@@ -33,6 +33,14 @@
 // owned process must be gone, within the close bounds, and the SPX port free;
 // the times are kept in result.json (`closes`).
 //
+// Default browser (5d-3): a third start, as the operator starts it (without
+// --no-browser). The application must report that it opened Game Day; the job
+// must see a new browser process whose command line holds that loopback URL
+// (scripts/default-browser-proof.cjs). The job closes that browser itself,
+// then closes the application by Ctrl+C: nothing it owns may be left.
+// result.json keeps `defaultBrowser` (the browser's image name, never a
+// command line).
+//
 // Same-machine CI evidence only: no hardware, stadium PC, board or
 // deployment claim. Synthetic data only.
 const assert=require('node:assert/strict');
@@ -53,6 +61,7 @@ const setup=require('./exchange-activation-setup.cjs');
 const routes=require('./exchange-activation-routes.cjs');
 const {auditEvidence,removeViolations}=require('./proof-evidence-privacy.cjs');
 const consoleClose=require('./console-close-proof.cjs');
+const defaultBrowser=require('./default-browser-proof.cjs');
 const checkoutRoot=path.resolve(__dirname,'..');
 
 // The order the receiver must see. Names are the evidence file names.
@@ -90,7 +99,7 @@ async function scenario(location){
     rossTalk:{host:'127.0.0.1',port:talk,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',3:'previous',8:'stop'},acknowledgements:true}}});
   const awayRoot=path.join(path.dirname(built.sourceRoot),'exchange-away');
   const privatePaths=[work,built.sourceRoot,awayRoot,...built.privateRoots,tools,toolInfo.casparDirectory];
-  const plan=expectedFrames(built.order),cachedPlan=expectedFrames(built.order,'cached'),frames=[],timings={};let probe,app,browser,page,phase='SETUP',sourceIdentity,report,cleanupTree,lastTreeCounts;
+  const plan=expectedFrames(built.order),cachedPlan=expectedFrames(built.order,'cached'),frames=[],timings={};let probe,app,browser,page,phase='SETUP',sourceIdentity,report,cleanupTree,lastTreeCounts,browserTree;
   const started=performance.now(),mark=name=>{timings[name]=Math.round(performance.now()-started);};
   const answers=[],closes=[],closeAttempts=[];
   const client={
@@ -132,9 +141,9 @@ async function scenario(location){
   }
   // Close the application at its console (`graceful`: Ctrl+C; `console-close`:
   // the window closed): every owned process gone, the SPX port free, the receiver quiet.
-  async function closeApplication(tag,method){
+  async function closeApplication(tag,method,{activeCaspar=true}={}){
     phase=tag+'CLOSE_CAPTURE';lastTreeCounts=null;cleanupTree=(await full.capturePinnedTree(app.parentIdentity,{deadline:performance.now()+15000})).tree;
-    assert.ok(cleanupTree.some(row=>full.normalized(row.ExecutablePath)===full.normalized(casparExe)),'CLOSE_ACTIVE_CASPAR');
+    if(activeCaspar)assert.ok(cleanupTree.some(row=>full.normalized(row.ExecutablePath)===full.normalized(casparExe)),'CLOSE_ACTIVE_CASPAR');
     phase=tag+'CLOSE_SIGNAL';const signalled=performance.now();await consoleClose.sendClose(method,app.parentPid);
     phase=tag+'CLOSE';const exit=await full.settledChild(app.child);const exited=performance.now();
     phase=tag+'CLOSE_GONE';await full.until(()=>{lastTreeCounts=observeTree(processTable(),cleanupTree);return lastTreeCounts.surviving===0&&lastTreeCounts.unknown===0;},'APP_TREE_SURVIVED_CLOSE',consoleClose.CLOSE_GONE_BOUND_MS);
@@ -175,6 +184,20 @@ async function scenario(location){
     await assert.rejects(fs.access(built.sourceRoot),{code:'ENOENT'},'EXCHANGE_FOLDER_STILL_THERE');
     const cachedQuiet=await closeApplication('CACHED_','console-close');
     assert.deepEqual(closes.map(c=>c.method),['graceful','console-close'],'CLOSE_METHODS_BOTH');
+    // Default browser (5d-3): the third start opens Game Day in the system's default browser.
+    phase='BROWSER_SNAPSHOT';if(page)try{await page.close();}catch{}page=null;
+    const gameDay=origin+'/game-day',before=defaultBrowser.processKeys(defaultBrowser.browserTable(gameDay));
+    phase='BROWSER_APPLICATION';app=await full.application(built.machineFile,gameDay,location,{consoleHost:consoleClose.CONSOLE_PROOF,browser:true});mark('browserApplicationReady');
+    phase='BROWSER_PROCESS';let roots=[],browserRows;
+    await full.until(()=>{browserRows=defaultBrowser.browserTable(gameDay);roots=defaultBrowser.browserRoots(browserRows,before);return roots.length>0;},'BROWSER_PROCESS_NOT_SEEN',30000);mark('browserSeen');
+    browserTree=roots;// From here on the cleanup closes at least what was found.
+    assert.equal(new Set(roots.map(row=>String(row.ExecutablePath).toLowerCase())).size,1,'BROWSER_IMAGES_DIFFER');
+    browserTree=defaultBrowser.browserTree(browserRows,roots,before);
+    phase='BROWSER_CLOSE';const browserClosing=performance.now();lastTreeCounts=await defaultBrowser.closeBrowser(browserTree,{until:full.until});const browserCloseMs=performance.now()-browserClosing;
+    const browserTracked=browserTree.length;browserTree=null;
+    const browserReport=defaultBrowser.browserRecord({appReportedOpened:app.browserOpened,image:roots[0].ExecutablePath,roots:roots.length,tracked:browserTracked,closeMs:browserCloseMs});
+    const browserQuiet=await closeApplication('BROWSER_','graceful',{activeCaspar:false});
+    const browserClose=closes.pop();assert.equal(browserClose.method,'graceful','BROWSER_APP_CLOSE_METHOD');
     assert.equal(await fs.readFile(configFile,'utf8'),configBytes,'SPX_CONFIG_UNCHANGED');
     report={event:'exchange-activation-windows-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:toolInfo.provenance,ndiProvenance:ndi.provenance,
       runtimeVersion:probe.info.runtimeVersion,actualCLI:true,sourceMachine:true,syntheticExchangeFolder:true,approvalListSetUpBeforeStart:true,
@@ -185,6 +208,7 @@ async function scenario(location){
       closeReceiverQuiet:quiet,closes,
       cachedStart:{offlinePin,exchangeFolderAbsent:true,sourceCatalogAvailable:false,sourceCatalogCode:cachedRefresh.catalog.code,sameButton:true,routes:['events','prepare','activate','command'],
         publishedOrder:built.order.map(p=>p.name),sourceIdentityStable:true,fullFrameOpaqueBlackBeforeLaunch:true,fullFrameOpaqueBlackAfterStop:true,closeTookEveryOwnedProcess:true,closeReceiverQuiet:cachedQuiet},
+      defaultBrowser:{...browserReport,appClose:browserClose,appCloseReceiverQuiet:browserQuiet},
       spxConfigUnchanged:true,timingsMs:timings,
       sameMachineOnly:true,windows10Tested:false,lanTransportTested:false,stadiumHardwareTested:false};
   }catch(error){
@@ -201,6 +225,7 @@ async function scenario(location){
     throw Error('EXCHANGE_ACTIVATION_PROOF_FAILED');
   }finally{
     const cleanup=[];try{await browser?.close();}catch{cleanup.push('BROWSER');}
+    if(browserTree)try{await defaultBrowser.closeBrowser(browserTree,{until:full.until});}catch{cleanup.push('DEFAULT_BROWSER');}
     try{await full.killApplication(app?.child);}catch{cleanup.push('APPLICATION');}
     try{await full.cleanupCaptured(cleanupTree,location.jobHost);}catch{cleanup.push('RECORDED_TREE');}
     try{await probe?.close();}catch{cleanup.push('RECEIVER');}
