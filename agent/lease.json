@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261126T022557Z-6adee4",
+  "status": "idle",
+  "owner": null,
   "fence": 80,
-  "task": "5c-4",
-  "workBranch": "feature/5c-4-folder-cache-recovery",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-26T02:25:57.386Z",
-  "lastHeartbeat": "2026-11-26T03:36:21.269Z",
-  "expiresAt": "2026-11-26T05:06:21.269Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-26T03:40:43.210Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-26T03:40:43.210Z"
 }
