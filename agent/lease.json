@@ -4,9 +4,9 @@
   "owner": "claude-20261126T161316Z-ee8c4d",
   "fence": 97,
   "task": "5e-3",
-  "workBranch": "feature/5e-3-soak-run",
+  "workBranch": "feature/5e-3-soak-record",
   "acquiredAt": "2026-11-26T16:13:16.642Z",
-  "lastHeartbeat": "2026-11-26T20:20:57.617Z",
-  "expiresAt": "2026-11-26T21:50:57.617Z",
+  "lastHeartbeat": "2026-11-26T20:21:05.598Z",
+  "expiresAt": "2026-11-26T21:51:05.598Z",
   "releasedAt": null
 }
