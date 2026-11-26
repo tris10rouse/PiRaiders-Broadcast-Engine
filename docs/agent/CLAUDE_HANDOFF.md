@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-26 (builder run, lock fence 98; 5f split, 5f-1 built). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-26 (builder run, lock fence 99; 5f-2 built). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -39,7 +39,8 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | Q-012 Soak's test-bench receiver lives for the whole run (fixed 8-minute lifetime today) | S | One receiver argument, set by the soak job, checked on both sides; Windows evidence from the five-cycle check run | landed by #114 on 2026-11-26 (fence 96): `scripts/lib/receiver-lifetime.cjs`; the soak's receiver gets its run plus 30 minutes (at most 330) as a fourth argument, checked in Node and in `NdiProbe.cs`, echoed in the ready line; other proofs keep 8 minutes; Linux tests fail on the old code |
 | 5f Evaluation-ready Windows ZIP | M | Split on 2026-11-26 (fence 98) into 5f-1..5f-4 | in progress |
 | 5f-1 ZIP carries the setup and diagnose commands and a source-mode example | S | Packaging list, one example, two root entries, Linux tests | landed by #116 on 2026-11-26 (fence 98): setup and diagnose commands required in the ZIP, `piraiders-app.source.example.json` (placeholders refused by the loader), root entries `Setup-PiRaiders.cmd [--pin-offline]` and `Diagnose-PiRaiders.cmd`; `tests/windows-bundle-commands.test.cjs`; Linux only |
-| 5f-2 Operator checklist in the ZIP | S | One document from tested behaviour, one Linux test | not started |
+| 5f-2 Operator checklist in the ZIP | S | One document from tested behaviour, one Linux test | landed by #117 on 2026-11-26 (fence 99): `OPERATOR-CHECKLIST.md` at the ZIP root, 11 steps, success output and first action per refusal code; `tests/windows-operator-checklist.test.cjs` ties every code to the commands and every control to the page |
+| Q-013 Operator command to check the extracted ZIP against `BUILD-MANIFEST.json` | S | Found by 5f-2; one root entry over `verifyManifest`, Linux tests | not started |
 | 5f-3 Windows CI: the extracted ZIP's setup and diagnose entries in source mode | S | Changes one Windows job; Windows-only failures show up only in CI | not started |
 | 5f-4 Evaluation build: every check green on one master commit, recorded | S | One run reads the checks and records the commit, run and checksum | not started |
 | Open failing check: browser tests "a late review…" and "a late answer for an earlier event…" failed `HELD_ANSWER_NOT_FINISHED` (Linux push run of `cf91a8c`, job 136447114406; probably also the unnamed Windows `static-contracts` failure on `1819e74`, job 136440648349, not shown) | fix | **Cause found (fence 67):** reproduced locally under load (8 copies on 2 busy CPUs: 7 failures). Chromium's DevTools reported the fully read late answer as failed (`net::ERR_ABORTED`) while the page read every body without an error and Resource Timing recorded the whole download; Playwright's `response.finished()` then never settled. Test-only fix: wait on the browser's Resource Timing record. After: 16 of 16 copies green under the same load. Page code unchanged | fixed: merged on 2026-11-20 (#83; NDI and Caspar proofs are not triggered by a test-only change) |
@@ -52,14 +53,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** 5f split into four S parts (fence 98); after 5f-1, 3 parts (5f-2, 5f-3, 5f-4) = 3 sized runs. Pace from every merged part so far: 35 runs for 33 sized runs = 1.06. 3 x 1.06 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 5 runs**.
+**Estimate:** after 5f-2, 3 parts (5f-3, Q-013, 5f-4) = 3 sized runs. Pace from every merged part so far: 36 runs for 34 sized runs = 1.06. 3 x 1.06 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 5 runs**.
 
-Parts left · runs left: 3 parts (5f-2, 5f-3, 5f-4) + 2 parked fix rows · about 5 runs.
+Parts left · runs left: 3 parts (5f-3, Q-013, 5f-4) + 2 parked fix rows · about 5 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-26 | 99 | merged (#117) | 5f-2: `OPERATOR-CHECKLIST.md` in the ZIP root; 8 Linux tests fail on the old code, a 9th from the review round; npm test 1071 pass, 0 fail, 27 skipped; review round: 4 confirmed (a missing printable code, wrong sign-in advice for Diagnose, usage codes the entries never print, Diagnose state codes shown as refusals), each fixed with a test; found Q-013 (no manifest-check command in the ZIP) |
 | 2026-11-26 | 98 | merged (#116) | 5f split into 5f-1..5f-4; 5f-1: the ZIP carries the setup and diagnose commands, a source-mode example and two root entries; 5 Linux tests fail on the old code; npm test 1063 pass, 0 fail, 27 skipped; review round: 1 confirmed bug (entries named an unshipped checklist), fixed with a test |
 | 2026-11-26 | 97 | merged (#115) | 5e-3: four-hour soak triggered once on master `0d6c5c5` (run 45856807336, job 140037232297): passed, 240 of 240 cycles, 240 of 240 Stops black (slowest 1263 ms), working-set growth 0, handle growth 23, 0 unreadable samples, clean close; recorded in `SOAK_PROOF.md`; master's other 11 checks on `0d6c5c5` green; 5e done |
 | 2026-11-26 | 96 | merged (#114) | Q-012: the soak's test-bench receiver lives for the run plus 30 minutes (fourth argument, 8 to 330, checked in Node and C#, echoed in the ready line); other proofs keep 8 minutes; 5 Linux tests, 3 fail on the old code; npm test 1058 pass, 0 fail, 27 skipped; review round: no confirmed bugs; Windows evidence: the five-cycle check run on #114 |
