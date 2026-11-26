@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261126T213603Z-7b6148",
   "fence": 99,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "5f-2",
+  "workBranch": "feature/5f-2-operator-checklist",
   "acquiredAt": "2026-11-26T21:36:03.663Z",
-  "lastHeartbeat": "2026-11-26T21:36:03.663Z",
-  "expiresAt": "2026-11-26T23:06:03.663Z",
+  "lastHeartbeat": "2026-11-26T21:36:25.107Z",
+  "expiresAt": "2026-11-26T23:06:25.107Z",
   "releasedAt": null
 }
