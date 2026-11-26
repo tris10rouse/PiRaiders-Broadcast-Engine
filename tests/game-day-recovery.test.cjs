@@ -240,6 +240,29 @@ test('a cached snapshot corrupted after an online preparation is refused when th
   assert.deepEqual(d.states.exchangeFolder,{state:'reachable',code:null});
 });
 
+// Q-007: the refused reuse is dropped, so the next preparation stages fresh
+// from the exchange folder instead of being refused until the app restarts.
+test('after a refused reused snapshot, the next preparation by the same service stages fresh from the folder and plays it; the changed snapshot never plays',async t=>{
+  const m=await machineFile(t);await confirm(m);
+  const machine=await m.load(),service=createExchangeSourceService(machine);t.after(()=>service.close());
+  const {seen,base}=recorder(),manager=managerFor(t,service,machine,base);
+  const [listed]=(await manager.listEvents()).events;
+  assert.equal((await manager.prepare(listed.eventId,request(manager))).ok,true);
+  const dir=seen.prepared[0].prepared.snapshotDir;
+  await corrupt((await mediaFiles(dir))[0]);
+  const refused=await manager.prepare(listed.eventId,request(manager));
+  assert.deepEqual([refused.ok,refused.code],[false,'PREPARE_FAILED']);
+  assert.equal((await diagnose({source:service,manager})).states.prepared.code,'CACHE_CHANGED','the refusal is named once');
+  // Asked again in the same app: a fresh snapshot, not the changed one.
+  const fresh=await manager.prepare(listed.eventId,request(manager));
+  assert.equal(fresh.ok,true,fresh.code);
+  assert.equal(seen.prepared.length,2);assert.equal(seen.prepared[1].mode,'source');
+  assert.notEqual(seen.prepared[1].prepared.snapshotDir,dir,'the changed snapshot is never handed to a runtime');
+  assert.deepEqual((await diagnose({source:service,manager})).states.prepared,{state:'prepared',code:null});
+  assert.equal((await manager.activate(request(manager,{candidateId:fresh.candidateId}))).ok,true);
+  assert.equal((await manager.dispatch('next',request(manager))).ok,true);assert.deepEqual(seen.actions,['next']);
+});
+
 // Activates the only approved event on the real runtime, joins a program page and plays two pictures.
 async function playing(t,m,supervisor){
   const machine=await m.load(),service=createExchangeSourceService(machine);t.after(()=>service.close());

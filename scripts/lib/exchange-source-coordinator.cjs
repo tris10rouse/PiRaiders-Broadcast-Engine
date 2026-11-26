@@ -296,8 +296,19 @@ function createExchangeSourceCoordinator(raw, trusted = {}) {
             if (kind === "inspect" || m.manifestState !== "complete" || !m.occurrences.length || m.occurrences.some(o => o.assetKey === null || o.problem !== null)) return status("METADATA_ACCEPTED", extra);
             const previous = lastPrepared?.manifest.source;
             const reuse = previous && previous.feedId === m.feedId && previous.epoch === m.epoch && previous.selectionId === m.selectionId && previous.playbackFingerprint === m.playbackFingerprint;
-            const prepared = reuse ? await load(lastPrepared.snapshotDir, {
+            // A refused reuse (changed bytes, a bad provenance) drops the
+            // staged snapshot, so the next preparation stages fresh from the
+            // source instead of being refused until the app restarts (Q-007).
+            // An abort, timeout or close is not a refusal: the snapshot stays.
+            const refused = reused => {
+                if (run.valid && !run.abort.signal.aborted && !closed && lastPrepared === reused) lastPrepared = null;
+            };
+            const reused = reuse ? lastPrepared : null;
+            const prepared = reuse ? await load(reused.snapshotDir, {
                 signal: run.abort.signal
+            }).catch(error => {
+                refused(reused);
+                throw error;
             }) : await stage({
                 sourceRoot: c.sourceRoot,
                 cacheDir: c.cacheDir,
@@ -307,7 +318,10 @@ function createExchangeSourceCoordinator(raw, trusted = {}) {
             active();
             // Cache loader independently verifies the stored provenance and playback.
             const p = prepared.manifest.source;
-            if (p.feedId !== m.feedId || p.epoch !== m.epoch || p.selectionId !== m.selectionId || p.playbackFingerprint !== m.playbackFingerprint) fail("CACHE_PROVENANCE_MISMATCH");
+            if (p.feedId !== m.feedId || p.epoch !== m.epoch || p.selectionId !== m.selectionId || p.playbackFingerprint !== m.playbackFingerprint) {
+                if (reused) refused(reused);
+                fail("CACHE_PROVENANCE_MISMATCH");
+            }
             active();
             lastPrepared = prepared;
             return status("CONTENT_PREPARED", {
