@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261126T153427Z-57164b",
+  "status": "idle",
+  "owner": null,
   "fence": 96,
-  "task": "Q-012",
-  "workBranch": "feature/Q-012-receiver-lifetime",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-26T15:34:27.492Z",
-  "lastHeartbeat": "2026-11-26T16:12:46.854Z",
-  "expiresAt": "2026-11-26T17:42:46.854Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-26T16:13:00.435Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-26T16:13:00.435Z"
 }
