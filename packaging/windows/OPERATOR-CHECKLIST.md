@@ -6,6 +6,10 @@ Every step here is behaviour that exists and is tested, on Linux and, where it s
 
 **Not shown by any test yet:** the stadium PC, Windows 10, a cold-booted PC, a synced or linked Google Drive folder as the exchange folder, NDI over a network, an NDI receiver other than the test receiver, the board's input, and anything on air. "NDI sender running" in Diagnose means this PC's sender process runs; it does not mean a receiver found it, the board shows it, or it is on air.
 
+## Evaluation build
+
+The evaluation build is the one ZIP that CI built from a single master commit on which every check passed; that commit, its CI run and the ZIP's SHA-256 are recorded in the source repository's `docs/agent/CLAUDE_HANDOFF.md`. In step 1, the ZIP's SHA-256 must match that record as well as the sidecar file; a ZIP from any other run is a development ZIP, not the evaluation build. It is not signed, not a release, not deployed and not an installer, and it was not tested on the stadium PC, the board or on air (see **Not shown by any test yet** above).
+
 ## 1. Check the download
 
 - Keep the ZIP beside its `PiRaiders-Development-win-x64.zip.sha256` file. Before extracting, compare the ZIP's SHA-256 with that file (for example, PowerShell `Get-FileHash -Algorithm SHA256` on the ZIP). Different: do not extract; get the ZIP again.
