@@ -123,3 +123,31 @@ test('README-WINDOWS.md points to the checklist and no longer calls setup, diagn
   assert.doesNotMatch(readme, /diagnostics\/preflight\/soak/i);
   assert.doesNotMatch(readme, /exchange importer, diagnostics/i);
 });
+
+// Review round (5f-2): what the entries and Diagnose really print.
+test('the entries\' own refusals are their sentences, not codes, and Diagnose states are not refusals', () => {
+  const text = checklist();
+  for (const name of ['Setup-PiRaiders.cmd', 'Diagnose-PiRaiders.cmd', 'Launch-PiRaiders.cmd']) {
+    const entry = read('packaging/windows/' + name);
+    // Each of an entry's refusals before Node runs prints a sentence and exits 2.
+    assert.match(entry, /echo Application configuration is missing\. Read README-WINDOWS\.md before starting\./);
+    assert.match(entry, /echo Bundled Node runtime is missing\./);
+    assert.match(entry, /exit \/b 2/);
+  }
+  assert.match(text, /Application configuration is missing/);
+  assert.match(text, /Bundled Node runtime is missing/);
+  // SETUP_USAGE and DIAGNOSE_USAGE come only from the scripts run directly.
+  for (const usage of ['SETUP_USAGE', 'DIAGNOSE_USAGE']) {
+    const line = text.split(/\r?\n/).find(l => l.startsWith('| `' + usage + '`'));
+    assert.ok(line && /directly/.test(line), usage + ' row says it comes only from the script run directly');
+  }
+  // Diagnose answers ok:true, exit 0, with a state's code; only these two refuse.
+  const diagnose = read('scripts/piraiders-diagnose.cjs');
+  assert.match(diagnose, /exitCode:answer\.ok\?0:1/);
+  assert.match(read('scripts/lib/game-day-diagnose.cjs'), /return Object\.freeze\(\{ok:true,scope:'game-day-diagnostics-command'/);
+  assert.match(text, /state codes inside an exit-0 line/);
+  // Diagnose sends no credential, so a browser sign-in cannot clear APP_AUTH_REQUIRED.
+  assert.doesNotMatch(read('scripts/lib/game-day-diagnose.cjs'), /[Cc]ookie|[Aa]uthorization/);
+  const auth = text.split(/\r?\n/).find(l => l.startsWith('| `APP_AUTH_REQUIRED`'));
+  assert.ok(auth && /cannot sign in/.test(auth) && /Diagnostics/.test(auth), auth);
+});

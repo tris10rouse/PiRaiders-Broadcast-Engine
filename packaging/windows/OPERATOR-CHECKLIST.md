@@ -1,6 +1,6 @@
 # PiRaiders operator checklist (evaluation bench)
 
-For a disposable, nonproduction Windows x64 PC only. Do the steps in order. Each step says what the command or page shows when it worked, and what to do first when it refuses. The commands print fixed codes only: no paths, ids or names. Background and limits: `README-WINDOWS.md` in this folder.
+For a disposable, nonproduction Windows x64 PC only. Do the steps in order. Each step says what the command or page shows when it worked, and what to do first when it refuses. The commands print fixed codes only: no paths, ids or names. Before any of them runs, the three `.cmd` entries refuse on their own with a plain sentence and exit 2: a wrong argument, "Bundled Node runtime is missing" (extract the whole ZIP again) or "Application configuration is missing" (step 3). Background and limits: `README-WINDOWS.md` in this folder.
 
 Every step here is behaviour that exists and is tested, on Linux and, where it says so, on a GitHub-hosted Windows runner. It is not tested on the stadium PC. Windows evidence for steps 6 to 11 comes from the same application run from the source tree on a hosted runner; from this extracted ZIP, CI launches with an empty local catalog only, and runs Setup and Diagnose from the ZIP in part 5f-3 (until then they are tested on Linux only). If a step does not match what you see, stop and keep the console output; do not work around it.
 
@@ -32,7 +32,7 @@ Run `Setup-PiRaiders.cmd` from the extracted folder, with the application closed
 
 | Code | First thing to do |
 |---|---|
-| `SETUP_USAGE` | Exit 2: run it with no argument, or only `--pin-offline`. |
+| `SETUP_USAGE` | Only when `app\scripts\piraiders-setup.cjs` is run directly with wrong arguments (exit 2); use `Setup-PiRaiders.cmd` instead. |
 | `MACHINE_CONFIG_INVALID` | Fix `app\config\piraiders-app.json` (step 3). |
 | `SETUP_MACHINE_NOT_SOURCE` | The machine file is a local-mode file; Setup is for source mode only (step 2). |
 | `SETUP_SOURCE_UNAVAILABLE` | The exchange folder cannot be opened: check it exists on this PC and is fully synced, then run Setup again. |
@@ -52,9 +52,11 @@ Run `Diagnose-PiRaiders.cmd`. It reads only; it never writes. It works with the 
 
 **Worked:** exit 0 and one line with `"ok":true` and six states. With the application closed, in source mode: `exchangeFolder` is `reachable`, `catalogSequence` is `read` with a number, `approvals` is `readable`; `prepared`, `renderer` and `ndiSender` are `unknown` with `APP_NOT_RUNNING`, and `app` is `not-running`. In local mode the three exchange states are `not-used`. `"ready":false` is always printed: Diagnose never says ready or on air.
 
+Diagnose refuses (exit 1) only with `MACHINE_CONFIG_INVALID` or `DIAGNOSE_FAILED`. Every other code below is one of the state codes inside an exit-0 line with `"ok":true`: read each state's `code`, not only the exit.
+
 | Code | First thing to do |
 |---|---|
-| `DIAGNOSE_USAGE` | Exit 2: run it with no argument. |
+| `DIAGNOSE_USAGE` | Only when `app\scripts\piraiders-diagnose.cjs` is run directly with wrong arguments (exit 2); use `Diagnose-PiRaiders.cmd` instead. |
 | `MACHINE_CONFIG_INVALID` | Fix `app\config\piraiders-app.json` (step 3). |
 | `SOURCE_UNAVAILABLE` | Exchange folder not reachable: as `SETUP_SOURCE_UNAVAILABLE` in step 4. |
 | `SOURCE_ROOT_MISMATCH` | As `SETUP_SOURCE_ROOT_MISMATCH` in step 4. |
@@ -62,7 +64,7 @@ Run `Diagnose-PiRaiders.cmd`. It reads only; it never writes. It works with the 
 | `APPROVAL_UNREADABLE` | The approval list cannot be read: run Setup (step 4) and read its code. |
 | `APP_NOT_RUNNING` | Expected before step 6. After step 6, the application is not running: read the launch console. |
 | `APP_NO_ANSWER` | Something listens on the SPX port but did not answer in time: wait a few seconds, run Diagnose again; if it repeats, close the application (step 9) and launch again. |
-| `APP_AUTH_REQUIRED` | SPX asks for a login: sign in to SPX in the browser, or read diagnostics on the Game Day page instead. |
+| `APP_AUTH_REQUIRED` | SPX asks for a login and Diagnose cannot sign in (signing in in the browser does not change this): read the three application states in the Game Day page's **Diagnostics** panel instead. |
 | `APP_UNAVAILABLE` | The application answers but Game Day is not available yet: wait and run Diagnose again. |
 | `APP_PORT_INVALID` | The SPX configuration's port cannot be read: check `app\config.json` (`general.port`). |
 | `APP_ANSWER_INVALID` | Another program, not this application, answers on the SPX port: close it, or change the SPX port. |
