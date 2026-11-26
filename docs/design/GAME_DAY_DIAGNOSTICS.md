@@ -153,8 +153,19 @@ only a new event clears it. The manager's `endDeadEvent` (`POST /game-day/api/en
 
 Before Q-009 Stop answered `CONTROL_INHIBITED` and a new preparation `WINDOW_ACTIVE` until the window ended or the app
 restarted. Tested on Linux with the real runtime, a synthetic Caspar and a scripted program page
-(`tests/game-day-recovery.test.cjs`) and on the web adapter (`tests/game-day-web.test.cjs`). The Game Day page has no
-button for it yet (queue `Q-010`). Not tested on Windows or with a real Caspar.
+(`tests/game-day-recovery.test.cjs`) and on the web adapter (`tests/game-day-web.test.cjs`). The Game Day page had no
+button for it until `Q-010` (below). Not tested on Windows or with a real Caspar.
+
+**On the Game Day page (Q-010, fence 87).** While the active event is dead by the manager's own test
+(`restartsExhausted: true`, not ready, not preparing, cleanup open or failed) the Playback column shows, under Stop,
+"The renderer for this event stopped restarting…", the Renderer row says `Stopped restarting`, and one button,
+**End this event…**, asks once in place (the page's inline confirm, as for approvals): **End this event** sends
+`end-dead` with the page's current `expectedEventId` and `expectedSelection`; **Cancel** sends nothing. After `ok`
+the notice says the event ended and output stays black; nothing is active and Prepare is offered again. A refusal
+(`EVENT_NOT_DEAD`, stale, busy) keeps the event and says nothing was ended. Never shown for a live, acknowledged,
+restarting or closing event; no wording about air, receivers or the board. Tested in Chromium at 1440 and 390 px
+with a scripted server (`tests/browser/game-day-end-dead.browser.cjs`); not with the real manager in a browser, not on
+Windows.
 
 ## Not done here
 

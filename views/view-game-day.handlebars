@@ -112,6 +112,11 @@
           <button data-action="reload" id="reload-media" type="button" disabled>Reload media</button>
         </div>
         <div class="stop-row"><button id="stop" class="danger" type="button" disabled>Stop · black output</button><p>Stop requests black. Sender shutdown remains controlled by the production window.</p></div>
+        <div id="dead-event" class="message dead-event" role="group" aria-labelledby="dead-event-text" hidden>
+          <p id="dead-event-text" tabindex="-1"></p>
+          <button id="end-dead" class="danger" type="button">End this event…</button>
+          <div id="end-dead-confirm" class="button-pair" hidden><button id="end-dead-yes" class="danger" type="button">End this event</button><button id="end-dead-no" type="button">Cancel</button></div>
+        </div>
         <dl class="window-details"><div><dt>Production window</dt><dd id="window-range">No active event</dd></div><div><dt>Prewarm</dt><dd id="window-prewarm">Not configured</dd></div></dl>
         <p id="runtime-error" class="message warning" hidden></p>
         <p class="verification-note">Renderer readiness does not confirm receiver connection or board routing.</p>
