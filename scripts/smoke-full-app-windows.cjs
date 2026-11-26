@@ -17,6 +17,7 @@ const {JOB_HOST}=require('./lib/windows-job-process.cjs');
 const {output:PROBE}=require('./build-ndi-probe.cjs');
 const {requestProbe}=require('./ndi-proof-client.cjs');
 const {receiverRecord}=require('./lib/receiver-record.cjs');
+const receiverLifetime=require('./lib/receiver-lifetime.cjs');
 const {command}=require('./smoke-caspar-windows.cjs');
 const {checkConsolePixels}=require('./smoke-caspar-console-windows.cjs');
 const {processTable,descendants,treeState,observeTree,identityReason,identityCaptureDiagnostics,captureProcessTree}=require('./windows-process-evidence.cjs');
@@ -92,12 +93,18 @@ async function cleanupCaptured(captured,jobHost=JOB_HOST,resolveImage=normalized
  }
  await until(()=>{const value=observeTree(processTable(),captured);return value.surviving===0&&value.unknown===0;},'CLEANUP_RECORDED_TREE_SURVIVED',10000);
 }
-// Q-011: `bench` replaces the receiver's command for the Linux test only.
+// Q-011: `bench` replaces the receiver's command for the Linux test only
+// (`bench.args` may be a function of the real arguments).
 // Every failed request, start or close carries `error.receiver`, the
 // receiver's recorded exit and fixed-word stderr (scripts/lib/receiver-record.cjs).
-async function receiver(root,dll,label,evidence,bench={}){
+// Q-012: `lifetimeMinutes` (the soak only) is checked before the spawn, passed
+// as the receiver's fourth argument and must come back in its ready line;
+// without it the receiver keeps its 8-minute default, also checked when echoed.
+async function receiver(root,dll,label,evidence,bench={},{lifetimeMinutes}={}){
+ const real=[PROBE,dll,label,evidence,...receiverLifetime.lifetimeArgs(lifetimeMinutes)];
+ const expectedLifetime=lifetimeMinutes===undefined?receiverLifetime.DEFAULT_MINUTES:lifetimeMinutes;
  const token=crypto.randomBytes(32).toString('base64url'),record=receiverRecord();
- const child=own(spawn(bench.executable||JOB_HOST,bench.args||[PROBE,dll,label,evidence],{cwd:root,env:{...process.env,PIRAIDERS_NDI_PROBE_TOKEN:token},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']}));
+ const child=own(spawn(bench.executable||JOB_HOST,typeof bench.args==='function'?bench.args(real):bench.args||real,{cwd:root,env:{...process.env,PIRAIDERS_NDI_PROBE_TOKEN:token},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']}));
  child.closed.then(({code,signal})=>record.exited(code,signal));child.stderr.on('data',chunk=>record.stderr(chunk));
  // A lost connection usually means the receiver is exiting: give its exit a moment to be recorded.
  async function evidenceOn(error,settleMs){
@@ -116,6 +123,7 @@ async function receiver(root,dll,label,evidence,bench={}){
     const line=buffer.subarray(0,end).toString('utf8');buffer=buffer.subarray(end+1);let value;try{value=JSON.parse(line);}catch{continue;}
     if(value?.event!=='ndi-probe-ready')continue;
     if(!Number.isInteger(value.port)||value.port<1||value.port>65535||value.abiValid!==true||typeof value.runtimeVersion!=='string'||value.runtimeVersion.length>255||/[\x00-\x1f\x7f]/.test(value.runtimeVersion))return finish(Error('RECEIVER_READY_INVALID'));
+    if((lifetimeMinutes!==undefined||value.lifetimeMinutes!==undefined)&&value.lifetimeMinutes!==expectedLifetime)return finish(Error('RECEIVER_LIFETIME_MISMATCH'));
     port=value.port;finish(null,value);
    }
   });
