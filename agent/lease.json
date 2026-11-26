@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261126T140753Z-1b9394",
   "fence": 94,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "5e-3",
+  "workBranch": "feature/5e-3-soak-run",
   "acquiredAt": "2026-11-26T14:07:53.295Z",
-  "lastHeartbeat": "2026-11-26T14:07:53.295Z",
-  "expiresAt": "2026-11-26T15:37:53.295Z",
+  "lastHeartbeat": "2026-11-26T14:08:16.276Z",
+  "expiresAt": "2026-11-26T15:38:16.276Z",
   "releasedAt": null
 }
