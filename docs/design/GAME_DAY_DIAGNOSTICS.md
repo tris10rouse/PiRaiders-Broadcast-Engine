@@ -33,8 +33,30 @@ snapshot throws answers `unknown` with `STATE_UNAVAILABLE`, never `none`.
 `/game-day/api/state`. It is a plain read: no CSRF token, no store writes, no source refresh. Answer
 `{ok:true, diagnostics}`, path-free and id-free (no event id, no feed id). `POST` answers 404.
 
+## Page panel (5c-2)
+
+Part 5c-2 (2026-11-26, fence 78). The Game Day page has a **Diagnostics** section under both columns (one column
+below 620 px). It reads the route when the page opens, every 5 s after each answer, after every command and on
+**Read diagnostics again** (a button, reached by Tab). One read at a time; a request during a read reads again after it.
+
+| State | Row | Words |
+|---|---|---|
+| `exchangeFolder` | Exchange folder | Reachable · Not reachable · Not the folder set up on this PC · Not known · Not used on this PC |
+| `catalogSequence` | Exchange catalog | Catalog sequence N read · No catalog read · Not known · Not used on this PC |
+| `approvals` | Approval list | Readable · Could not be read · Not read yet · Not known · Not used on this PC |
+| `prepared` | Prepared event | Prepared, not activated · Preparing · Preparation cleanup running (with `CLOSE_FAILED`: Preparation cleanup not confirmed) · None prepared · Not known |
+| `renderer` | Renderer | Acknowledged · Waiting for acknowledgment · No active event · Not known |
+| `ndiSender` | NDI sender | Sender running · Sender starting · Not running · Output disabled · Not known |
+
+A state's code, when it matches the model's code pattern, shows under its words; text only, never markup. A value
+the page does not know, or a missing state, shows "Not known" (never the value itself). Before the first answer
+every row says "Reading…"; when the read fails every row says "Unavailable" (not the last answer) and the summary
+says the diagnostics could not be read. An access answer (sign-in, page authorization) goes to the page's
+connection banner as the other reads do. After that answer the panel stops reading until the page is reloaded. The summary is a polite live region whose words change only between "read" and "could not be read"; the time of the last read sits on its own line outside it, so a screen reader is not told every 5 s. A fixed note under the rows says a running sender is not a source seen on
+the network, a connected receiver, a selected board input or on air. No row uses "ready" or "on air".
+
 ## Not done here
 
-No page panel yet (5c-2), no command (5c-3), no fault recovery beyond what existed (5c-4, 5c-5). `ndiSender` has
+No command yet (5c-3), no fault recovery beyond what existed (5c-4, 5c-5). `ndiSender` has
 not been compared with a receiver here; the Windows NDI proofs do that for their own jobs only. No hardware,
 stadium PC, board or deployment claim.

@@ -2,6 +2,8 @@
 
 ## 2026-11-19 · Order after the Claude takeover (current page: `docs/agent/CLAUDE_HANDOFF.md`)
 
+2026-11-26 (fence 78): 5c-2 on `feature/5c-2-gameday-diagnostics`. Success (written before the work, from the row): the Game Day page shows the six states of 5c-1 in their own panel with distinct wording (never 'on air', never 'Ready' for a state that is only configured), keyboard-reachable, with loading and unavailable wording; browser test at desktop and 390 px; the existing Game Day browser tests still pass. Built: a Diagnostics panel under both columns, read every 5 s and after each command; `tests/browser/game-day-diagnostics.browser.cjs` (2 tests, fail on the old page).
+
 2026-11-26 (fence 77): 5c split into 5c-1..5c-5; 5c-1 on `feature/5c-1-diagnostics-states`. Success (written before the work, from the row): one module turns the source service's status and the Game Day manager's snapshot into six named, distinct states (exchange folder reachable, catalog sequence, approvals readable, prepared, renderer acknowledged, NDI sender running), each with its own value and code, no on-air state and no field implying one; a read-only GET route answers it path-free on a source and a local machine; Linux unit and route tests, each state removed or merged fails a test. Design note `docs/design/GAME_DAY_DIAGNOSTICS.md`.
 
 2026-11-23 (fence 76): 5b-4 on `feature/5b-4-windows-setup-cached`. Success (written before the work, from the row): the Windows exchange activation job sets up its private stores with `scripts/piraiders-setup.cjs` instead of the fixture, runs it twice (second run changes nothing), and after the online run writes the offline pin, moves the exchange folder away and proves a cached start plays the pictures in order and Stop goes black. Evidence stays under the 5a-3 privacy check. All checks green on the final commit; no hardware or stadium claim.
@@ -45,7 +47,7 @@
    - 5c Diagnostics and recovery. Success criteria: the Game Day page and a command show distinct states (exchange folder reachable, catalog sequence, approvals readable, prepared, renderer acknowledged, NDI sender running; never "on air"); tested recovery from a missing exchange folder, a corrupt cache, an unreadable approval list and a renderer crash, each keeping the last good content or black.
      Split on 2026-11-26 (fence 77) into five S parts, each on its own branch and pull request:
      - 5c-1 Diagnostics states: one model (`scripts/lib/game-day-diagnostics.cjs`) and the read-only route `GET /game-day/api/diagnostics`. Built (fence 77): `tests/game-day-diagnostics.test.cjs`, 3 tests.
-     - 5c-2 The six states on the Game Day page, distinct wording, browser test at desktop and 390 px.
+     - 5c-2 The six states on the Game Day page, distinct wording, browser test at desktop and 390 px. Built (fence 78): Diagnostics panel, `tests/browser/game-day-diagnostics.browser.cjs`, 2 tests.
      - 5c-3 Diagnostics command `scripts/piraiders-diagnose.cjs --machine <file>`: store states without the app, runtime states from the running app or `unknown`.
      - 5c-4 Recovery: exchange folder missing while playing, corrupt cached snapshot; last good content or black, diagnostics name it.
      - 5c-5 Recovery: unreadable approval list, renderer (Caspar) crash; last good content or black, bounded restart.
