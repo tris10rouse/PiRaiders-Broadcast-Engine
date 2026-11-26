@@ -117,8 +117,32 @@ throws what it threw; no admission, preparation or playback decision changed.
 Known gap (queue `Q-007`): online, the app keeps reusing the refused snapshot, so that button stays refused until the
 app restarts (a new coordinator stages a fresh snapshot).
 
+## Recovery: unreadable approval list, renderer crash (5c-5)
+
+Part 5c-5 (2026-11-26, fence 84). Same test file, same real stores, source service, manager, prepared-event runtime and
+RossTalk session; Caspar is a synthetic process the test kills, the program page a scripted one.
+
+| Fault | What happens | Diagnostics |
+|---|---|---|
+| The approval list cannot be read while an event plays (a stray file in its folder: `APPROVAL_INVALID`) | The event keeps its deck and picture and never blacks; Next works. Listing is refused (`CATALOG_INVALID`); nothing new is prepared | `approvals: unreadable` (`APPROVAL_INVALID`) after the listing's read; `renderer` stays `acknowledged` |
+| The same, with a button prepared and not yet activated | Activation refused (`ADMISSION_DENIED`); no renderer session opens: the output stays black. Preparing again is refused before any runtime is built (`CATALOG_INVALID`) | `approvals: unreadable`, `renderer: not-active` |
+| The list is readable again | Listing, preparation and activation work again; Stop blacks | `approvals: readable` |
+| Caspar dies while playing | Its program session closes at once (a real program page blacks itself on that disconnect); control is refused | `renderer: waiting`, `ndiSender: not-running` (no code) at once, before any restart |
+| Restart (the supervisor's limit: `maxRestarts` within `windowMs`, delay `restartDelayMs`; 3 in 60 s, 1.5 s apart by default) | A new Caspar process and a new program session on the same accepted deck. It shows nothing until Launch: black, not a picture from before the crash | `acknowledged`, `running` again once the new page acknowledges |
+| Dies again past the limit | No further process; control refused | `renderer: waiting`, `ndiSender: not-running`, both `SERVICE_FAULT` |
+
+The approvals state is now the newest completed read of the list, by whoever made it: the listing, a review or an
+admission (`exchange-source-service.cjs` observes its one store's `open`). Before 5c-5 only an admission's read
+counted, so a failed listing still showed "readable". A read that started earlier never replaces a newer one; a
+rollback (`APPROVAL_ROLLBACK`) or a closed service holds whatever a later read says. It decides nothing: admission is
+still the revalidator's own read at every manager boundary.
+
+Known gap (queue `Q-009`): past the restart limit the event stays active and dead inside its window. Stop answers
+`CONTROL_INHIBITED` and a new preparation `WINDOW_ACTIVE`, so the operator cannot replace it until the window ends or
+the app restarts.
+
 ## Not done here
 
-No fault recovery beyond 5c-4 (5c-5: unreadable approval list, renderer crash). The command has not been run on Windows. `ndiSender` has
+No other fault recovery is tested. A real Caspar crash on Windows is not tested. The command has not been run on Windows. `ndiSender` has
 not been compared with a receiver here; the Windows NDI proofs do that for their own jobs only. No hardware,
 stadium PC, board or deployment claim.

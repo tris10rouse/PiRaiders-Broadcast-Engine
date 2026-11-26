@@ -64,7 +64,26 @@ function createExchangeSourceService(machine,trusted={}){
   const s=machine.source,realpath=trusted.realpath??fs.realpath;
   if(typeof realpath!=='function')throw fault('SOURCE_SERVICE_OPTIONS_INVALID');
   // One store object reads for the revalidator and writes PC confirmations.
-  const store=trusted.approvalStore===undefined?createExchangeApprovalStore():trusted.approvalStore;
+  const rawStore=trusted.approvalStore===undefined?createExchangeApprovalStore():trusted.approvalStore;
+  // The newest completed read of the approval list, by whoever made it (the
+  // listing, a review, an admission), for the diagnostics (5c-5): a listing
+  // that cannot read the list says so, and one that reads it again says that.
+  // Reads finish out of order; a read started earlier never replaces a newer
+  // one. It decides nothing: admission stays the revalidator's own read.
+  let reads=0,lastRead=null;
+  // The shape every reader here needs: the listing's and the review's reader (openStore) uses the same test.
+  const readableHead=head=>!!head&&head.ok===true&&Array.isArray(head.approvals)&&Number.isSafeInteger(head.revision)&&typeof head.headSha256==='string';
+  // Delegates to the store itself, so a store's own methods keep their receiver (review, fence 84).
+  const store=rawStore&&typeof rawStore.open==='function'?Object.freeze({
+    open:async(...args)=>{
+      const mine=++reads;let head;
+      try{head=await rawStore.open(...args);}
+      finally{
+        const ok=readableHead(head);
+        if(!lastRead||mine>lastRead.seq)lastRead={seq:mine,read:ok,revision:ok?head.revision:null,code:ok?null:head&&typeof head.code==='string'&&CODE.test(head.code)?head.code:'APPROVAL_IO_FAILED'};
+      }
+      return head;},
+    append:(...args)=>rawStore.append(...args)}):rawStore;
   const revalidator=createApprovalRevalidator({machine,store});
   let provider;
   try{
@@ -153,7 +172,7 @@ function createExchangeSourceService(machine,trusted={}){
   }
   async function openStore(){
     let head;try{head=await store.open(s.approvalDirectory,s.approvalStoreId);}catch{head=null;}
-    if(!head||head.ok!==true||!Array.isArray(head.approvals)||!Number.isSafeInteger(head.revision)||typeof head.headSha256!=='string')
+    if(!readableHead(head))
       return{ok:false,code:head&&typeof head.code==='string'&&CODE.test(head.code)?head.code:'APPROVAL_IO_FAILED'};
     return head;
   }
@@ -378,7 +397,9 @@ function createExchangeSourceService(machine,trusted={}){
     };
   }
   function status(){
-    const p=provider.snapshot(),a=revalidator.status();
+    const p=provider.snapshot(),v=revalidator.status();
+    // A rollback or a closed policy holds until a restart, whatever a later read says.
+    const a=v.rolledBack||v.closed||!lastRead?v:{...v,read:lastRead.read,revision:lastRead.revision,code:lastRead.code};
     return Object.freeze({scope:'exchange-source-service',ready:false,providerId:s.providerId,closed,
       catalog:Object.freeze({available:!closed&&browsable,code:closed?'SOURCE_SERVICE_CLOSED':browsable?null:catalogCode}),
       provider:Object.freeze({busy:p.busy,closed:p.closed,observationRevision:p.observationRevision}),
