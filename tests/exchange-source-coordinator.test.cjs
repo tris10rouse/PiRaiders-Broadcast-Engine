@@ -757,7 +757,7 @@ test("inconsistent physical aliases reject metadata before manifest fact even wi
     assert.equal(f.coordinator.snapshot().lastPrepared, null);
 });
 
-test("metadata-only cache tamper fails verified reuse without staging or replacing prior pointer", async t => {
+test("metadata-only cache tamper fails verified reuse without staging and drops the refused pointer", async t => {
     let stages = 0, loads = 0;
     const f = await fixture(t, {
         stage: async r => {
@@ -791,8 +791,16 @@ test("metadata-only cache tamper fails verified reuse without staging or replaci
     assert.equal(r.acceptedMetadata, true);
     assert.equal(stages, 1);
     assert.equal(loads, 1);
-    assert.equal(f.coordinator.snapshot().lastPrepared, first.prepared);
+    // Q-007: the refused snapshot is dropped, never loaded again; the next
+    // preparation stages from the source (absent here, so it fails too).
+    assert.equal(f.coordinator.snapshot().lastPrepared, null);
     assert.equal((await f.head()).state.feeds[0].selections[0].sequence, 2);
+    const again = await f.coordinator.prepareSelection(next.identityTuple);
+    assert.equal(again.ok, false);
+    assert.equal(again.contentPrepared, false);
+    assert.equal(stages, 2);
+    assert.equal(loads, 1);
+    assert.equal(f.coordinator.snapshot().lastPrepared, null);
 });
 
 test("ineligible complete content can cache with explicit false admission eligibility and readiness", async t => {
