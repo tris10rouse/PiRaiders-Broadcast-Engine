@@ -122,21 +122,29 @@ function consoleApplication(rows,hostPid,nodeExecutable){
  const found=descendants(rows,hostPid).filter(row=>row.ParentProcessId===hostPid&&typeof row.ExecutablePath==='string'&&normalized(row.ExecutablePath)===normalized(nodeExecutable));
  assert.equal(found.length,1,'CONSOLE_APP_PARENT');return found[0];
 }
-async function application(machineFile,expectedURL,location,{consoleHost}={}){
+// 5d-3: with `browser` the source entry starts as the operator starts it, without
+// --no-browser, and must answer browserOpened true; every other start answers false.
+function appEntry(location,machineFile,{browser=false}={}){
+ if(typeof browser!=='boolean')throw Error('APP_BROWSER_OPTION');
+ if(browser&&location.extracted)throw Error('APP_BROWSER_SOURCE_ONLY');
+ return[path.join(location.appRoot,'scripts','piraiders-app.cjs'),machineFile,...(browser?[]:['--no-browser'])];
+}
+async function application(machineFile,expectedURL,location,{consoleHost,browser=false}={}){
  // Actual user entry. No preload, injected spawn, manager/runtime or fake child.
  const env=cleanAppEnvironment(process.env,process.env.SystemRoot);
  assert.ok(consoleHost===undefined||(!location.extracted&&typeof consoleHost==='string'),'CONSOLE_HOST_SOURCE_ONLY');
- const entry=[path.join(location.appRoot,'scripts','piraiders-app.cjs'),machineFile,'--no-browser'];
+ const entry=appEntry(location,machineFile,{browser});
  const child=location.extracted
   ?own(spawn(location.jobHost,[location.powershell,'-NoLogo','-NoProfile','-NonInteractive','-Command','& $env:PIRAIDERS_PROOF_ENTRY --no-browser; $appExit=$LASTEXITCODE; Start-Sleep -Seconds 60; exit $appExit'],{cwd:location.appRoot,env:{...env,PIRAIDERS_PROOF_ENTRY:location.entry},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']}))
   :consoleHost?own(spawn(consoleHost,startArgs(location.nodeExecutable,entry),{cwd:location.appRoot,env,windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']}))
   :own(spawn(location.nodeExecutable,entry,{cwd:location.appRoot,env,windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']}));
- let buffer=Buffer.alloc(0),total=0,ready=false;const categories=new Set();
+ let buffer=Buffer.alloc(0),total=0,ready=false,browserAnswer;const categories=new Set();
  child.stderr.on('data',chunk=>{const text=chunk.toString('utf8');for(const line of text.split(/\r?\n/))if(/^[A-Z_]{1,64}$/.test(line))categories.add(line);});
- child.stdout.on('data',chunk=>{total+=chunk.length;if(total>65536){categories.add('APP_STDOUT_LIMIT');return;}buffer=Buffer.concat([buffer,chunk]);for(let end;(end=buffer.indexOf('\n'))>=0;){const line=buffer.subarray(0,end).toString('utf8');buffer=buffer.subarray(end+1);let value;try{value=JSON.parse(line);}catch{continue;}if(value.component==='piraiders-app'&&value.event==='controller-available'&&value.url===expectedURL&&value.browserOpened===false)ready=true;}});
- try{await until(()=>{if(child.exitCode!==null||child.signalCode!==null)throw Error('APPLICATION_START_EXIT');return ready&&!categories.has('APP_STDOUT_LIMIT');},'APPLICATION_START_TIMEOUT',20000);}catch(error){await killApplication(child);throw error;}
+ child.stdout.on('data',chunk=>{total+=chunk.length;if(total>65536){categories.add('APP_STDOUT_LIMIT');return;}buffer=Buffer.concat([buffer,chunk]);for(let end;(end=buffer.indexOf('\n'))>=0;){const line=buffer.subarray(0,end).toString('utf8');buffer=buffer.subarray(end+1);let value;try{value=JSON.parse(line);}catch{continue;}if(value.component==='piraiders-app'&&value.event==='browser-open-failed')categories.add('BROWSER_OPEN_FAILED');if(value.component==='piraiders-app'&&value.event==='controller-available'&&value.url===expectedURL&&typeof value.browserOpened==='boolean'){browserAnswer=value.browserOpened;ready=true;}}});
+ try{await until(()=>{if(child.exitCode!==null||child.signalCode!==null)throw Error('APPLICATION_START_EXIT');return ready&&!categories.has('APP_STDOUT_LIMIT');},'APPLICATION_START_TIMEOUT',20000);
+  assert.equal(browserAnswer,browser,browser?'APP_DID_NOT_REPORT_BROWSER_OPENED':'APP_OPENED_A_BROWSER');}catch(error){await killApplication(child);throw error;}
  try{const rows=processTable(),captured=location.extracted?captureAppParent(rows,child.pid,location.nodeExecutable,location.powershell):{parent:consoleHost?consoleApplication(rows,child.pid,location.nodeExecutable):descendants(rows,child.pid)[0],outerRoots:null};
-  return{child,categories,parentPid:captured.parent.ProcessId,parentIdentity:captured.parent,outerRoots:captured.outerRoots};
+  return{child,categories,browserOpened:browserAnswer,parentPid:captured.parent.ProcessId,parentIdentity:captured.parent,outerRoots:captured.outerRoots};
  }catch(error){await killApplication(child);throw error;}
 }
 async function scenario(location){
@@ -206,4 +214,4 @@ async function main(){
 if(require.main===module)main().catch(()=>{console.error('FULL_APP_PROOF_FAILED');process.exitCode=1;});
 module.exports={ownedCaspar,processCaptureDeadline,capturePinnedTree,captureOwnedCaspar,privateText,startedNoEarlierThan,fixedFailure,
  // Reused unchanged by the exchange activation proof (scripts/smoke-exchange-activation-windows.cjs).
- normalized,until,freePort,filesUnder,settledChild,killApplication,cleanupCaptured,receiver,application,consoleApplication};
+ normalized,until,freePort,filesUnder,settledChild,killApplication,cleanupCaptured,receiver,application,appEntry,consoleApplication};

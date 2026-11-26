@@ -84,7 +84,10 @@ test('console close proof: the activation job closes once by Ctrl+C and once by 
   const proof = fs.readFileSync(path.join(root, 'scripts/smoke-exchange-activation-windows.cjs'), 'utf8');
   assert.match(proof, /closeApplication\('','graceful'\)/);
   assert.match(proof, /closeApplication\('CACHED_','console-close'\)/);
-  assert.equal((proof.match(/consoleHost:consoleClose\.CONSOLE_PROOF/g) || []).length, 2);
+  // Every start of the application runs in a console of its own (5d-3 adds a third).
+  const starts = proof.match(/full\.application\([^)]*\)/g) || [];
+  assert.equal(starts.length, 3);
+  for (const start of starts) assert.match(start, /consoleHost:consoleClose\.CONSOLE_PROOF/);
   assert.doesNotMatch(proof, /app\.child\.kill\(\)/);
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/full-app-proof.yml'), 'utf8');
   const job = workflow.slice(workflow.indexOf('actual-exchange-activation-private-ndi:'), workflow.indexOf('actual-extracted-full-app-private-ndi:'));
