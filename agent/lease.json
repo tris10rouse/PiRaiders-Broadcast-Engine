@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261126T051601Z-d001f1",
   "fence": 84,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "5c-5",
+  "workBranch": "feature/5c-5-approval-renderer-recovery",
   "acquiredAt": "2026-11-26T05:16:01.906Z",
-  "lastHeartbeat": "2026-11-26T05:16:01.906Z",
-  "expiresAt": "2026-11-26T06:46:01.906Z",
+  "lastHeartbeat": "2026-11-26T05:16:31.809Z",
+  "expiresAt": "2026-11-26T06:46:31.809Z",
   "releasedAt": null
 }
