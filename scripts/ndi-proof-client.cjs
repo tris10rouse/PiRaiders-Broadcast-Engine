@@ -9,7 +9,8 @@ function requestProbe(port,token,id,command,values={},timeoutMs=30000){
     const socket=net.createConnection({host:'127.0.0.1',port});let buffer=Buffer.alloc(0),done=false;
     const timer=setTimeout(()=>finish(Error('PROBE_TIMEOUT')),timeoutMs);
     function finish(error,value){if(done)return;done=true;clearTimeout(timer);socket.destroy();if(error)reject(error);else resolve(value);}
-    socket.once('error',()=>finish(Error('PROBE_CONNECTION')));
+    // Q-011: the socket's own fixed code (refused, reset, ...) rides along; never its message.
+    socket.once('error',error=>{const failure=Error('PROBE_CONNECTION');if(typeof error?.code==='string'&&/^E[A-Z0-9_]{1,31}$/.test(error.code))failure.socketCode=error.code;finish(failure);});
     socket.once('connect',()=>socket.write(bytes));
     socket.once('close',()=>{if(!done)finish(Error('PROBE_CLOSED'));});
     socket.on('data',chunk=>{

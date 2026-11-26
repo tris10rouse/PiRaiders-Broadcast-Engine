@@ -16,6 +16,7 @@ const jpeg=require('jpeg-js');
 const {JOB_HOST}=require('./lib/windows-job-process.cjs');
 const {output:PROBE}=require('./build-ndi-probe.cjs');
 const {requestProbe}=require('./ndi-proof-client.cjs');
+const {receiverRecord}=require('./lib/receiver-record.cjs');
 const {command}=require('./smoke-caspar-windows.cjs');
 const {checkConsolePixels}=require('./smoke-caspar-console-windows.cjs');
 const {processTable,descendants,treeState,observeTree,identityReason,identityCaptureDiagnostics,captureProcessTree}=require('./windows-process-evidence.cjs');
@@ -91,15 +92,25 @@ async function cleanupCaptured(captured,jobHost=JOB_HOST,resolveImage=normalized
  }
  await until(()=>{const value=observeTree(processTable(),captured);return value.surviving===0&&value.unknown===0;},'CLEANUP_RECORDED_TREE_SURVIVED',10000);
 }
-async function receiver(root,dll,label,evidence){
- const token=crypto.randomBytes(32).toString('base64url');
- const child=own(spawn(JOB_HOST,[PROBE,dll,label,evidence],{cwd:root,env:{...process.env,PIRAIDERS_NDI_PROBE_TOKEN:token},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']}));
+// Q-011: `bench` replaces the receiver's command for the Linux test only.
+// Every failed request, start or close carries `error.receiver`, the
+// receiver's recorded exit and fixed-word stderr (scripts/lib/receiver-record.cjs).
+async function receiver(root,dll,label,evidence,bench={}){
+ const token=crypto.randomBytes(32).toString('base64url'),record=receiverRecord();
+ const child=own(spawn(bench.executable||JOB_HOST,bench.args||[PROBE,dll,label,evidence],{cwd:root,env:{...process.env,PIRAIDERS_NDI_PROBE_TOKEN:token},windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']}));
+ child.closed.then(({code,signal})=>record.exited(code,signal));child.stderr.on('data',chunk=>record.stderr(chunk));
+ // A lost connection usually means the receiver is exiting: give its exit a moment to be recorded.
+ async function evidenceOn(error,settleMs){
+  // Waits on the record, not exitCode: `exit` can come before stderr closes, and only `close` records it.
+  if(settleMs&&record.snapshot().running){let timer;await Promise.race([child.closed,new Promise(r=>{timer=setTimeout(r,settleMs);})]);clearTimeout(timer);}
+  if(error&&typeof error==='object')error.receiver=record.snapshot();return error;
+ }
  let seq=0,port,done=false,buffer=Buffer.alloc(0),timer;
  const ready=new Promise((resolve,reject)=>{
   const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);error?reject(error):resolve(value);};
   timer=setTimeout(()=>finish(Error('RECEIVER_START_TIMEOUT')),20000);
   child.once('error',()=>finish(Error('RECEIVER_SPAWN')));child.closed.then(()=>finish(Error('RECEIVER_EXITED')));
-  child.stderr.resume();child.stdout.on('data',chunk=>{
+  child.stdout.on('data',chunk=>{
    if(done)return;if(buffer.length+chunk.length>16384)return finish(Error('RECEIVER_START_LIMIT'));
    buffer=Buffer.concat([buffer,chunk]);for(let end;(end=buffer.indexOf('\n'))>=0;){
     const line=buffer.subarray(0,end).toString('utf8');buffer=buffer.subarray(end+1);let value;try{value=JSON.parse(line);}catch{continue;}
@@ -109,11 +120,16 @@ async function receiver(root,dll,label,evidence){
    }
   });
  });
- let info;try{info=await ready;}catch(error){await closeChild(child);throw error;}
- return{child,info,request:(name,values={},timeoutMs=30000)=>requestProbe(port,token,++seq,name,values,timeoutMs),async close(){
-  let failed;try{if(child.exitCode===null)await requestProbe(port,token,++seq,'close',{},5000);const result=await settledChild(child);assert.equal(result.code,0,'RECEIVER_CLOSE_FAILED');assert.equal(result.signal,null,'RECEIVER_CLOSE_SIGNAL');}catch(error){failed=error;}
-  finally{child.stdin.end();await settledChild(child);}if(failed)throw failed;
- }};
+ let info;try{info=await ready;}catch(error){try{await closeChild(child);}finally{await evidenceOn(error,0);}throw error;}
+ return{child,info,diagnostics:()=>record.snapshot(),
+  async request(name,values={},timeoutMs=30000){
+   try{return await requestProbe(port,token,++seq,name,values,timeoutMs);}
+   catch(error){throw await evidenceOn(error,/^PROBE_(CONNECTION|CLOSED)$/.test(error?.message)?3000:0);}
+  },
+  async close(){
+   let failed;try{if(child.exitCode===null)await requestProbe(port,token,++seq,'close',{},5000);const result=await settledChild(child);assert.equal(result.code,0,'RECEIVER_CLOSE_FAILED');assert.equal(result.signal,null,'RECEIVER_CLOSE_SIGNAL');}catch(error){failed=error;}
+   finally{child.stdin.end();await settledChild(child);}if(failed)throw await evidenceOn(failed,0);
+  }};
 }
 // 5d-2: with `consoleHost` the source entry runs in a console of its own
 // (scripts/console-close-proof.cjs); the application process is that host's

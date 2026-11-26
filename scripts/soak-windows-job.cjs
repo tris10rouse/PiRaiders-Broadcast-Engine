@@ -60,4 +60,13 @@ async function waitFor(atMs,{now,sleep}){
   return Math.max(0,Math.round(now()-atMs));
 }
 
-module.exports={soakDuration,USAGE_QUERY,usageTable,ownedUsage,sampleCycle,waitFor};
+// Q-011: the failure line's receiver part. The failed request's own record
+// (taken when it failed) wins; else the receiver's record now; the socket's
+// fixed code only when it is one. Numbers and fixed words only.
+function receiverEvidence(error,probe){
+  const socketCode=error&&typeof error.socketCode==='string'&&/^E[A-Z0-9_]{1,31}$/.test(error.socketCode)?error.socketCode:null;
+  let receiver=error&&error.receiver&&typeof error.receiver==='object'?error.receiver:null;
+  if(!receiver&&probe&&typeof probe.diagnostics==='function')try{receiver=probe.diagnostics();}catch{}
+  return{socketCode,receiver:receiver||null};
+}
+module.exports={soakDuration,USAGE_QUERY,usageTable,ownedUsage,sampleCycle,waitFor,receiverEvidence};
