@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261126T051601Z-d001f1",
+  "status": "idle",
+  "owner": null,
   "fence": 84,
-  "task": "5c-5",
-  "workBranch": "feature/5c-5-approval-renderer-recovery",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-26T05:16:01.906Z",
-  "lastHeartbeat": "2026-11-26T06:02:41.058Z",
-  "expiresAt": "2026-11-26T07:32:41.058Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-26T06:02:51.486Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-26T06:02:51.486Z"
 }
