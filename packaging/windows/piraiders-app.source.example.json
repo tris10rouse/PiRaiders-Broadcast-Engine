@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "spxConfigFile": "config.json",
+  "catalogDirectory": "events",
+  "mediaRoot": "<REPLACE: the exchange folder as this PC reaches it>",
+  "cacheRoot": "cache",
+  "runtimeRoot": "event-runtime",
+  "caspar": {
+    "executable": "C:/PiRaiders-Components/CasparCG/casparcg.exe",
+    "cwd": "C:/PiRaiders-Components/CasparCG"
+  },
+  "output": {
+    "type": "ndi",
+    "name": "PiRaiders",
+    "runtimeDirectory": "<REPLACE: the folder holding Processing.NDI.Lib.x64.dll>"
+  },
+  "rossTalk": {
+    "host": "127.0.0.1",
+    "port": 7788,
+    "allowedSenders": [
+      "127.0.0.1"
+    ],
+    "commandMap": {
+      "1": "launch",
+      "2": "next",
+      "3": "previous",
+      "4": "auto",
+      "5": "reload",
+      "6": "manual",
+      "8": "stop"
+    },
+    "acknowledgements": true
+  },
+  "source": {
+    "providerId": "approved-feed",
+    "journalDirectory": "data/exchange-journal",
+    "journalStoreId": "<REPLACE: a new random id>",
+    "approvalDirectory": "data/exchange-approvals",
+    "approvalStoreId": "<REPLACE: another new random id>",
+    "expectedCanonicalRoot": "<REPLACE: the exchange folder's real full path>",
+    "binding": {
+      "feedId": "<REPLACE: the feed id from the exchange>",
+      "epoch": "<REPLACE: the feed epoch from the exchange, a whole number>"
+    }
+  }
+}
