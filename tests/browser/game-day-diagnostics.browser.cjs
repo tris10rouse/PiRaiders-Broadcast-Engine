@@ -64,10 +64,15 @@ function noClaims(texts){for(const text of texts){assert.doesNotMatch(text,/\bre
 test('source machine: six distinct states, loading, keyboard re-read, faults and an unreadable answer',async t=>{
   const {page,model,origin}=await scripted(t);
   const first=deferred(),entered=deferred();model.hold={entered,release:first};
+  // Q-008: the page's own 5 s bound on a GET is real time. A cold first page
+  // on hosted Windows took over 5 s (job 139667346571), so that bound aborted
+  // the read this test holds. The page's clock stands still while it is held.
+  await page.clock.install();await page.clock.pauseAt(Date.now()+1000);
   await page.goto(origin+'/game-day');await entered.promise;
+  await new Promise(resolve=>setTimeout(resolve,5500));
   assert.equal(await page.locator('#diagnostics-summary').textContent(),'Reading diagnostics…');
   assert.deepEqual(await rows(page),NAMES.map(()=>'Reading…'));
-  first.resolve();await page.waitForFunction(()=>document.querySelector('#diagnostics-summary').textContent.startsWith('Diagnostics read.'));
+  first.resolve();await page.clock.resume();await page.waitForFunction(()=>document.querySelector('#diagnostics-summary').textContent.startsWith('Diagnostics read.'));
   // Everything up: still six separate statements, none of them "ready" or "on air".
   const up=await rows(page);
   assert.deepEqual(up,['Reachable','Catalog sequence 7 read','Readable','None prepared','Acknowledged','Sender running']);
@@ -119,6 +124,20 @@ test('source machine: six distinct states, loading, keyboard re-read, faults and
   assert.equal(await page.locator('#diagnostics-summary').textContent(),'Diagnostics could not be read. Check the connection to the application, then read them again.');
   await page.screenshot({path:path.join(evidence,'game-day-diagnostics-source-unavailable.png'),fullPage:true});
   model.fail=0;await readAgain(page,model);assert.equal((await rows(page))[0],'Not the folder set up on this PC');
+});
+
+test('a read held past the page\'s 5 s bound shows could not be read, then a re-read recovers',async t=>{
+  const {page,model,origin}=await scripted(t);
+  const held=deferred(),entered=deferred();model.hold={entered,release:held};
+  await page.clock.install();await page.clock.pauseAt(Date.now()+1000);
+  await page.goto(origin+'/game-day');await entered.promise;
+  await page.clock.runFor(4900);
+  assert.equal(await page.locator('#diagnostics-summary').textContent(),'Reading diagnostics…');
+  await page.clock.runFor(200);
+  await page.waitForFunction(()=>document.querySelector('#diagnostics-summary').textContent.startsWith('Diagnostics could not be read.'));
+  assert.deepEqual(await rows(page),NAMES.map(()=>'Unavailable'));
+  held.resolve();await page.clock.resume();await readAgain(page,model);
+  assert.equal(await page.locator('#diagnostics-summary').textContent(),'Diagnostics read. They are read again every few seconds.');
 });
 
 test('after an access answer the page stops reading diagnostics, also on the button',async t=>{
