@@ -43,6 +43,7 @@ const routes=require('./exchange-activation-routes.cjs');
 const {auditEvidence,removeViolations}=require('./proof-evidence-privacy.cjs');
 const consoleClose=require('./console-close-proof.cjs');
 const soak=require('./soak-proof.cjs');
+const receiverLifetime=require('./lib/receiver-lifetime.cjs');
 const job=require('./soak-windows-job.cjs');
 const checkoutRoot=path.resolve(__dirname,'..');
 // The allowlisted RossTalk map; Stop on odd cycles goes over the command route instead.
@@ -95,7 +96,7 @@ async function scenario(location,plan){
   try{
     phase='SETUP_COMMAND';setup.checkSetupTwice(await setup.runSetupCommand(built.machineFile,{appRoot:location.appRoot,nodeExecutable:location.nodeExecutable,pin:false}),
       await setup.runSetupCommand(built.machineFile,{appRoot:location.appRoot,nodeExecutable:location.nodeExecutable,pin:false}));mark('setUp');
-    phase='RECEIVER';probe=await full.receiver(tools,ndi.dllPath,label,evidence);
+    phase='RECEIVER';probe=await full.receiver(tools,ndi.dllPath,label,evidence,{},{lifetimeMinutes:receiverLifetime.soakReceiverLifetime(plan)});
     phase='APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location,{consoleHost:consoleClose.CONSOLE_PROOF});mark('applicationReady');
     browser=await chromium.launch({headless:true,args:['--no-sandbox']});
     page=await browser.newPage({viewport:{width:1440,height:1000}});
@@ -172,7 +173,7 @@ async function scenario(location,plan){
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
   const plan=job.soakDuration(process.env.PIRAIDERS_SOAK_MINUTES||'');
-  console.log(JSON.stringify({event:'soak-proof-plan',run:plan.run,cycles:plan.cycles,durationMs:plan.durationMs}));
+  console.log(JSON.stringify({event:'soak-proof-plan',run:plan.run,cycles:plan.cycles,durationMs:plan.durationMs,receiverLifetimeMinutes:receiverLifetime.soakReceiverLifetime(plan)}));
   await scenario(sourceLocation(checkoutRoot),plan);
 }
 if(require.main===module)main().catch(()=>{console.error('SOAK_PROOF_FAILED');process.exitCode=1;});

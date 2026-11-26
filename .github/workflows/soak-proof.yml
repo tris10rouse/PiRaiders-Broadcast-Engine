@@ -12,6 +12,10 @@ on:
       - 'scripts/smoke-soak-windows.cjs'
       - 'scripts/soak-proof.cjs'
       - 'scripts/soak-windows-job.cjs'
+      # Q-012: the soak's receiver and how it is started.
+      - 'native/windows/NdiProbe.cs'
+      - 'scripts/lib/receiver-lifetime.cjs'
+      - 'scripts/smoke-full-app-windows.cjs'
   workflow_dispatch:
     inputs:
       minutes:

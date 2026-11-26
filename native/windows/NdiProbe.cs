@@ -80,7 +80,14 @@ internal static class NdiProbe
     private const int Video = 1;
     private const uint Bgra = 0x41524742;
     private const uint Bgrx = 0x58524742;
-    private const int GlobalDeadlineMs = 8 * 60 * 1000;
+    // Q-012: 8 minutes unless the caller passes whole minutes as a fourth
+    // argument (the soak job only), within 8..330 (the soak's five-hour ceiling
+    // plus a 30-minute margin); anything else fails closed. Same numbers as
+    // scripts/lib/receiver-lifetime.cjs; a Linux test keeps them equal.
+    private const int DefaultLifetimeMinutes = 8;
+    private const int MaxLifetimeMinutes = 330;
+    private static int LifetimeMinutes = DefaultLifetimeMinutes;
+    private static long GlobalDeadlineMs = DefaultLifetimeMinutes * 60L * 1000L;
     private static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
     private static readonly Stopwatch Lifetime = Stopwatch.StartNew();
     private static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 4096, RecursionLimit = 8 };
@@ -509,7 +516,14 @@ internal static class NdiProbe
         try
         {
             Console.OutputEncoding = Utf8;
-            Require(args.Length == 3, "INVALID_ARGS"); string dll = LocalPath(args[0]); TargetLabel = args[1]; EvidenceDirectory = LocalPath(args[2]);
+            Require(args.Length == 3 || args.Length == 4, "INVALID_ARGS"); string dll = LocalPath(args[0]); TargetLabel = args[1]; EvidenceDirectory = LocalPath(args[2]);
+            if (args.Length == 4)
+            {
+                int minutes;
+                Require(Regex.IsMatch(args[3], "^[1-9][0-9]{0,2}$") && Int32.TryParse(args[3], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out minutes)
+                    && minutes >= DefaultLifetimeMinutes && minutes <= MaxLifetimeMinutes, "INVALID_LIFETIME");
+                LifetimeMinutes = minutes; GlobalDeadlineMs = minutes * 60L * 1000L;
+            }
             Require(File.Exists(dll) && String.Equals(Path.GetFileName(dll), "Processing.NDI.Lib.x64.dll", StringComparison.OrdinalIgnoreCase), "RUNTIME_PATH");
             Require(!String.IsNullOrWhiteSpace(TargetLabel) && TargetLabel.Length <= 64, "INVALID_ARGS");
             foreach (char c in TargetLabel) Require(c >= 32 && c <= 126, "INVALID_ARGS");
@@ -519,7 +533,7 @@ internal static class NdiProbe
             string version = Initialize(dll);
             listener = new TcpListener(IPAddress.Loopback, 0); listener.Start(4);
             Console.WriteLine(Json.Serialize(new Dictionary<string, object> {
-                { "event", "ndi-probe-ready" }, { "port", ((IPEndPoint)listener.LocalEndpoint).Port }, { "runtimeVersion", version }, { "abiValid", true }
+                { "event", "ndi-probe-ready" }, { "port", ((IPEndPoint)listener.LocalEndpoint).Port }, { "runtimeVersion", version }, { "abiValid", true }, { "lifetimeMinutes", LifetimeMinutes }
             }));
             bool close = false;
             while (!close)
