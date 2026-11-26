@@ -148,14 +148,14 @@ async function scenario(location,plan){
     console.error(JSON.stringify({event:'soak-proof-fixed-failure',phase,cycle,step,
       routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,
       code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),processIdentityReason:identityReason(error),
-      soak:soakPart,stopMisses:stopMisses.slice(0,20),maxStepLateMs,framesSeen,treeCounts:lastTreeCounts||null,appCategories:app?[...app.categories]:[],evidenceViolations,timingsMs:timings}));
+      soak:soakPart,...job.receiverEvidence(error,probe),stopMisses:stopMisses.slice(0,20),maxStepLateMs,framesSeen,treeCounts:lastTreeCounts||null,appCategories:app?[...app.categories]:[],evidenceViolations,timingsMs:timings}));
     throw Error('SOAK_PROOF_FAILED');
   }finally{
     const cleanup=[];try{await browser?.close();}catch{cleanup.push('BROWSER');}
     try{await full.killApplication(app?.child);}catch{cleanup.push('APPLICATION');}
     try{await full.cleanupCaptured(cleanupTree,location.jobHost);}catch{cleanup.push('RECORDED_TREE');}
     try{await probe?.close();}catch{cleanup.push('RECEIVER');}
-    if(cleanup.length){console.error(JSON.stringify({event:'soak-proof-cleanup-failed',parts:cleanup}));throw Error('SOAK_PROOF_CLEANUP');}
+    if(cleanup.length){console.error(JSON.stringify({event:'soak-proof-cleanup-failed',parts:cleanup,receiver:job.receiverEvidence(null,probe).receiver}));throw Error('SOAK_PROOF_CLEANUP');}
   }
   const report={event:plan.run==='soak'?'soak-windows-proof-passed':'soak-check-run-windows-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,
     casparProvenance:toolInfo.provenance,ndiProvenance:ndi.provenance,runtimeVersion:probe.info.runtimeVersion,actualCLI:true,sourceMachine:true,syntheticExchangeFolder:true,
