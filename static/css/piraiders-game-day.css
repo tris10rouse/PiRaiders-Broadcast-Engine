@@ -44,3 +44,4 @@ body[data-mode=source] .playback-section{grid-column:2;grid-row:1/span 2}
 .diagnostics .diag-code{display:block;font-size:11px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
 @media(max-width:900px){.diagnostics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.diagnostics-section{padding:21px 18px}.diagnostics{grid-template-columns:1fr;gap:12px}.diagnostics div{display:flex;justify-content:space-between;gap:15px}.diagnostics dt{margin:0}.diagnostics dd{text-align:right}}
+.diag-time{margin-top:2px;font-size:12px}

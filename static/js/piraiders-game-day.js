@@ -146,10 +146,12 @@
       const states = value.ok && value.diagnostics && typeof value.diagnostics === 'object' ? value.diagnostics.states : null;
       if (!states || typeof states !== 'object') throw Error();
       for (const name of Object.keys(DIAG)) showDiagnostic(name, states[name] ?? null);
-      setText('diagnostics-summary', 'Read at ' + new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) + '. Read again every few seconds.');
+      // The live line changes only between read and unreadable; the time sits outside it, so a screen reader is not told every 5 s.
+      setText('diagnostics-summary', 'Diagnostics read. They are read again every few seconds.');
+      setText('diagnostics-time', 'Read at ' + new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) + '.'); $('diagnostics-time').hidden = false;
     }).catch(error => {
       for (const name of Object.keys(DIAG)) showDiagnostic(name, undefined);
-      setText('diagnostics-summary', 'Diagnostics could not be read. Check the connection to the application, then read them again.');
+      setText('diagnostics-summary', 'Diagnostics could not be read. Check the connection to the application, then read them again.'); $('diagnostics-time').hidden = true;
       if (accessCodes.has(error.code)) setConnection(accessState(error.code));
     }).finally(() => {
       diagFlight = null; $('diagnostics-refresh').removeAttribute('aria-busy');

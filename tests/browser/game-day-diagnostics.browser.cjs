@@ -67,13 +67,23 @@ test('source machine: six distinct states, loading, keyboard re-read, faults and
   await page.goto(origin+'/game-day');await entered.promise;
   assert.equal(await page.locator('#diagnostics-summary').textContent(),'Reading diagnostics…');
   assert.deepEqual(await rows(page),NAMES.map(()=>'Reading…'));
-  first.resolve();await page.waitForFunction(()=>document.querySelector('#diagnostics-summary').textContent.startsWith('Read at'));
+  first.resolve();await page.waitForFunction(()=>document.querySelector('#diagnostics-summary').textContent.startsWith('Diagnostics read.'));
   // Everything up: still six separate statements, none of them "ready" or "on air".
   const up=await rows(page);
   assert.deepEqual(up,['Reachable','Catalog sequence 7 read','Readable','None prepared','Acknowledged','Sender running']);
   assert.equal(new Set(up).size,6);noClaims(up);assert.deepEqual(await codes(page),[null,null,null,null,null,null]);
   assert.equal(await page.locator('#diagnostics dt').count(),6);
   await page.screenshot({path:path.join(evidence,'game-day-diagnostics-source-desktop.png'),fullPage:true});
+  // The live status line stays the same across quiet reads; the time is outside it.
+  const live=await page.locator('#diagnostics-summary').textContent();
+  assert.doesNotMatch(live,/\d:\d\d/);assert.equal(await page.locator('#diagnostics-summary').getAttribute('aria-live'),'polite');
+  assert.match(await page.locator('#diagnostics-time').textContent(),/^Read at \d/);
+  assert.equal(await page.locator('#diagnostics-time').evaluate(e=>e.closest('[aria-live]')),null);
+  await readAgain(page,model);assert.equal(await page.locator('#diagnostics-summary').textContent(),live);
+  // Desktop layout: under both columns, full width, three per row.
+  const desk=await page.evaluate(()=>{const w=document.querySelector('.workspace').getBoundingClientRect(),d=document.querySelector('#diagnostics-section').getBoundingClientRect(),p=document.querySelector('.playback-section').getBoundingClientRect(),src=document.querySelector('#source-section').getBoundingClientRect();
+    const r=[...document.querySelectorAll('#diagnostics > div')].map(x=>x.getBoundingClientRect());return{full:Math.abs(d.width-w.width)<=2,below:d.top>=Math.max(p.bottom,src.bottom)-1,cols:new Set(r.map(x=>Math.round(x.left))).size};});
+  assert.deepEqual(desk,{full:true,below:true,cols:3});
 
   // The re-read button is reached by Tab from the page's own controls.
   await page.locator('#source-refresh').focus();let reached=false;
@@ -124,12 +134,15 @@ test('after an access answer the page stops reading diagnostics, also on the but
 test('local machine at 390 px: exchange states not used, one column, no sideways scroll',async t=>{
   const {page,model,origin}=await scripted(t,{sourceMode:false,width:390,height:844});
   model.snapshot={active:{cleanup:'open',runtime:{state:'ready',ready:true,output:'none'}},candidate:null};
-  await page.goto(origin+'/game-day');await page.waitForFunction(()=>document.querySelector('#diagnostics-summary').textContent.startsWith('Read at'));
+  await page.goto(origin+'/game-day');await page.waitForFunction(()=>document.querySelector('#diagnostics-summary').textContent.startsWith('Diagnostics read.'));
   const texts=await rows(page);
   assert.deepEqual(texts,['Not used on this PC','Not used on this PC','Not used on this PC','None prepared','Acknowledged','Output disabled']);noClaims(texts);
   await page.locator('#diagnostics-section').scrollIntoViewIfNeeded();assert.ok(await page.locator('#diagnostics-section').isVisible());
   const layout=await page.evaluate(()=>{const s=document.scrollingElement,m=document.querySelector('main');const r=[...document.querySelectorAll('#diagnostics > div')].map(d=>d.getBoundingClientRect());
-    return{page:s.scrollWidth-s.clientWidth,main:m.scrollWidth-m.clientWidth,lefts:new Set(r.map(x=>Math.round(x.left))).size};});
+    const row=document.querySelector('#diagnostics > div'),dt=row.querySelector('dt').getBoundingClientRect(),dd=row.querySelector('dd').getBoundingClientRect();
+    return{page:s.scrollWidth-s.clientWidth,main:m.scrollWidth-m.clientWidth,lefts:new Set(r.map(x=>Math.round(x.left))).size,sameLine:Math.abs(dt.top-dd.top)<4&&dd.left>dt.right,
+      below:document.querySelector('#diagnostics-section').getBoundingClientRect().top>=document.querySelector('.playback-section').getBoundingClientRect().bottom-1};});
   assert.equal(layout.page,0);assert.ok(layout.main<=0,'main does not scroll sideways');assert.equal(layout.lefts,1,'one column');
+  assert.ok(layout.sameLine,'name and value share a line at 390 px');assert.ok(layout.below,'below playback');
   await page.screenshot({path:path.join(evidence,'game-day-diagnostics-local-390.png'),fullPage:true});
 });

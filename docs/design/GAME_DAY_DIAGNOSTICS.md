@@ -52,7 +52,7 @@ A state's code, when it matches the model's code pattern, shows under its words;
 the page does not know, or a missing state, shows "Not known" (never the value itself). Before the first answer
 every row says "Reading…"; when the read fails every row says "Unavailable" (not the last answer) and the summary
 says the diagnostics could not be read. An access answer (sign-in, page authorization) goes to the page's
-connection banner as the other reads do. A fixed note under the rows says a running sender is not a source seen on
+connection banner as the other reads do. After that answer the panel stops reading until the page is reloaded. The summary is a polite live region whose words change only between "read" and "could not be read"; the time of the last read sits on its own line outside it, so a screen reader is not told every 5 s. A fixed note under the rows says a running sender is not a source seen on
 the network, a connected receiver, a selected board input or on air. No row uses "ready" or "on air".
 
 ## Not done here
