@@ -331,7 +331,13 @@ function createExchangeSourceProvider(raw, trusted = {}) {
             prepared: null,
             offline: false,
             offlineVerified: false,
-            admissionObservation: null
+            admissionObservation: null,
+            // Diagnostics (5c-4): the code of a refused initial() preparation
+            // (one driver per preparation), or null. For an eligible source whose pictures
+            // could not be prepared it is the coordinator's cause (for example
+            // CACHE_CHANGED for a cached snapshot whose bytes changed), while
+            // initial() still throws SOURCE_ADMISSION_DENIED as before.
+            failure: null
         };
         const offlineContext = freeze({
             providerId: c.providerId,
@@ -371,6 +377,7 @@ function createExchangeSourceProvider(raw, trusted = {}) {
             state.prepared = null;
             state.offlineVerified = false;
             state.admissionObservation = null;
+            let cause = null;
             return operation(state, signal, async (run, active) => {
                 await privatePaths(privateRoots, active);
                 await checkJournal(active);
@@ -384,12 +391,19 @@ function createExchangeSourceProvider(raw, trusted = {}) {
                     return prepared;
                 }
                 const captured = await observe(m.identityTuple, 'prepareSelection', run, active);
-                if (!captured.result.contentPrepared || !captured.observation.eligible) fail('SOURCE_ADMISSION_DENIED');
+                if (!captured.result.contentPrepared || !captured.observation.eligible) {
+                    const code = captured.result.code;
+                    if (captured.observation.eligible && typeof code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(code) && ![ 'METADATA_ACCEPTED', 'CONTENT_PREPARED' ].includes(code)) cause = code;
+                    fail('SOURCE_ADMISSION_DENIED');
+                }
                 const prepared = await verified(captured.result.prepared.snapshotDir, profile, run.abort.signal, active, captured.pin.manifest.playbackFingerprint);
                 state.offline = false;
                 state.prepared = prepared;
                 state.admissionObservation = captured.observation;
                 return prepared;
+            }).catch(error => {
+                state.failure = cause ?? error.code;
+                throw error;
             });
         }
         async function resolveReload({
@@ -453,6 +467,7 @@ function createExchangeSourceProvider(raw, trusted = {}) {
             resolveReload: resolveReload,
             admissionToken: admissionToken,
             canCommitPreparedSnapshot: canCommitPreparedSnapshot,
+            failureCode: () => state.failure,
             close() {
                 state.closed = true;
                 if (slot?.owner === state) slot.abort.abort();

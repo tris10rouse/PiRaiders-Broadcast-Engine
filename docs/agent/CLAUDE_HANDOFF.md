@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-26 (builder run, lock fence 81; Q-004: the NDI proof's crash listing retries a timed-out query; #98 then waits for its checks). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-26 (builder run, lock fence 82; 5c-4 merged by #98 after master's Q-004 fix came into its branch). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -20,7 +20,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5c-1 Diagnostics states: one model and a read-only route | S | One module, one GET route, Linux tests | landed by #95 on 2026-11-26 (fence 77): `game-day-diagnostics.cjs`, `GET /game-day/api/diagnostics`, design note `GAME_DAY_DIAGNOSTICS.md` |
 | 5c-2 Diagnostics on the Game Day page | S | One panel and one browser test | landed by #96 on 2026-11-26 (fence 78): Diagnostics panel under both columns, read every 5 s; `tests/browser/game-day-diagnostics.browser.cjs` at 1440 and 390 px |
 | 5c-3 Diagnostics command | S | One Node command over the stores and the route, Linux tests | landed by #97 on 2026-11-26 (fence 79): `scripts/piraiders-diagnose.cjs --machine <file>`; store states read without the app and without writes, runtime states from the app's route or `unknown` with `APP_NOT_RUNNING` (login, 503, wrong mode and bad answers have their own codes) |
-| 5c-4 Recovery: missing exchange folder, corrupt cache | S | Two faults, Linux tests on real stores | built, PR #98 open (fence 80): every check green on `730b0f1` but `actual-ndi-sdk-receiver` (Q-004); waits for Q-004 |
+| 5c-4 Recovery: missing exchange folder, corrupt cache | S | Two faults, Linux tests on real stores | landed by #98 on 2026-11-26 (built fence 80, merged fence 82 after Q-004): `tests/game-day-recovery.test.cjs`; folder gone mid-event keeps the deck (real runtime and session), back reads again; a corrupt cache is refused, never played, `prepared: none` names `CACHE_CHANGED` |
 | Q-007 Corrupt reused snapshot refused until the app restarts | S | Found by 5c-4; one decision and a test | not started |
 | Open failing check: Windows `static-contracts`, browser test "source machine: six distinct states…" (`game-day-diagnostics.browser.cjs:68`: the first diagnostics read, held by the test, already showed "could not be read") on #99's docs-only `3e19eb7` (job 139667346571) | fix | Cause unknown; passed on Windows on `730b0f1` and on Linux. Not rerun. Queue `Q-008`, first | recorded |
 | 5c-5 Recovery: unreadable approval list, renderer crash | S | Two faults, Linux tests; a renderer crash may need a stand-in | not started |
@@ -37,14 +37,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 3 S (5c-4 to merge, 5c-5, Q-007) + 3 M = 9 sized runs. Pace from every merged part so far: 19 runs for 17 sized runs = 1.12. 9 x 1.12 + 3 open failing checks (Windows diagnostics browser test Q-008, full-app receiver start, Caspar CEF) = **about 13 runs**.
+**Estimate:** remaining sizes 2 S (5c-5, Q-007) + 3 M = 8 sized runs. Pace from every merged part so far: 20 runs for 18 sized runs = 1.11. 8 x 1.11 + 3 open failing checks (Windows diagnostics browser test Q-008, full-app receiver start, Caspar CEF) = **about 12 runs**.
 
-Parts left · runs left: 6 parts (5c-4, 5c-5, Q-007, 5d to 5f) + Q-008 (todo) + 2 parked fix rows · about 13 runs.
+Parts left · runs left: 5 parts (5c-5, Q-007, 5d to 5f) + Q-008 (todo) + 2 parked fix rows · about 12 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-26 | 82 | merged (#98) | 5c-4: master (Q-004's NDI crash-listing retry) merged into `feature/5c-4-folder-cache-recovery`, no force push; checks rerun on the new head, not on the old red commit |
 | 2026-11-26 | 81 | fix (#100, Q-004) | NDI proof `CRASH_ENUMERATE`: the crash phase's single process listing (timed out at 15 s on `16f82e8` and `730b0f1`) reads through the bounded capture, timed-out queries repeated at most 3 and counted; Linux test fails without it; review: none confirmed. #98 (5c-4) red only on that check, waits for its checks next run |
 | 2026-11-26 | 80 | built, PR #98 held; row Q-007 | 5c-4: folder gone mid-event keeps deck, picture and output, back a refresh reads again; corrupt cache refused, never played, `prepared: none` names `CACHE_CHANGED`; 3 Linux tests, review fix with a test. #98 red only on the NDI proof `CRASH_ENUMERATE` (second time: Q-004 to todo; 5c-4 back to todo with `PR: #98`). Found Q-007. The queue PR #99 failed a Windows diagnostics browser test (new, Q-008, first) |
 | 2026-11-26 | 79 | merged (#97) | 5c-3: diagnostics command, six states in one JSON line, `from: stores|app`; store states read-only (tree unchanged in test), runtime states from the real route, never `not-running` for an app that answers; 7 Linux tests, each of 7 guards removed fails one; review: an idle-only timeout and a stalled listener read as not running, `port:false` not 5656, each fixed with a test |

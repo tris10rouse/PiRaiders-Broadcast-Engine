@@ -8,6 +8,8 @@
 const STATES=Object.freeze(['exchangeFolder','catalogSequence','approvals','prepared','renderer','ndiSender']);
 const NEVER_CLAIMED=Object.freeze(['sourceDiscovered','receiverConnected','boardInputSelected','onAir']);
 const CODE=/^[A-Z][A-Z0-9_]{0,63}$/;
+// The manager's lastError values that mean its last preparation was refused.
+const PREPARATION_REFUSALS=new Set(['ADMISSION_DENIED','CATALOG_INVALID','RUNTIME_INVALID']);
 function code(value){return typeof value==='string'&&CODE.test(value)?value:value?'STATE_UNAVAILABLE':null;}
 function entry(state,codeValue=null,extra={}){return Object.freeze({state,code:code(codeValue),...extra});}
 async function exchangeFolder(source){
@@ -39,13 +41,21 @@ function approvals(source,status){
   if(!a.code||a.code==='APPROVAL_NOT_READ')return entry('not-read',a.code);
   return entry('unreadable',a.code);
 }
-function prepared(snapshot,missing){
+function prepared(snapshot,missing,status){
   if(!snapshot||typeof snapshot!=='object')return entry('unknown',missing);
   const c=snapshot.candidate;
   if(c&&c.cleanup==='open')return entry('prepared');
   if(c)return entry('cleanup',c.cleanup==='failed'?'CLOSE_FAILED':null);
   if(snapshot.preparing===true||snapshot.operation==='preparing')return entry('preparing');
-  return entry('none');
+  // Nothing prepared: when the manager's last preparation was refused, its
+  // code names why (5c-4). A runtime that could not be built is the manager's
+  // PREPARE_FAILED; the source service's cause replaces it there, for example
+  // CACHE_CHANGED for a cached snapshot whose bytes changed. A refusal after
+  // the runtime was built (ADMISSION_DENIED) or before it (CATALOG_INVALID)
+  // is the manager's own. The manager clears it when a preparation succeeds.
+  const last=snapshot.lastError;
+  if(last==='PREPARE_FAILED')return entry('none',status?.preparation?.code??last);
+  return entry('none',PREPARATION_REFUSALS.has(last)?last:null);
 }
 function activeRuntime(snapshot){const a=snapshot?.active;return a&&a.cleanup==='open'?a.runtime||null:null;}
 function renderer(snapshot,missing){
@@ -72,7 +82,7 @@ async function diagnose({source=null,manager=null}={}){
   let snapshot=null,missing='SOURCE_PLAYBACK_NOT_READY';
   if(manager){try{snapshot=manager.snapshot();}catch{snapshot=null;}missing='STATE_UNAVAILABLE';}
   const states={exchangeFolder:await exchangeFolder(source),catalogSequence:catalogSequence(source,status),approvals:approvals(source,status),
-    prepared:prepared(snapshot,missing),renderer:renderer(snapshot,missing),ndiSender:ndiSender(snapshot,missing)};
+    prepared:prepared(snapshot,missing,status),renderer:renderer(snapshot,missing),ndiSender:ndiSender(snapshot,missing)};
   return Object.freeze({scope:'game-day-diagnostics',ready:false,mode:source?'source':'local',
     states:Object.freeze(states),neverClaimed:NEVER_CLAIMED});
 }

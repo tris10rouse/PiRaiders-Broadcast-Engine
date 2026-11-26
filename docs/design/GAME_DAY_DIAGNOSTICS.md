@@ -92,8 +92,31 @@ A running app is never reported as `not-running`. The command does not log in, s
 read the runtime states; it says so. Whether the app on the port runs this exact machine file is only checked by
 mode.
 
+## Recovery: missing exchange folder, corrupt cache (5c-4)
+
+Part 5c-4 (2026-11-26, fence 80). Tested on Linux with real stores, source service, manager and diagnostics
+(`tests/game-day-recovery.test.cjs`); the folder test runs the real prepared-event runtime and RossTalk session with a
+synthetic Caspar process and a scripted program page.
+
+| Fault | What happens | Diagnostics |
+|---|---|---|
+| Exchange folder moved away while an event plays | The event keeps its deck, picture and output; Next works; a reload is refused (it cannot read the source) and never blacks; a catalog refresh is refused `SOURCE_UNAVAILABLE` | `exchangeFolder: unreachable` (`SOURCE_UNAVAILABLE`), then `catalogSequence: unavailable` (`SOURCE_UNAVAILABLE`) after the refused refresh; `renderer` stays `acknowledged` |
+| The folder comes back | A refresh reads the catalog again (same sequence); a reload of the same playback keeps the same deck; Stop blacks | `reachable`, `read` with the sequence |
+| A pinned cached snapshot's bytes changed, folder gone (cached start) | Preparation refused (`PREPARE_FAILED`); the snapshot never reaches a runtime; nothing prepared, nothing playing: the output stays black. While an event plays the manager refuses any new preparation (`WINDOW_ACTIVE`), so a playing event is never replaced by it | `prepared: none` with `CACHE_CHANGED` |
+| The same, online, when the app reuses the snapshot it staged | Refused the same way, named the same way | `prepared: none` with `CACHE_CHANGED` |
+
+`prepared: none` now carries a code when the manager's last preparation was refused: the manager's `PREPARE_FAILED`
+(no runtime could be built) is replaced by the source service's cause, `status().preparation.code` (the provider
+driver's `failureCode()`: the cache loader's or coordinator's code, e.g. `CACHE_CHANGED`, `INVALID_MANIFEST`,
+`SOURCE_UNAVAILABLE`); `ADMISSION_DENIED`, `CATALOG_INVALID` and `RUNTIME_INVALID` show as they are. A preparation that
+succeeds clears it. The page shows the code under "None prepared"; the command passes it through. `initial()` still
+throws what it threw; no admission, preparation or playback decision changed.
+
+Known gap (queue `Q-007`): online, the app keeps reusing the refused snapshot, so that button stays refused until the
+app restarts (a new coordinator stages a fresh snapshot).
+
 ## Not done here
 
-No fault recovery beyond what existed (5c-4, 5c-5). The command has not been run on Windows. `ndiSender` has
+No fault recovery beyond 5c-4 (5c-5: unreadable approval list, renderer crash). The command has not been run on Windows. `ndiSender` has
 not been compared with a receiver here; the Windows NDI proofs do that for their own jobs only. No hardware,
 stadium PC, board or deployment claim.
