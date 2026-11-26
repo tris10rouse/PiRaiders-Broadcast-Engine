@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261126T113611Z-0675bc",
+  "status": "idle",
+  "owner": null,
   "fence": 92,
-  "task": "5e-1",
-  "workBranch": "feature/5e-four-hour-soak",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-26T11:36:11.420Z",
-  "lastHeartbeat": "2026-11-26T12:13:11.446Z",
-  "expiresAt": "2026-11-26T13:43:11.446Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-26T12:13:22.529Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-26T12:13:22.529Z"
 }
