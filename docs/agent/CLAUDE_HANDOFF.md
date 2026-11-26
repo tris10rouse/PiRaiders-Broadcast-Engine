@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-26 (builder run, lock fence 93; 5e-2 soak job). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-26 (builder run, lock fence 94; 5e-3 first soak run failed, Q-011). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -34,7 +34,8 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | Split on 2026-11-26 (fence 92) into 5e-1..5e-3 |
 | 5e-1 Soak plan, memory/handle bounds and no-lost-Stop rule | S | One module and Linux tests, bounds written before any Windows run | landed by #110 on 2026-11-26 (fence 92): `scripts/soak-proof.cjs`, `tests/soak-proof.test.cjs`, note `SOAK_PROOF.md` |
 | 5e-2 Windows soak job, triggered by hand; short check run on pull requests | S | One new Windows job on the activation job's steps; Windows-only failures show up only in CI | landed by #111 on 2026-11-26 (fence 93): `soak-proof.yml` (dispatch `minutes`, default 240; five-cycle `check-run` on pull requests touching the soak), `scripts/smoke-soak-windows.cjs`, `scripts/soak-windows-job.cjs`; Manual sent once before cycle 0 (exchange buttons start in Auto) |
-| 5e-3 Four-hour soak run and its record | S | One run triggers it and waits about four and a half hours | not started |
+| 5e-3 Four-hour soak run and its record | S | One run triggers it and waits about four and a half hours | first run failed on 2026-11-26 (fence 94, job 139965117507): cycle 8, `PROBE_CONNECTION`, cause unknown, recorded in `SOAK_PROOF.md` by #112, not rerun; runs again after Q-011 |
+| Open failing check: four-hour soak (`actual-soak-dispatched`) failed at cycle 8 with `PROBE_CONNECTION` on `137a5ee` (job 139965117507); the test-bench receiver could not be closed either | fix | Cause unknown: the receiver probably exited or stopped listening, but its stderr and exit are not recorded. Q-011 records them, then 5e-3 runs again. Not rerun | recorded (Q-011, todo) |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
 | Open failing check: browser tests "a late review…" and "a late answer for an earlier event…" failed `HELD_ANSWER_NOT_FINISHED` (Linux push run of `cf91a8c`, job 136447114406; probably also the unnamed Windows `static-contracts` failure on `1819e74`, job 136440648349, not shown) | fix | **Cause found (fence 67):** reproduced locally under load (8 copies on 2 busy CPUs: 7 failures). Chromium's DevTools reported the fully read late answer as failed (`net::ERR_ABORTED`) while the page read every body without an error and Resource Timing recorded the whole download; Playwright's `response.finished()` then never settled. Test-only fix: wait on the browser's Resource Timing record. After: 16 of 16 copies green under the same load. Page code unchanged | fixed: merged on 2026-11-20 (#83; NDI and Caspar proofs are not triggered by a test-only change) |
 | Open failing check: full-app proof (`actual-full-app-private-ndi`) failed in SETUP with `RECEIVER_START_TIMEOUT` on master `ca9000f` (job 136463119504, 22 s in, no evidence kept); second time after `bca398f`. Passed on `ee9b12a` | fix | Cause unknown; the SDK receiver did not report started within the proof's bound. Recurring, so it needs its own look (read `scripts/smoke-full-app-windows.cjs`'s receiver start and its bound). Not rerun | recorded |
@@ -46,14 +47,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 1 S (5e-3) + 1 M (5f) = 3 sized runs. Pace from every merged part so far: 31 runs for 29 sized runs = 1.07. 3 x 1.07 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 5 runs**.
+**Estimate:** remaining sizes 1 S (Q-011) + 1 S (5e-3, again) + 1 M (5f) = 4 sized runs. Pace from every merged part so far: 31 runs for 29 sized runs = 1.07. 4 x 1.07 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 6 runs**.
 
-Parts left · runs left: 2 parts (5e-3, 5f) + 2 parked fix rows · about 5 runs.
+Parts left · runs left: 3 parts (Q-011, 5e-3, 5f) + 2 parked fix rows · about 6 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-26 | 94 | failed, recorded (#112) | 5e-3: four-hour soak triggered once on master `137a5ee` (job 139965117507): cycles 0 to 7 passed (49 frames in order, 8 of 8 Stops black, 8 samples, none unreadable), then cycle 8 Launch `PROBE_CONNECTION` and the receiver could not be closed; cause unknown, not rerun; Fix row Q-011 first in ORDER.md, 5e-3 stays in todo after it |
 | 2026-11-26 | 93 | merged (#111) | 5e-2: Windows soak job `soak-proof.yml` (by hand, `minutes` default 240; five-cycle `check-run` on pull requests touching the soak), `scripts/smoke-soak-windows.cjs` on the activation job's set-up with Manual sent once before cycle 0, usage sample per cycle (`scripts/soak-windows-job.cjs`), `proof-evidence-privacy.cjs soak`; Linux tests fail on the old code; review round: no confirmed bugs |
 | 2026-11-26 | 92 | merged (#110) | 5e split into 5e-1..5e-3 (M to three S); 5e-1: soak rules in `scripts/soak-proof.cjs` (one-minute cycles of Launch, Next, Next, Previous, Reload over RossTalk, Stop alternating RossTalk and route; working set within baseline + max(25%, 128 MiB), handles within baseline + max(20%, 500); every Stop black within 5 s); 9 Linux tests, each of 15 guards removed fails one; review: a holed samples array crashed instead of `SOAK_SAMPLES_MISSING`, the growth share was rounded up, malformed Stops counted as issued, each fixed with a test |
 | 2026-11-26 | 91 | merged (#109) | 5d-4: cold start of the activation job's first start against the default warm-up (`scripts/cold-start-proof.cjs`, `DEFAULT_PREWARM_MINUTES` exported by `production-window.cjs`); 4 of 5 Linux tests fail on the old code; hosted Windows (job 139864357367): 1,749 ms to controller available, 8,991 ms to sender running, of 900,000; 5d done |
