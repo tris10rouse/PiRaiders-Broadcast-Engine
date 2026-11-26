@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261126T034057Z-2e0b26",
   "fence": 81,
-  "task": "5c-4",
-  "workBranch": "feature/5c-4-folder-cache-recovery",
+  "task": "Q-004",
+  "workBranch": "feature/Q-004-ndi-crash-enumerate",
   "acquiredAt": "2026-11-26T03:40:57.933Z",
-  "lastHeartbeat": "2026-11-26T03:41:18.247Z",
-  "expiresAt": "2026-11-26T05:11:18.247Z",
+  "lastHeartbeat": "2026-11-26T03:41:34.497Z",
+  "expiresAt": "2026-11-26T05:11:34.497Z",
   "releasedAt": null
 }
