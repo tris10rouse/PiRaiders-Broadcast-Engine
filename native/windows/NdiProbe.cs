@@ -519,7 +519,7 @@ internal static class NdiProbe
             Require(args.Length == 3 || args.Length == 4, "INVALID_ARGS"); string dll = LocalPath(args[0]); TargetLabel = args[1]; EvidenceDirectory = LocalPath(args[2]);
             if (args.Length == 4)
             {
-                int minutes;
+                int minutes = 0;
                 Require(Regex.IsMatch(args[3], "^[1-9][0-9]{0,2}$") && Int32.TryParse(args[3], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out minutes)
                     && minutes >= DefaultLifetimeMinutes && minutes <= MaxLifetimeMinutes, "INVALID_LIFETIME");
                 LifetimeMinutes = minutes; GlobalDeadlineMs = minutes * 60L * 1000L;
