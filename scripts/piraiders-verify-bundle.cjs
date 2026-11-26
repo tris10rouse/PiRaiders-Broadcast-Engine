@@ -14,6 +14,8 @@
 //   {"ok":false,"code":"MANIFEST_INVALID"}                             exit 1
 //   {"ok":false,"code":"VERIFY_USAGE"}                                 exit 2
 //   {"ok":false,"code":"VERIFY_FAILED"}                                exit 1
+//     a file or folder could not be read (held open by another program,
+//     no permission), or the check stopped unexpectedly
 // The manifest is unsigned: it finds accidental drift, not a forged download.
 // Nothing is written.
 const path=require('node:path');
@@ -24,7 +26,7 @@ function main(argv,{root=path.resolve(__dirname,'..','..')}={}){
   if(!Array.isArray(argv)||argv.length!==0)return{exitCode:2,answer:{ok:false,code:'VERIFY_USAGE'}};
   let found;
   try{found=inspectBundle(root);}
-  catch{return{exitCode:1,answer:{ok:false,code:'MANIFEST_INVALID'}};}
+  catch(error){return{exitCode:1,answer:{ok:false,code:error&&error.manifestInvalid===true?'MANIFEST_INVALID':'VERIFY_FAILED'}};}
   const differences=KINDS.filter(kind=>found.counts[kind]>0);
   if(!differences.length)return{exitCode:0,answer:{ok:true,code:'BUNDLE_VERIFIED',files:found.files}};
   return{exitCode:1,answer:{ok:false,code:'BUNDLE_DIFFERS',differences,counts:{...found.counts}}};

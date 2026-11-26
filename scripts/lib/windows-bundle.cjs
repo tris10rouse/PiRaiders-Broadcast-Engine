@@ -171,10 +171,13 @@ function entriesUnder(root, prefix = '') {
 // Q-013: the operator's check of an extracted bundle. Counts each kind of
 // difference from the manifest instead of stopping at the first: a listed file
 // absent (missing), present but not the listed regular file, size and SHA-256
-// (changed), an entry the manifest does not list (extra). Throws only when the
-// manifest itself cannot be read or is invalid. Answers counts, never paths.
+// (changed), an entry the manifest does not list (extra). Throws with
+// manifestInvalid when the manifest itself cannot be read or is invalid; any
+// other throw (a file or folder that cannot be read) is not a manifest fault.
+// Answers counts, never paths.
 function inspectBundle(root) {
-  const manifest = readManifest(root);
+  let manifest;
+  try { manifest = readManifest(root); } catch (error) { throw Object.assign(Error('MANIFEST_INVALID'), { manifestInvalid: true }); }
   const counts = { missing: 0, changed: 0, extra: 0 };
   const listed = new Set();
   for (const item of manifest.files) {

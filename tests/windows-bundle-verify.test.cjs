@@ -184,3 +184,26 @@ test('the checklist\'s step 1 and README-WINDOWS.md name the entry, before any c
   assert.match(readme, /Verify-PiRaiders\.cmd/);
   assert.ok(readme.indexOf('Verify-PiRaiders.cmd') < readme.indexOf('Launch-PiRaiders.cmd` from the extracted root'));
 });
+
+// Review round (Q-013): a read error is not a manifest fault.
+test('a listed file or a folder that cannot be read is VERIFY_FAILED, not MANIFEST_INVALID', t => {
+  const { parent, root } = built(t);
+  for (const [method, target] of [['readFileSync', path.join(root, 'app', 'server.js')], ['readdirSync', path.join(root, 'app', 'config')]]) {
+    const original = fs[method];
+    t.mock.method(fs, method, function (file, ...rest) {
+      if (path.resolve(String(file)) === target) throw Object.assign(Error('EBUSY: resource busy or locked'), { code: 'EBUSY' });
+      return original.call(this, file, ...rest);
+    });
+    const r = verify(root);
+    t.mock.restoreAll();
+    assert.equal(r.exitCode, 1);
+    assert.deepEqual(r.answer, { ok: false, code: 'VERIFY_FAILED' }, method);
+    noPaths(r.line, parent);
+  }
+});
+
+test('the checklist does not say Verify refuses for a missing machine file', () => {
+  const intro = read('packaging/windows/OPERATOR-CHECKLIST.md').split('## 1.')[0];
+  assert.match(intro, /Setup, Diagnose and Launch also refuse with "Application configuration is missing" \(step 3\), Verify never does/);
+  assert.doesNotMatch(read('packaging/windows/Verify-PiRaiders.cmd'), /Application configuration is missing/);
+});
