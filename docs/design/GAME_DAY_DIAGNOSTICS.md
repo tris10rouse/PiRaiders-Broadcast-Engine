@@ -55,8 +55,45 @@ says the diagnostics could not be read. An access answer (sign-in, page authoriz
 connection banner as the other reads do. After that answer the panel stops reading until the page is reloaded. The summary is a polite live region whose words change only between "read" and "could not be read"; the time of the last read sits on its own line outside it, so a screen reader is not told every 5 s. A fixed note under the rows says a running sender is not a source seen on
 the network, a connected receiver, a selected board input or on air. No row uses "ready" or "on air".
 
+## Command (5c-3)
+
+Part 5c-3 (2026-11-26, fence 79). `node scripts/piraiders-diagnose.cjs --machine <absolute path to machine.json>`
+prints one JSON line `{ok:true, scope:'game-day-diagnostics-command', ready:false, mode, app, states, neverClaimed}`
+with the same six state names in the same order. Each state carries `from`: `stores` or `app`. Exit 0 read
+(whatever the states say), 1 machine file refused (`MACHINE_CONFIG_INVALID`), 2 wrong arguments (`DIAGNOSE_USAGE`).
+No paths, no ids, no event or feed names.
+
+| State | Read by the command from | Values |
+|---|---|---|
+| `exchangeFolder` | the media root's real path against the retained canonical spelling, and whether it is a folder | as 5c-1 (`reachable`, `unreachable`, `mismatch`, `not-used`) |
+| `catalogSequence` | the exchange catalog read with the retained binding (read-only reader), only from a reachable folder | `read` with `sequence`, else `unavailable` with the folder's or reader's code (`REBIND_REQUIRED` for another feed), `not-used` |
+| `approvals` | the approval list replayed by its store's `open` (read-only) | `readable`, `unreadable` with the store's code (`APPROVAL_MISSING` before setup), `not-used` |
+| `prepared`, `renderer`, `ndiSender` | the running app's `GET /game-day/api/diagnostics` on `127.0.0.1` and the SPX config's `general.port` (5656 when unset or falsy, as `server.js`'s `port || 5656`) | the app's values, re-checked against 5c-1's lists |
+
+The three store states are the command's own reads, with the app open or closed; the command writes no store and
+no file. They can differ from the page's: the page shows what the app last read (`not-read` before its first read),
+the command what is on disk now.
+
+`app` says how the runtime states were got, and when they are not the app's, all three are
+`{state:'unknown', code}`:
+
+| `app` | Code | Meaning |
+|---|---|---|
+| `answered` | (the app's) | the route answered a valid diagnostics answer for this machine's mode |
+| `not-running` | `APP_NOT_RUNNING` | the connection to the port was refused: nothing listens there |
+| `no-answer` | `APP_NO_ANSWER` | something accepted the connection but gave no whole answer within 2 s (a hard deadline for the whole read), or the connection broke |
+| `auth-required` | `APP_AUTH_REQUIRED` | the app answered 401 or 403 (SPX login set): running, but the command has no session |
+| `unavailable` | `APP_UNAVAILABLE` | the app answered 503 (starting, closing or its backend refused) |
+| `mode-mismatch` | `APP_MODE_MISMATCH` | a valid answer for the other mode: the app on that port runs another machine file |
+| `invalid-answer` | `APP_ANSWER_INVALID` | anything else: not JSON, over 64 KiB, another app's page, a value outside 5c-1's lists, `ready` not false, a code that is not an upper-case code |
+| `config-invalid` | `APP_PORT_INVALID` | the SPX config cannot be read or its port is not a port |
+
+A running app is never reported as `not-running`. The command does not log in, so with an SPX login set it cannot
+read the runtime states; it says so. Whether the app on the port runs this exact machine file is only checked by
+mode.
+
 ## Not done here
 
-No command yet (5c-3), no fault recovery beyond what existed (5c-4, 5c-5). `ndiSender` has
+No fault recovery beyond what existed (5c-4, 5c-5). The command has not been run on Windows. `ndiSender` has
 not been compared with a receiver here; the Windows NDI proofs do that for their own jobs only. No hardware,
 stadium PC, board or deployment claim.
