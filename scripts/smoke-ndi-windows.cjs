@@ -11,7 +11,7 @@ const {setTimeout:wait}=require('node:timers/promises');
 const {performance}=require('node:perf_hooks');
 const {PNG}=require('pngjs');
 const jpeg=require('jpeg-js');
-const {processTable:table,descendants,observeTree,identityReason,captureProcessTree}=require('./windows-process-evidence.cjs');
+const {processTable:table,processTableForCapture,descendants,observeTree,identityReason,captureProcessTree}=require('./windows-process-evidence.cjs');
 const {configuration,command}=require('./smoke-caspar-windows.cjs');
 const {requestProbe}=require('./ndi-proof-client.cjs');
 const {fixedFailure,systemFailure}=require('./ndi-proof-diagnostics.cjs');
@@ -37,12 +37,21 @@ async function captureEndingTree(host,end,getActive,{capture=captureProcessTree,
   if(wallNow()>=end-5000||!live())throw Error('WINDOW_CAPTURE_STALE');
   return result.tree;
 }
+// Q-004: the crash phase's listing ran once under the 15 s query bound and timed
+// out on hosted Windows twice (16f82e8, 730b0f1) after every frame had passed.
+// It is a pre-action capture (nothing is killed yet, no cleanup deadline runs),
+// so, as in the Caspar proof, only a timed-out query may repeat (at most 3) and
+// every query is counted in the report and the fixed diagnostic. Deadline-bound
+// observations (treeGone) keep a single processTable() call.
+function crashEnumerationTable(processEnumeration,{read=table}={}){
+  return processTableForCapture({read,record:({timedOut,elapsedMs})=>{processEnumeration.captureQueries++;if(timedOut)processEnumeration.captureTimeouts++;processEnumeration.maxCaptureMs=Math.max(processEnumeration.maxCaptureMs,elapsedMs);}});
+}
 async function freePort(){const server=net.createServer();await new Promise((r,j)=>server.listen(0,'127.0.0.1',r).once('error',j));const port=server.address().port;await new Promise(r=>server.close(r));return port;}
 function image(rgb){const data=Buffer.alloc(160*90*4);for(let i=0;i<data.length;i+=4)data.set([...rgb,255],i);return{width:160,height:90,data};}
 async function filesUnder(dir){const all=[];for(const entry of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,entry.name);if(entry.isDirectory())all.push(...await filesUnder(file));else if(entry.isFile())all.push(file);}return all;}
 async function main(){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
-  let processEvidence=null;const processChecks={},processUnknownObservations={};
+  let processEvidence=null;const processChecks={},processUnknownObservations={},processEnumeration={captureQueries:0,captureTimeouts:0,maxCaptureMs:0};
   function treeGone(captured){processEvidence=observeTree(table(),captured);processChecks[phase]=processEvidence;if(processEvidence.unknown)processUnknownObservations[phase]=(processUnknownObservations[phase]||0)+1;return processEvidence.surviving===0&&processEvidence.unknown===0;}
   const root=path.resolve(process.argv[2]||path.join('build','caspar-proof-tools'));
   const evidence=path.resolve('build','ndi-proof-evidence');await fs.rm(evidence,{recursive:true,force:true});await fs.mkdir(evidence,{recursive:true});
@@ -151,7 +160,7 @@ async function main(){
     await command(talk,'GPI 8',{prefix:'OK ',timeoutMs:30000});await frame('stop-black',[0,0,0],{minFrames:10,minDurationMs:1500});
     await command(port,'VERSION',{prefix:'201 '});
     phase='CRASH_ENUMERATE';const oldHost=activeCaspar,oldEpoch=session.snapshot().presentation.renderer.epoch;
-    const rows=table(),expectedImage=path.join(bin,'casparcg.exe').toLowerCase();
+    const rows=crashEnumerationTable(processEnumeration),expectedImage=path.join(bin,'casparcg.exe').toLowerCase();
     phase='CRASH_SELECT';
     const ownedRoots=descendants(rows,oldHost.pid).filter(r=>r.ParentProcessId===oldHost.pid&&typeof r.ExecutablePath==='string'&&path.normalize(r.ExecutablePath).toLowerCase()===expectedImage);
     assert.equal(ownedRoots.length,1,'OWNED_ROOT_IDENTITY');
@@ -196,9 +205,9 @@ async function main(){
       const stat=await fs.stat(file);if(stat.size>16*1024*1024)throw Error('LOG_SCAN_LIMIT');
       const bytes=await fs.readFile(file);if(bytes.includes(Buffer.from(programToken))||bytes.includes(Buffer.from(programToken,'utf16le')))throw Error('PRIVATE_URL_PERSISTED');
     }
-    report={event:'real-ndi-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:tools.provenance,ndiProvenance:ndi.provenance,runtimeVersion:probe.info.runtimeVersion,actualNdiSdkReceiver:true,actualNdiConsumer:true,sourceIdentityStable:true,sourceIdentityHash:expectedIdentity,frameEvidence,missingRuntimeRejected:true,actualPNGAndJPEG:true,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realWallClockWindow:window,processStoppedAt,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,quietAfterDrain:{connections:quiet.connections,durationMs:quiet.quietDurationMs,drainedFrames:quiet.drainedFrames},persistentSPXStandIn:true,sameMachineOnly:true,lanTransportTested:false,windows10Tested:false,stadiumHardwareTested:false};
+    report={event:'real-ndi-windows-software-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:tools.provenance,ndiProvenance:ndi.provenance,runtimeVersion:probe.info.runtimeVersion,actualNdiSdkReceiver:true,actualNdiConsumer:true,sourceIdentityStable:true,sourceIdentityHash:expectedIdentity,frameEvidence,missingRuntimeRejected:true,actualPNGAndJPEG:true,rootCrashRecovery:true,freshStoppedEpochAfterRestart:true,realWallClockWindow:window,processStoppedAt,processIdentityEvidence:'pid-creation-utc-ticks-and-image',processChecks,processUnknownObservations,processEnumeration,quietAfterDrain:{connections:quiet.connections,durationMs:quiet.quietDurationMs,drainedFrames:quiet.drainedFrames},persistentSPXStandIn:true,sameMachineOnly:true,lanTransportTested:false,windows10Tested:false,stadiumHardwareTested:false};
   }catch(error){
-    console.error(JSON.stringify({event:'ndi-proof-fixed-diagnostic',phase,processEvidence,processChecks,processUnknownObservations,processIdentityReason:identityReason(error),code:fixedFailure(error),systemErrorCode:systemFailure(error),fixedReceiverErrors:[...fixedReceiverErrors],negativeControlErrors:[...negativeControlErrors],nativeExits,framesVerified:frameEvidence.map(f=>f.name)}));
+    console.error(JSON.stringify({event:'ndi-proof-fixed-diagnostic',phase,processEvidence,processChecks,processUnknownObservations,processEnumeration,processIdentityReason:identityReason(error),code:fixedFailure(error),systemErrorCode:systemFailure(error),fixedReceiverErrors:[...fixedReceiverErrors],negativeControlErrors:[...negativeControlErrors],nativeExits,framesVerified:frameEvidence.map(f=>f.name)}));
     if(phase==='START')console.error(JSON.stringify({event:'ndi-preauth-caspar-startup',text:casparStartup.replace(/https?:\/\/[^\s<>"']+/g,'[URL omitted]')}));
     throw Error('NDI_PROOF_FAILED_'+phase);
   }finally{
@@ -210,4 +219,4 @@ async function main(){
   await fs.writeFile(path.join(evidence,'result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }
 if(require.main===module)main().catch(error=>{console.error(/^NDI_PROOF_FAILED_[A-Z_]+$/.test(error.message)?error.message:'NDI_PROOF_FAILED');process.exitCode=1;});
-module.exports={ndiConfiguration,captureEndingTree};
+module.exports={ndiConfiguration,captureEndingTree,crashEnumerationTable};
