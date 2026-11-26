@@ -62,3 +62,24 @@ test('NDI ending capture reserves boundary time and rejects expired or replaced 
   const failure=Error('PROCESS_IDENTITY_UNVERIFIED');
   await assert.rejects(captureEndingTree(host,30000,()=>active,{...deps,capture:async()=>{throw failure;}}),error=>error===failure);
 });
+test('NDI crash listing repeats only a timed-out query, counts it, and is what the crash phase reads (Q-004)',()=>{
+  const {crashEnumerationTable}=require('../scripts/smoke-ndi-windows.cjs');
+  const timeout=()=>Object.assign(Error('spawnSync powershell.exe ETIMEDOUT'),{code:'ETIMEDOUT'});
+  const rows=[{ProcessId:1}],counts=()=>({captureQueries:0,captureTimeouts:0,maxCaptureMs:0});
+  let calls=0,seen=counts();
+  assert.equal(crashEnumerationTable(seen,{read:()=>{calls++;if(calls===1)throw timeout();return rows;}}),rows);
+  assert.equal(calls,2);assert.equal(seen.captureQueries,2);assert.equal(seen.captureTimeouts,1);
+  calls=0;seen=counts();
+  assert.throws(()=>crashEnumerationTable(seen,{read:()=>{calls++;throw timeout();}}),error=>error.code==='ETIMEDOUT');
+  assert.equal(calls,3);assert.equal(seen.captureTimeouts,3);
+  const other=Error('TABLE_INVALID');calls=0;seen=counts();
+  assert.throws(()=>crashEnumerationTable(seen,{read:()=>{calls++;throw other;}}),error=>error===other);
+  assert.equal(calls,1);assert.equal(seen.captureTimeouts,0);
+  // The crash phase itself must read through this helper, and its counts must
+  // reach both the passed report and the fixed diagnostic.
+  const source=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','scripts','smoke-ndi-windows.cjs'),'utf8');
+  const crash=source.slice(source.indexOf("phase='CRASH_ENUMERATE'"),source.indexOf("phase='CRASH_SELECT'"));
+  assert.match(crash,/const rows=crashEnumerationTable\(processEnumeration\)/);assert.match(source,/function crashEnumerationTable\(processEnumeration,\{read=table\}=\{\}\)/);assert.match(source,/processTable:table,/);assert.doesNotMatch(crash,/\btable\(\)/);
+  assert.match(source,/report=\{event:'real-ndi-windows-software-proof-passed'[^\n]*processEnumeration/);
+  assert.match(source,/event:'ndi-proof-fixed-diagnostic'[^\n]*processEnumeration/);
+});
