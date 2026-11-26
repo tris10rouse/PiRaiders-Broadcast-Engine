@@ -192,8 +192,17 @@ test('a corrupt cached snapshot is refused, never played: nothing is prepared, t
   assert.equal((await manager.prepare(listed.eventId,request(manager))).ok,false);
   assert.equal(seen.prepared.length,0);assert.equal((await diagnose({source:service,manager})).states.prepared.code,'CACHE_CHANGED');
 
-  // The folder comes back: an online preparation (a fresh snapshot) succeeds, plays, and clears the fault.
+  // The folder comes back. A preparation the manager refuses after its runtime was built names its own refusal, not the old cause.
   await m.back();
+  const refusing=createGameDayManager({catalog:service.playbackCatalog,runtimeFactory:service.preparedRuntimeFactory(base),clock:()=>NOON,
+    sourceRoot:machine.mediaRoot,privateRoots:[machine.runtimeRoot,machine.catalogDirectory,machine.source.approvalDirectory],
+    refreshAdmission:service.admission.refreshAdmission,admitCandidate:()=>false});
+  t.after(()=>refusing.close());
+  const denied=await refusing.prepare(listed.eventId,request(refusing));assert.deepEqual([denied.ok,denied.code],[false,'ADMISSION_DENIED']);
+  assert.deepEqual((await diagnose({source:service,manager:refusing})).states.prepared,{state:'none',code:'ADMISSION_DENIED'});
+  assert.deepEqual((await diagnose({source:service,manager})).states.prepared,{state:'none',code:'PREPARE_FAILED'},'that runtime was built: the old cause is gone, the refusal stays');
+  await refusing.close();seen.prepared.length=0;
+  // An online preparation (a fresh snapshot) succeeds, plays, and clears the fault.
   const recovered=await manager.prepare(listed.eventId,request(manager));assert.equal(recovered.ok,true,recovered.code);
   assert.equal(seen.prepared.length,1);assert.equal(seen.prepared[0].mode,'source');assert.notEqual(seen.prepared[0].prepared.snapshotDir,pinnedDir);
   d=await diagnose({source:service,manager});assert.deepEqual(d.states.prepared,{state:'prepared',code:null});

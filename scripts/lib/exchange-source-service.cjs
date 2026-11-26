@@ -358,10 +358,12 @@ function createExchangeSourceService(machine,trusted={}){
   // Wraps a prepared-event runtime factory: each exchange runtime gets this
   // service's driver. A runtime that is never built closes its driver here;
   // a built runtime closes it itself.
-  // The code of the last refused preparation stays for the diagnostics
-  // (5c-4) until a preparation succeeds: the driver's own cause when it has
-  // one (a corrupt cached snapshot is CACHE_CHANGED or INVALID_MANIFEST, not
-  // the runtime's EVENT_PREPARE_FAILED), else the thrown code.
+  // The cause of the last runtime that could not be built, for the
+  // diagnostics (5c-4): the driver's own cause when it has one (a corrupt
+  // cached snapshot is CACHE_CHANGED or INVALID_MANIFEST, not the runtime's
+  // EVENT_PREPARE_FAILED), else the thrown code; null once a runtime is
+  // built. The diagnostics show it only while the manager's last preparation
+  // failed that way (PREPARE_FAILED).
   function preparedRuntimeFactory(base){
     if(typeof base!=='function')throw fault('SOURCE_SERVICE_OPTIONS_INVALID');
     return async(profile,options)=>{
