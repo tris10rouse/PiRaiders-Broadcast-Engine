@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-26 (builder run, lock fence 79; 5c-3 diagnostics command). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-26 (builder run, lock fence 80; 5c-4 folder and cache recovery). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -20,7 +20,8 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5c-1 Diagnostics states: one model and a read-only route | S | One module, one GET route, Linux tests | landed by #95 on 2026-11-26 (fence 77): `game-day-diagnostics.cjs`, `GET /game-day/api/diagnostics`, design note `GAME_DAY_DIAGNOSTICS.md` |
 | 5c-2 Diagnostics on the Game Day page | S | One panel and one browser test | landed by #96 on 2026-11-26 (fence 78): Diagnostics panel under both columns, read every 5 s; `tests/browser/game-day-diagnostics.browser.cjs` at 1440 and 390 px |
 | 5c-3 Diagnostics command | S | One Node command over the stores and the route, Linux tests | landed by #97 on 2026-11-26 (fence 79): `scripts/piraiders-diagnose.cjs --machine <file>`; store states read without the app and without writes, runtime states from the app's route or `unknown` with `APP_NOT_RUNNING` (login, 503, wrong mode and bad answers have their own codes) |
-| 5c-4 Recovery: missing exchange folder, corrupt cache | S | Two faults, Linux tests on real stores | not started |
+| 5c-4 Recovery: missing exchange folder, corrupt cache | S | Two faults, Linux tests on real stores | landed by #98 on 2026-11-26 (fence 80): `tests/game-day-recovery.test.cjs`; folder gone mid-event keeps the deck (real runtime and session), back reads again; a corrupt cache is refused, never played, `prepared: none` names `CACHE_CHANGED` |
+| Q-007 Corrupt reused snapshot refused until the app restarts | S | Found by 5c-4; one decision and a test | not started |
 | 5c-5 Recovery: unreadable approval list, renderer crash | S | Two faults, Linux tests; a renderer crash may need a stand-in | not started |
 | 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
@@ -35,14 +36,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 2 S (5c-4, 5c-5) + 3 M = 8 sized runs. Pace from every merged part so far: 19 runs for 17 sized runs = 1.12. 8 x 1.12 + 3 open failing checks (full-app receiver start, Caspar CEF, NDI crash enumerate) = **about 12 runs**.
+**Estimate:** remaining sizes 2 S (5c-5, Q-007) + 3 M = 8 sized runs. Pace from every merged part so far: 20 runs for 18 sized runs = 1.11. 8 x 1.11 + 3 open failing checks (full-app receiver start, Caspar CEF, NDI crash enumerate) = **about 12 runs**.
 
-Parts left · runs left: 5 parts (5c-4, 5c-5, 5d to 5f) + 3 parked fix rows · about 12 runs.
+Parts left · runs left: 5 parts (5c-5, Q-007, 5d to 5f) + 3 parked fix rows · about 12 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-26 | 80 | merged (#98); row Q-007 | 5c-4: folder gone mid-event keeps deck, picture and output (reload refused, never black), diagnostics unreachable, back a refresh reads again; corrupt cached snapshot refused and never played, `prepared: none` names the cause (provider `failureCode()`, service `status().preparation`); 3 Linux tests, guards removed each fail one; review: a refusal after the runtime was built showed no code, fixed with a test. Online reuse of a corrupt snapshot stays refused until restart (Q-007) |
 | 2026-11-26 | 79 | merged (#97) | 5c-3: diagnostics command, six states in one JSON line, `from: stores|app`; store states read-only (tree unchanged in test), runtime states from the real route, never `not-running` for an app that answers; 7 Linux tests, each of 7 guards removed fails one; review: an idle-only timeout and a stalled listener read as not running, `port:false` not 5656, each fixed with a test |
 | 2026-11-26 | 78 | merged (#96) | 5c-2: Diagnostics panel on the Game Day page, six rows in their own words (never ready, never on air), codes shown, Reading…/Unavailable wording, keyboard re-read; browser test (3) over the real model fails on the old page; review: an extra read after sign-in, a live line announcing every 5 s and an untested layout, each fixed with a test; source test's route guard lists the read-only GET |
 | 2026-11-26 | 77 | merged (#95) | 5c split into 5c-1..5c-5 (L to five S); 5c-1: six diagnostic states in one model and `GET /game-day/api/diagnostics`, never on air; 3 Linux tests, each of 8 guards removed fails one; review found a file at the folder spelling read as reachable, fixed with a test |
