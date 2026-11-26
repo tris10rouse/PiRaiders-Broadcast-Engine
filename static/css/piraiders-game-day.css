@@ -34,3 +34,13 @@ body[data-mode=source] .playback-section{grid-column:2;grid-row:1/span 2}
 .source-section .confirm{color:var(--text);border-color:#3a89c1;background:#1d3346}
 .source-section .confirm .button-pair{margin-top:10px}.source-section .confirm .button-pair button{margin:0}
 .source-section .message[data-tone=success]{color:var(--green);border-color:#3d6b57;background:#1b2b25}
+
+/* Diagnostics (BE-006 part 5c-2): this PC's six states under both columns. */
+.diagnostics-section{grid-column:1/-1;padding:23px 26px;border-top:1px solid var(--line);min-width:0}
+.diagnostics{margin:16px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 20px}
+.diagnostics dt{color:var(--muted);font-size:12px;margin-bottom:4px}
+.diagnostics dd{margin:0;font-size:13px;overflow-wrap:anywhere}
+.diagnostics dd[data-tone=attention]{color:var(--amber)}
+.diagnostics .diag-code{display:block;font-size:11px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+@media(max-width:900px){.diagnostics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.diagnostics-section{padding:21px 18px}.diagnostics{grid-template-columns:1fr;gap:12px}.diagnostics div{display:flex;justify-content:space-between;gap:15px}.diagnostics dt{margin:0}.diagnostics dd{text-align:right}}

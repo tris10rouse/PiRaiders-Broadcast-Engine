@@ -26,7 +26,7 @@
     "package:windows": "node scripts/build-windows-bundle.cjs",
     "smoke:windows-package": "node scripts/smoke-windows-bundle.cjs",
     "bench:rosstalk": "node scripts/rosstalk-bench.cjs",
-    "test:browser": "node --test --test-concurrency=1 tests/browser/slideshow.browser.cjs tests/browser/snapshot-serving.browser.cjs tests/browser/presentation-session.browser.cjs tests/browser/rosstalk-session.browser.cjs tests/browser/prepared-event.browser.cjs tests/browser/rosstalk-local.browser.cjs tests/browser/game-day-manager.browser.cjs tests/browser/game-day-ui.browser.cjs tests/browser/game-day-spx.browser.cjs tests/browser/game-day-source.browser.cjs",
+    "test:browser": "node --test --test-concurrency=1 tests/browser/slideshow.browser.cjs tests/browser/snapshot-serving.browser.cjs tests/browser/presentation-session.browser.cjs tests/browser/rosstalk-session.browser.cjs tests/browser/prepared-event.browser.cjs tests/browser/rosstalk-local.browser.cjs tests/browser/game-day-manager.browser.cjs tests/browser/game-day-ui.browser.cjs tests/browser/game-day-spx.browser.cjs tests/browser/game-day-source.browser.cjs tests/browser/game-day-diagnostics.browser.cjs",
     "verify:exchange-schema": "node tools/verify-schema-equivalence.cjs && python3 tools/audit-exchange-schema-numbers.py"
   },
   "keywords": [],

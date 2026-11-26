@@ -122,7 +122,7 @@ async function scripted(t,{width=1440,height=1000,refreshCode=null}={}){
 // list, item 4d) are used: nothing prepares, activates or plays. Review,
 // approve and revoke (item 4c) only where a test lets the operator use them.
 function onlySource(model,{approvals=false}={}){
-  for(const r of model.requests)if(r.method==='GET'&&(r.route==='state'||r.route==='events'))continue;
+  for(const r of model.requests)if(r.method==='GET'&&(r.route==='state'||r.route==='events'||r.route==='diagnostics'))continue;
   else assert.match(r.route,approvals?/^source\/(status|refresh|events|selections|review|approve|revoke)$/:/^source\/(status|refresh|events|selections)$/,r.method+' '+r.route);
   for(const r of model.requests.filter(r=>r.method==='POST'))assert.equal(r.csrf,'c'.repeat(64),'every POST carries the page token');
 }

@@ -109,6 +109,52 @@
       .finally(() => { catalogFlight = null; $('refresh-events').disabled = false; $('refresh-events').removeAttribute('aria-busy'); render(); if (catalogAgain) { catalogAgain = false; void refreshCatalog(); } });
     return catalogFlight;
   }
+  // Diagnostics (BE-006 part 5c-2): the six states of GET diagnostics, each in
+  // its own words. None of them is "ready" or "on air"; an answer the page does
+  // not know shows as not known rather than guessed.
+  const DIAG = {
+    exchangeFolder: { reachable: 'Reachable', unreachable: 'Not reachable', mismatch: 'Not the folder set up on this PC', unknown: 'Not known', 'not-used': 'Not used on this PC' },
+    catalogSequence: { read: 'Catalog sequence {n} read', unavailable: 'No catalog read', unknown: 'Not known', 'not-used': 'Not used on this PC' },
+    approvals: { readable: 'Readable', unreadable: 'Could not be read', 'not-read': 'Not read yet', unknown: 'Not known', 'not-used': 'Not used on this PC' },
+    prepared: { prepared: 'Prepared, not activated', preparing: 'Preparing', cleanup: 'Preparation cleanup running', none: 'None prepared', unknown: 'Not known' },
+    renderer: { acknowledged: 'Acknowledged', waiting: 'Waiting for acknowledgment', 'not-active': 'No active event', unknown: 'Not known' },
+    ndiSender: { running: 'Sender running', starting: 'Sender starting', 'not-running': 'Not running', 'not-configured': 'Output disabled', unknown: 'Not known' }
+  };
+  const DIAG_ATTENTION = new Set(['unreachable', 'mismatch', 'unavailable', 'unreadable', 'unknown']);
+  const DIAG_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+  let diagFlight = null, diagTimer = null, diagAgain = false;
+  function showDiagnostic(name, entry) {
+    const element = $('diag-' + name), words = DIAG[name];
+    const value = entry && typeof entry === 'object' && typeof entry.state === 'string' && Object.hasOwn(words, entry.state) ? entry.state : null;
+    let text = value ? words[value] : entry === undefined ? 'Unavailable' : 'Not known';
+    if (value === 'read') { if (Number.isSafeInteger(entry.sequence) && entry.sequence >= 0) text = text.replace('{n}', String(entry.sequence)); else text = 'Not known'; }
+    if (name === 'prepared' && value === 'cleanup' && entry.code === 'CLOSE_FAILED') text = 'Preparation cleanup not confirmed';
+    const code = value && typeof entry.code === 'string' && DIAG_CODE.test(entry.code) ? entry.code : null;
+    const parts = [document.createTextNode(text)];
+    if (code) { const span = document.createElement('span'); span.className = 'diag-code'; span.textContent = code; parts.push(span); }
+    element.replaceChildren(...parts);
+    element.dataset.state = value || 'unknown';
+    element.dataset.tone = !value || DIAG_ATTENTION.has(value) || (value === 'cleanup' && code) ? 'attention' : '';
+  }
+  function readDiagnostics() {
+    clearTimeout(diagTimer);
+    if (diagFlight) { diagAgain = true; return diagFlight; }
+    $('diagnostics-refresh').setAttribute('aria-busy', 'true');
+    diagFlight = api('diagnostics').then(value => {
+      const states = value.ok && value.diagnostics && typeof value.diagnostics === 'object' ? value.diagnostics.states : null;
+      if (!states || typeof states !== 'object') throw Error();
+      for (const name of Object.keys(DIAG)) showDiagnostic(name, states[name] ?? null);
+      setText('diagnostics-summary', 'Read at ' + new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) + '. Read again every few seconds.');
+    }).catch(error => {
+      for (const name of Object.keys(DIAG)) showDiagnostic(name, undefined);
+      setText('diagnostics-summary', 'Diagnostics could not be read. Check the connection to the application, then read them again.');
+      if (accessCodes.has(error.code)) setConnection(accessState(error.code));
+    }).finally(() => {
+      diagFlight = null; $('diagnostics-refresh').removeAttribute('aria-busy');
+      if (diagAgain) { diagAgain = false; void readDiagnostics(); } else if (!accessIssue) diagTimer = setTimeout(readDiagnostics, 5000);
+    });
+    return diagFlight;
+  }
   function rebuildEvents() {
     const available = events.filter(row => row.status === 'available' && typeof row.eventId === 'string');
     if (!selected && available.length) selected = available[0].eventId;
@@ -186,7 +232,7 @@
       notice(success[route === 'command' ? extra.action : route], 'success');
       if (route === 'prepare' || route === 'activate') focusAfter = { id: route === 'prepare' ? 'candidate-heading' : 'playback-heading', intent: myIntent };
     }).catch(error => { if (myIntent === intent) { setConnection(accessState(error.code)); notice(explain(error.code), 'error'); } })
-      .finally(() => { epoch++; if (stop) stopping = null; else normal = null; render(); void refreshState(); });
+      .finally(() => { epoch++; if (stop) stopping = null; else normal = null; render(); void refreshState(); void readDiagnostics(); });
     if (stop) stopping = pending; render(); return pending;
   }
   // Source machine (BE-006 item 4b): browse the exchange catalog through the
@@ -471,10 +517,11 @@
   $('stop').addEventListener('click', () => { void mutate('command', { action: 'stop' }, true); });
   $('refresh-events').addEventListener('click', () => { void refreshCatalog(); });
   $('reload-page').addEventListener('click', () => location.reload());
-  $('retry').addEventListener('click', () => { setConnection('loading'); if (sourceMode) void sourceStatus(); void refreshState(); void refreshCatalog(); });
+  $('diagnostics-refresh').addEventListener('click', () => { void readDiagnostics(); });
+  $('retry').addEventListener('click', () => { setConnection('loading'); if (sourceMode) void sourceStatus(); void refreshState(); void refreshCatalog(); void readDiagnostics(); });
   if (!csrf) { setConnection('auth'); notice('Reload this page to restore authorized controls.', 'error'); }
   else {
     if (sourceMode) void sourceStatus().then(() => { if (!src.summary && !src.problem && !src.flight && connection === 'online') return refreshSource(); });
-    void refreshState(); void refreshCatalog();
+    void refreshState(); void refreshCatalog(); void readDiagnostics();
   }
 })();

@@ -116,6 +116,19 @@
         <p id="runtime-error" class="message warning" hidden></p>
         <p class="verification-note">Renderer readiness does not confirm receiver connection or board routing.</p>
       </section>
+      <section id="diagnostics-section" class="diagnostics-section" aria-labelledby="diagnostics-heading">
+        <div class="section-heading"><h2 id="diagnostics-heading">Diagnostics</h2><button id="diagnostics-refresh" class="quiet" type="button">Read diagnostics again</button></div>
+        <p id="diagnostics-summary" class="support" role="status" aria-live="polite">Reading diagnostics…</p>
+        <dl id="diagnostics" class="diagnostics" aria-describedby="diagnostics-note">
+          <div data-state="exchangeFolder"><dt>Exchange folder</dt><dd id="diag-exchangeFolder">Reading…</dd></div>
+          <div data-state="catalogSequence"><dt>Exchange catalog</dt><dd id="diag-catalogSequence">Reading…</dd></div>
+          <div data-state="approvals"><dt>Approval list</dt><dd id="diag-approvals">Reading…</dd></div>
+          <div data-state="prepared"><dt>Prepared event</dt><dd id="diag-prepared">Reading…</dd></div>
+          <div data-state="renderer"><dt>Renderer</dt><dd id="diag-renderer">Reading…</dd></div>
+          <div data-state="ndiSender"><dt>NDI sender</dt><dd id="diag-ndiSender">Reading…</dd></div>
+        </dl>
+        <p id="diagnostics-note" class="verification-note">These are this PC’s own states. A running NDI sender is not a source seen on the network, a connected receiver, a selected board input or on air; this page never shows those.</p>
+      </section>
     </div>
   </main>
   <footer><span>SPX native graphics and rundowns remain available in <a href="/shows">SPX Graphics</a>.</span><span>Closing this tab leaves the application running.</span></footer>
