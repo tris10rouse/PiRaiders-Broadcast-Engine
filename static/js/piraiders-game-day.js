@@ -37,10 +37,10 @@
   const words = sourceMode
     ? { prepare: 'Prepare selected button', preparing: 'Preparing the exchange pictures. Current content is retained.', prepared: 'Pictures prepared. Review the button, then activate it.', candidate: 'Pictures prepared on this PC. Not activated.', start: 'Approve a board button for this PC, then prepare it.', idle: 'Prepare an approved board button to begin.' }
     : { prepare: 'Prepare selected event', preparing: 'Preparing local media. Current content is retained.', prepared: 'Media prepared. Review the event, then activate it.', candidate: 'Media prepared locally. Not activated.', start: 'Select an event to prepare.', idle: 'Prepare an event to begin.' };
-  let state = null, events = [], selected = '', connection = 'loading', normal = null, stopping = null, endAsk = false;
+  let state = null, events = [], selected = '', connection = 'loading', normal = null, stopping = null, endAsk = false, endedSelection = null;
   // Q-010: an active event whose renderer the supervisor stopped restarting
   // (Q-009). The same test as the manager's endDeadEvent; anything else never offers it.
-  const deadEvent = active => !!active && ['open', 'failed'].includes(active.cleanup) && active.runtime?.restartsExhausted === true && active.runtime.ready !== true && active.runtime.preparing === false;
+  const deadEvent = active => !!active && state.expectedSelection !== endedSelection && ['open', 'failed'].includes(active.cleanup) && active.runtime?.restartsExhausted === true && active.runtime.ready !== true && active.runtime.preparing === false;
   let stateFlight = null, stateAgain = false, catalogFlight = null, timer = null, epoch = 0, intent = 0;
   let catalogError = false, catalogLoaded = false, catalogAgain = false, focusAfter = null, accessIssue = null;
   const accessCodes = new Set(['AUTH_REQUIRED', 'CSRF_DENIED', 'AUTH_POLICY_REQUIRED', 'ORIGIN_DENIED', 'LOCAL_ONLY', 'FETCH_DENIED', 'REQUEST_DENIED']);
@@ -243,13 +243,14 @@
     if (!stop) normal = route === 'command' ? extra.action : route;
     notice(stop ? 'Requesting black output…' : route === 'prepare' ? words.preparing : route === 'activate' ? 'Activating the prepared event…' : route === 'discard' ? 'Discarding the prepared event…' : route === 'end-dead' ? 'Ending the event…' : 'Sending playback command…');
     const pending = api(route, payload, true).then(value => {
+      // An end answered either way closes its confirmation, even if Stop was pressed meanwhile.
+      if (route === 'end-dead') { endAsk = false; if (value.ok) endedSelection = payload.expectedSelection; }
       if (myIntent !== intent) return;
-      if (route === 'end-dead') endAsk = false;
-      if (!value.ok) { notice(explain(value.code), 'error'); return; }
+      if (!value.ok) { notice(explain(value.code), 'error'); if (route === 'end-dead') focusAfter = { id: 'end-dead', intent: myIntent }; return; }
       const success = { prepare: words.prepared, activate: 'Event activated. Launch starts at slide 1.', discard: 'Prepared event discarded.', launch: 'Launch acknowledged.', next: 'Next slide acknowledged.', previous: 'Previous slide acknowledged.', auto: 'Automatic mode acknowledged.', manual: 'Manual mode acknowledged.', reload: 'Media reload acknowledged.', 'end-dead': 'Event ended. Output stays black. Prepare another event to continue.', stop: 'Black output acknowledged. The sender remains governed by its production window.' };
       notice(success[route === 'command' ? extra.action : route], 'success');
-      if (route === 'prepare' || route === 'activate') focusAfter = { id: route === 'prepare' ? 'candidate-heading' : 'playback-heading', intent: myIntent };
-    }).catch(error => { if (myIntent === intent) { setConnection(accessState(error.code)); notice(explain(error.code), 'error'); } })
+      if (route === 'prepare' || route === 'activate' || route === 'end-dead') focusAfter = { id: route === 'prepare' ? 'candidate-heading' : 'playback-heading', intent: myIntent };
+    }).catch(error => { if (route === 'end-dead') { endAsk = false; focusAfter = { id: 'end-dead', intent: myIntent }; } if (myIntent === intent) { setConnection(accessState(error.code)); notice(explain(error.code), 'error'); } })
       .finally(() => { epoch++; if (stop) stopping = null; else normal = null; render(); void refreshState(); void readDiagnostics(); });
     if (stop) stopping = pending; render(); return pending;
   }
@@ -535,8 +536,8 @@
   $('stop').addEventListener('click', () => { void mutate('command', { action: 'stop' }, true); });
   $('end-dead').addEventListener('click', () => { endAsk = true; render(); $('dead-event-text').focus({ preventScroll: true }); });
   $('end-dead-no').addEventListener('click', () => { endAsk = false; render(); $('end-dead').focus(); });
-  // The confirmation hides itself either way; focus goes where the operator continues.
-  $('end-dead-yes').addEventListener('click', () => { void mutate('end-dead').then(() => { $(!$('dead-event').hidden ? 'end-dead' : 'playback-heading').focus({ preventScroll: true }); }); });
+  // The answer moves focus (render's focusAfter): Playback after an end, back to this button after a refusal.
+  $('end-dead-yes').addEventListener('click', () => { void mutate('end-dead'); });
   $('refresh-events').addEventListener('click', () => { void refreshCatalog(); });
   $('reload-page').addEventListener('click', () => location.reload());
   $('diagnostics-refresh').addEventListener('click', () => { void readDiagnostics(); });

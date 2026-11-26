@@ -26,7 +26,7 @@ function activeEvent(over={}){const start=new Date(Date.now()-3600000).toISOStri
 function stateWith(active,selection=3){return{state:active?'active':'idle',closed:false,expectedEventId:active?active.eventId:null,expectedSelection:selection,lastError:null,active,candidate:null,operation:null,preparing:false,listing:false,physicalBarrier:false};}
 
 async function scripted(t,{width=1440,height=1000,active=activeEvent()}={}){
-  const model={state:stateWith(active),posts:[],endAnswer:null};
+  const model={state:stateWith(active),posts:[],endAnswer:null,holdState:0};
   const html=await exphbs.create({extname:'.handlebars'}).render(VIEW,{csrfToken:'c'.repeat(64),sourceMode:false},{layout:false});
   const server=http.createServer(async(req,res)=>{try{
     const url=new URL(req.url,'http://fixture');
@@ -35,13 +35,14 @@ async function scripted(t,{width=1440,height=1000,active=activeEvent()}={}){
     if(assets[url.pathname]){const[file,type]=assets[url.pathname];res.writeHead(200,{'Content-Type':type});res.end(await fs.readFile(path.join(root,file)));return;}
     res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');
     const route=url.pathname.replace('/game-day/api/','');const answer=(status,value)=>{res.statusCode=status;res.end(JSON.stringify(value));};
-    if(route==='state'&&req.method==='GET')return answer(200,{ok:true,state:model.state});
+    if(route==='state'&&req.method==='GET'){const value=model.state;if(model.holdState)await new Promise(resolve=>setTimeout(resolve,model.holdState));return answer(200,{ok:true,state:value});}
     if(route==='events'&&req.method==='GET')return answer(200,{ok:true,events:[{eventId:'synthetic-event-beta',displayName:'Synthetic next game',status:'available'}]});
     if(route==='end-dead'&&req.method==='POST'){
       let body='';for await(const chunk of req)body+=chunk;
       model.posts.push({body:JSON.parse(body),csrf:req.headers['x-piraiders-csrf']});
       if(model.endAnswer)return answer(409,model.endAnswer);
-      model.state=stateWith(null,model.state.expectedSelection+1);
+      // The state read that follows the end is held, so the page shows its own answer first.
+      model.holdState=2500;setTimeout(()=>{model.state=stateWith(null,model.state.expectedSelection+1);model.holdState=0;},2000);
       return answer(200,{ok:true,expectedSelection:model.state.expectedSelection});
     }
     return answer(404,{ok:false,code:'NOT_FOUND'});
@@ -86,6 +87,9 @@ test('a dead event: the page says the renderer stopped restarting and ends it af
   await page.keyboard.press('Enter');await page.waitForSelector('#end-dead-confirm:not([hidden])');
   await page.keyboard.press('Tab');await page.keyboard.press('Enter');
   await page.waitForFunction(()=>document.querySelector('#notice').dataset.tone==='success');
+  // Ended: never offered again while the page still holds the older state, and focus goes on to Playback.
+  assert.equal(await visible(page,'end-dead'),false,'no End on an ended event');assert.equal(await visible(page,'end-dead-yes'),false);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'playback-heading');
   assert.equal(model.posts.length,1);
   assert.deepEqual(model.posts[0].body,{expectedEventId:EVENT_ID,expectedSelection:3});
   assert.equal(model.posts[0].csrf,'c'.repeat(64));
@@ -98,7 +102,13 @@ test('a dead event: the page says the renderer stopped restarting and ends it af
   await page.screenshot({path:path.join(evidence,'game-day-end-dead-after-1440.png'),fullPage:true});
 });
 
-test('never offered for a live, acknowledged, restarting, closing or cleanup-failed-but-preparing event',async t=>{
+test('offered for a dead event whose earlier close failed (the manager retries it)',async t=>{
+  const {page}=await scripted(t,{active:{...activeEvent(),cleanup:'failed'}});
+  await page.waitForSelector('#dead-event:not([hidden])');
+  assert.equal(await page.locator('#end-dead').isEnabled(),true);
+});
+
+test('never offered for a live, acknowledged, restarting, preparing or closing event',async t=>{
   const cases=[
     ['live and acknowledged',activeEvent({state:'ready',ready:true,restartsExhausted:false,lastError:null,index:0})],
     ['restart pending',activeEvent({restartsExhausted:false,preparing:true})],
@@ -133,4 +143,5 @@ test('390 px: fits the width, keyboard reachable; a refused end keeps the event 
   assert.equal(await text(page,'active-name'),'Synthetic home game');
   assert.equal(await visible(page,'dead-event'),true);
   assert.equal(await visible(page,'end-dead-confirm'),false);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'end-dead','focus stays on the control after a refusal');
 });
