@@ -22,7 +22,7 @@ async function fixture(t,{username='',password='',startupSecret}={}){
  await fs.writeFile(path.join(root,'views','view-game-day.handlebars'),'<!doctype html><meta name="piraiders-csrf" content="{{csrfToken}}"><h1>Game Day route fixture</h1>');await fs.writeFile(path.join(root,'views','view-authpolicy.handlebars'),'<h1>Existing authentication policy for {{user}}</h1>');
  await fs.writeFile(path.join(root,'static','css','piraiders-game-day.css'),'body { color: green; }');await fs.writeFile(path.join(root,'static','js','piraiders-game-day.js'),'/* guarded script fixture */');await fs.writeFile(path.join(root,'static','game-day','index.html'),'UNPROTECTED_STATIC_SHADOW');
  const calls=[],gate={prepare:null,command:null},manager={snapshot:()=>({expectedEventId:null,expectedSelection:0,state:'idle'}),listEvents:async()=>({ok:true,events:[]}),
-  prepare:async(id,tuple)=>{calls.push(['prepare',id,tuple]);return gate.prepare?gate.prepare:{ok:true,candidateId:'a'.repeat(48)};},activate:async raw=>{calls.push(['activate',raw]);return{ok:true};},discardCandidate:async raw=>{calls.push(['discard',raw]);return{ok:true};},dispatch:async(action,tuple)=>{calls.push(['command',action,tuple]);return gate.command&&action!=='stop'?gate.command:{ok:true};},close:()=>{calls.push(['close']);return Promise.resolve({ok:true});}};
+  prepare:async(id,tuple)=>{calls.push(['prepare',id,tuple]);return gate.prepare?gate.prepare:{ok:true,candidateId:'a'.repeat(48)};},activate:async raw=>{calls.push(['activate',raw]);return{ok:true};},discardCandidate:async raw=>{calls.push(['discard',raw]);return{ok:true};},endDeadEvent:async raw=>{calls.push(['end-dead',raw]);return gate.endDead?gate.endDead:{ok:true};},dispatch:async(action,tuple)=>{calls.push(['command',action,tuple]);return gate.command&&action!=='stop'?gate.command:{ok:true};},close:()=>{calls.push(['close']);return Promise.resolve({ok:true});}};
  const app=express(),store=new session.MemoryStore(),sessionSecret='synthetic-session-fixture';let web;
  app.engine('handlebars',exphbs.engine({extname:'.handlebars'}));app.set('view engine','handlebars');app.set('views',path.join(root,'views'));
  // Reserve the actual server port before constructing exact-origin policy.
@@ -135,4 +135,16 @@ test('actual machine initialization accepts a canonical config alias but refuses
   }
   assert.equal(sourceReads,0);assert.equal(await fs.readFile(configFile,'utf8'),'{}');assert.equal(await fs.readFile(other,'utf8'),'{}');
  }finally{for(const[name,original]of originals)fs[name]=original;}
+});
+
+// Q-009: ending a dead event is a protected mutation with an exact body; a live event answers 409.
+test('end-dead: CSRF-protected, exact schema, the manager decides; a live event answers 409 EVENT_NOT_DEAD',async t=>{
+ const f=await fixture(t),p=await f.page(),headers=f.mutation(p);
+ assert.equal((await f.request('/game-day/api/end-dead',{method:'POST',headers:{Origin:f.origin,Cookie:p.cookie},json:f.tuple})).status,403);
+ for(const json of [{},{...f.tuple,candidateId:'a'.repeat(48)},{...f.tuple,expectedSelection:'0'},{expectedEventId:'../private',expectedSelection:0}])
+  assert.equal((await f.request('/game-day/api/end-dead',{method:'POST',headers,json})).status,400);
+ assert.equal(f.calls.length,0);
+ const ok=await f.request('/game-day/api/end-dead',{method:'POST',headers,json:f.tuple});assert.equal(ok.status,200);assert.deepEqual(f.calls[0],['end-dead',f.tuple]);
+ f.gate.endDead={ok:false,code:'EVENT_NOT_DEAD'};
+ const live=await f.request('/game-day/api/end-dead',{method:'POST',headers,json:f.tuple});assert.deepEqual([live.status,live.value.code],[409,'EVENT_NOT_DEAD']);
 });

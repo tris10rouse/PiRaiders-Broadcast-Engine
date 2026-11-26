@@ -137,9 +137,24 @@ counted, so a failed listing still showed "readable". A read that started earlie
 rollback (`APPROVAL_ROLLBACK`) or a closed service holds whatever a later read says. It decides nothing: admission is
 still the revalidator's own read at every manager boundary.
 
-Known gap (queue `Q-009`): past the restart limit the event stays active and dead inside its window. Stop answers
-`CONTROL_INHIBITED` and a new preparation `WINDOW_ACTIVE`, so the operator cannot replace it until the window ends or
-the app restarts.
+## Ending a dead event (Q-009)
+
+Decided (fence 86): the operator ends it; no later restart is scheduled. Past the restart limit the runtime reports
+`restartsExhausted: true` (the supervisor's own `Restart limit exceeded` for Caspar, and no renderer generation now);
+only a new event clears it. The manager's `endDeadEvent` (`POST /game-day/api/end-dead`, body
+`expectedEventId`, `expectedSelection`, same login and CSRF as every mutation) closes that event and nothing else:
+
+| Situation | Answer | What follows |
+|---|---|---|
+| The active event is dead (restarts exhausted, not ready, not preparing) | `ok`, the selection moves on | Nothing is active: the output stays black, `renderer: not-active`, `ndiSender: not-running`. Preparing and activating the next event work inside the same window; its new Caspar shows nothing until Launch |
+| The event is live or acknowledged, or its bounded restart is still pending | `409 EVENT_NOT_DEAD`, nothing changes | |
+| No active event | `409 NOT_READY` | |
+| Stale `expectedSelection` / `expectedEventId`, or another operation running | `STALE_SELECTION` / `BUSY` | |
+
+Before Q-009 Stop answered `CONTROL_INHIBITED` and a new preparation `WINDOW_ACTIVE` until the window ended or the app
+restarted. Tested on Linux with the real runtime, a synthetic Caspar and a scripted program page
+(`tests/game-day-recovery.test.cjs`) and on the web adapter (`tests/game-day-web.test.cjs`). The Game Day page has no
+button for it yet (queue `Q-010`). Not tested on Windows or with a real Caspar.
 
 ## Not done here
 

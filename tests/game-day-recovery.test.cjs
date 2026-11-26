@@ -373,3 +373,46 @@ test('the renderer (Caspar) dies while playing: acknowledged and sender running 
   assert.equal((await manager.dispatch('next',request(manager))).ok,false);
   assert.equal(JSON.stringify(d).includes(m.parent),false,'no path in the diagnostics');
 });
+
+// Q-009: past the restart limit the event stays active with no renderer inside its window. The operator
+// can end that dead event (the output stays black, the diagnostics say not active) and prepare again.
+// A live event, or one whose bounded restart is still pending, is never ended this way.
+test('a dead event past the restart limit can be ended by the operator and prepared again; a live or restarting event cannot',async t=>{
+  const m=await machineFile(t,{output:'ndi'});await confirm(m);
+  const {service,manager,runtime,listed}=await playing(t,m,{maxRestarts:1,restartDelayMs:50,windowMs:60000});
+  const end=()=>manager.endDeadEvent(request(manager));
+  let refused=await end();assert.deepEqual([refused.ok,refused.code],[false,'EVENT_NOT_DEAD'],'a live, acknowledged event is never ended');
+  assert.equal(manager.snapshot().active.runtime.ready,true);
+  assert.equal(manager.snapshot().active.runtime.restartsExhausted,false);
+
+  // First death: a bounded restart is pending, so the event is not dead yet.
+  runtime.children[0].crash();
+  await until(()=>runtime.sessions[0].snapshot().state==='closed');
+  refused=await end();assert.deepEqual([refused.ok,refused.code],[false,'EVENT_NOT_DEAD'],'a restarting event is not ended');
+  await until(()=>runtime.sessions.length===2);await programPage(t,runtime.sessions[1]);
+  await until(()=>manager.snapshot().active?.runtime.ready===true);
+
+  // Second death within the window: the limit holds. Before Q-009 nothing could replace it inside the window.
+  runtime.children[1].crash();
+  await until(()=>manager.snapshot().active.runtime.restartsExhausted===true);
+  assert.equal((await manager.dispatch('stop',request(manager))).code,'CONTROL_INHIBITED');
+  assert.equal((await manager.prepare(listed.eventId,request(manager))).code,'WINDOW_ACTIVE','a dead event still holds its window until it is ended');
+  assert.equal((await manager.endDeadEvent({expectedEventId:listed.eventId,expectedSelection:0})).code,'STALE_SELECTION');
+
+  const ended=await end();assert.equal(ended.ok,true,ended.code);
+  let s=manager.snapshot();assert.equal(s.active,null,'nothing plays: the output stays black');assert.equal(s.expectedEventId,null);
+  assert.equal(runtime.children.length,2,'ending starts no renderer');
+  let d=await diagnose({source:service,manager});
+  assert.deepEqual([d.states.renderer.state,d.states.ndiSender.state],['not-active','not-running']);
+  assert.equal((await end()).code,'NOT_READY','nothing left to end');
+
+  // Prepared again inside the same window: a new renderer plays the accepted deck.
+  const prepared=await manager.prepare(listed.eventId,request(manager));assert.equal(prepared.ok,true,prepared.code);
+  assert.equal((await manager.activate(request(manager,{candidateId:prepared.candidateId}))).ok,true);
+  await until(()=>runtime.sessions.length===3);assert.equal(runtime.children.length,3);
+  await programPage(t,runtime.sessions[2]);
+  await until(()=>manager.snapshot().active?.runtime.ready===true);
+  d=await diagnose({source:service,manager});assert.deepEqual([d.states.renderer.state,d.states.ndiSender.state],['acknowledged','running']);
+  assert.equal(manager.snapshot().active.runtime.index,null,'black until Launch');
+  assert.equal((await manager.dispatch('launch',request(manager))).ok,true);
+});
