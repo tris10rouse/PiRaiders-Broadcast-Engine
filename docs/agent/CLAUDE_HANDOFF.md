@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-26 (builder run, lock fence 84; 5c-5, approval list and renderer crash recovery; 5c done). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-26 (builder run, lock fence 85; Q-007, a refused reused snapshot no longer blocks until restart). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -21,7 +21,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5c-2 Diagnostics on the Game Day page | S | One panel and one browser test | landed by #96 on 2026-11-26 (fence 78): Diagnostics panel under both columns, read every 5 s; `tests/browser/game-day-diagnostics.browser.cjs` at 1440 and 390 px |
 | 5c-3 Diagnostics command | S | One Node command over the stores and the route, Linux tests | landed by #97 on 2026-11-26 (fence 79): `scripts/piraiders-diagnose.cjs --machine <file>`; store states read without the app and without writes, runtime states from the app's route or `unknown` with `APP_NOT_RUNNING` (login, 503, wrong mode and bad answers have their own codes) |
 | 5c-4 Recovery: missing exchange folder, corrupt cache | S | Two faults, Linux tests on real stores | landed by #98 on 2026-11-26 (built fence 80, merged fence 82 after Q-004): `tests/game-day-recovery.test.cjs`; folder gone mid-event keeps the deck (real runtime and session), back reads again; a corrupt cache is refused, never played, `prepared: none` names `CACHE_CHANGED` |
-| Q-007 Corrupt reused snapshot refused until the app restarts | S | Found by 5c-4; one decision and a test | not started |
+| Q-007 Corrupt reused snapshot refused until the app restarts | S | Found by 5c-4; one decision and a test | landed by #103 on 2026-11-26 (fence 85): a refused reuse drops the staged snapshot, the next preparation stages fresh; an abort keeps it |
 | Open failing check: Windows `static-contracts`, browser test "source machine: six distinct states…" (`game-day-diagnostics.browser.cjs:68`: the first diagnostics read, held by the test, already showed "could not be read") on #99's docs-only `3e19eb7` (job 139667346571) | fix | **Cause found (fence 83):** the test took 5615 ms there, first test of the job on a cold browser, past the page's own 5 s GET bound, so the page aborted the held read and showed it failed, as designed (reproduced by a 5.2 s hold). Test-only fix: the page's clock stands still while the read is held (a 5.5 s real hold fails without it); a new test checks the 5 s bound and recovery. 32 of 32 copies green under load. Page code unchanged | fixed: landed by #101 on 2026-11-26 (fence 83) |
 | 5c-5 Recovery: unreadable approval list, renderer crash | S | Two faults, Linux tests; a renderer crash may need a stand-in | landed by #102 on 2026-11-26 (fence 84): 3 tests in `tests/game-day-recovery.test.cjs` (synthetic Caspar killed, bounded restart); the approvals state is the newest completed read of the list |
 | Q-009 A dead event past the restart limit cannot be replaced inside its window | S | Found by 5c-5; one decision and a test | not started |
@@ -38,14 +38,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 2 S (Q-007, Q-009) + 3 M = 8 sized runs. Pace from every merged part so far: 22 runs for 20 sized runs = 1.10. 8 x 1.10 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 11 runs**.
+**Estimate:** remaining sizes 1 S (Q-009) + 3 M = 7 sized runs. Pace from every merged part so far: 23 runs for 21 sized runs = 1.10. 7 x 1.10 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 10 runs**.
 
-Parts left · runs left: 5 parts (Q-007, Q-009, 5d to 5f) + 2 parked fix rows · about 11 runs.
+Parts left · runs left: 4 parts (Q-009, 5d to 5f) + 2 parked fix rows · about 10 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-26 | 85 | merged (#103) | Q-007: a refused reused snapshot (`CACHE_CHANGED`, provenance) drops the coordinator's pointer; the same app's next preparation stages fresh and plays; the changed snapshot never plays; review: an abort during the reuse load dropped a healthy snapshot, fixed with a test |
 | 2026-11-26 | 84 | merged (#102) | 5c-5: unreadable approval list keeps the playing event, refuses listing and activation (black), recovers; Caspar killed: acknowledged and sender running drop at once, one bounded restart on the same deck (black until Launch), past the limit stays down; a failed listing showed approvals readable, fixed (newest completed read); review: a class-based store lost its methods, a malformed head read as readable, two weak assertions, each fixed with a test. Found Q-009 |
 | 2026-11-26 | 83 | fix (#101, Q-008) | Windows diagnostics browser test: cause found (page's own 5 s GET bound passed on a cold first test, 5615 ms); test-only fix, the page's clock still while the read is held; new test of the bound; review: none confirmed |
 | 2026-11-26 | 82 | merged (#98) | 5c-4: master (Q-004's NDI crash-listing retry) merged into `feature/5c-4-folder-cache-recovery`, no force push; checks rerun on the new head, not on the old red commit |
