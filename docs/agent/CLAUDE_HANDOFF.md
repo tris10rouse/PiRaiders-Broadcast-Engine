@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-26 (builder run, lock fence 87; Q-010, the Game Day page can end a dead event). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-26 (builder run, lock fence 88; 5d split, 5d-1 console close). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -26,7 +26,11 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5c-5 Recovery: unreadable approval list, renderer crash | S | Two faults, Linux tests; a renderer crash may need a stand-in | landed by #102 on 2026-11-26 (fence 84): 3 tests in `tests/game-day-recovery.test.cjs` (synthetic Caspar killed, bounded restart); the approvals state is the newest completed read of the list |
 | Q-009 A dead event past the restart limit cannot be replaced inside its window | S | Found by 5c-5; one decision and a test | landed by #104 on 2026-11-26 (fence 86): the operator ends it (`endDeadEvent`, `POST /game-day/api/end-dead`) only when the runtime says `restartsExhausted`; black after, the next event prepares inside the window; no scheduled later restart |
 | Q-010 Game Day page: a way to end a dead event | S | Found by Q-009; one control and a browser test (or a proposal if the wording has more than one sensible design) | landed by #105 on 2026-11-26 (fence 87): panel under Stop only while the event is dead, the page's inline confirm; `tests/browser/game-day-end-dead.browser.cjs` at 1440 and 390 px |
-| 5d Close and startup proofs | M | Launcher and close exist; needs default-browser, console-close and cold-start evidence on Windows | not started |
+| 5d Close and startup proofs | M | Split on 2026-11-26 (fence 88) into 5d-1..5d-4 | in progress |
+| 5d-1 Console close closes every owned process | S | One shared signal list for both entries, Linux test with a real SIGHUP | landed by #106 on 2026-11-26 (fence 88): `scripts/lib/shutdown-signals.cjs`; the app and the launcher close on SIGINT, SIGTERM, SIGHUP (Windows console close) and SIGBREAK (Ctrl+Break); before, a SIGHUP ended the launcher with both services left running |
+| 5d-2 Windows job: graceful close and console close leave nothing owned | S | Changes one Windows job; Windows-only failures show up only in CI | not started |
+| 5d-3 Windows job: the app opens Game Day in the default browser | S | One Windows step and a Linux test of the failure path | not started |
+| 5d-4 Cold start time against the warm-up, design note | S | Numbers from one Windows job and one note | not started |
 | 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
 | Open failing check: browser tests "a late review…" and "a late answer for an earlier event…" failed `HELD_ANSWER_NOT_FINISHED` (Linux push run of `cf91a8c`, job 136447114406; probably also the unnamed Windows `static-contracts` failure on `1819e74`, job 136440648349, not shown) | fix | **Cause found (fence 67):** reproduced locally under load (8 copies on 2 busy CPUs: 7 failures). Chromium's DevTools reported the fully read late answer as failed (`net::ERR_ABORTED`) while the page read every body without an error and Resource Timing recorded the whole download; Playwright's `response.finished()` then never settled. Test-only fix: wait on the browser's Resource Timing record. After: 16 of 16 copies green under the same load. Page code unchanged | fixed: merged on 2026-11-20 (#83; NDI and Caspar proofs are not triggered by a test-only change) |
@@ -39,14 +43,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 3 M = 6 sized runs. Pace from every merged part so far: 25 runs for 23 sized runs = 1.09. 6 x 1.09 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 9 runs**.
+**Estimate:** remaining sizes 3 S (5d-2 to 5d-4) + 2 M (5e, 5f) = 7 sized runs. Pace from every merged part so far: 26 runs for 24 sized runs = 1.08. 7 x 1.08 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 10 runs**.
 
-Parts left · runs left: 3 parts (5d to 5f) + 2 parked fix rows · about 9 runs.
+Parts left · runs left: 5 parts (5d-2 to 5d-4, 5e, 5f) + 2 parked fix rows · about 10 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-26 | 88 | merged (#106) | 5d split into 5d-1..5d-4 (M to four S); 5d-1: both entries bind SIGINT, SIGTERM, SIGHUP and SIGBREAK through `shutdown-signals.cjs`; the launcher test with a real SIGHUP fails on the old code (launcher killed by the signal, services orphaned) |
 | 2026-11-26 | 87 | merged (#105) | Q-010: Game Day page ends a dead event (`restartsExhausted`, not ready, not preparing) after one in-place confirmation; never offered for live, acknowledged, restarting or closing; browser test (4) fails on the old page; review: after a successful end the page re-offered End until the next state read and dropped focus, fixed with a test (state read held) |
 | 2026-11-26 | 86 | merged (#104) | Q-009: past the restart limit the runtime reports `restartsExhausted`; `endDeadEvent` / `POST /game-day/api/end-dead` ends only that dead event (live or restarting: `409 EVENT_NOT_DEAD`), black after, prepare again in the window; recovery, web and manager tests fail without it; review: a failed close could not be retried, fixed with a test. Found Q-010 (page control) |
 | 2026-11-26 | 85 | merged (#103) | Q-007: a refused reused snapshot (`CACHE_CHANGED`, provenance) drops the coordinator's pointer; the same app's next preparation stages fresh and plays; the changed snapshot never plays; review: an abort during the reuse load dropped a healthy snapshot, fixed with a test |

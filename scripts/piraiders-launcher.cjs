@@ -6,6 +6,7 @@ const { LauncherRuntime } = require('./lib/launcher-runtime.cjs');
 const { normalizeWindow } = require('./lib/production-window.cjs');
 const { assertJobHostAvailable } = require('./lib/windows-job-process.cjs');
 const { normalizeHealthConfig } = require('./lib/service-health-probes.cjs');
+const { bindShutdownSignals } = require('./lib/shutdown-signals.cjs');
 function loadSettings(file) {
   const settings = JSON.parse(fs.readFileSync(file, 'utf8'));
   normalizeWindow(settings.productionWindow);
@@ -37,7 +38,7 @@ async function main() {
       .finally(() => { shutdownPromise = null; });
     return shutdownPromise;
   };
-  process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
+  bindShutdownSignals(process, shutdown);
   try { await runtime.start(); }
   catch (error) { await shutdown(); throw error; }
 }
