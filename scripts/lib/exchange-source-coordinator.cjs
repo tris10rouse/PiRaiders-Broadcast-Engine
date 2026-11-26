@@ -299,8 +299,9 @@ function createExchangeSourceCoordinator(raw, trusted = {}) {
             // A refused reuse (changed bytes, a bad provenance) drops the
             // staged snapshot, so the next preparation stages fresh from the
             // source instead of being refused until the app restarts (Q-007).
+            // An abort, timeout or close is not a refusal: the snapshot stays.
             const refused = reused => {
-                if (lastPrepared === reused) lastPrepared = null;
+                if (run.valid && !run.abort.signal.aborted && !closed && lastPrepared === reused) lastPrepared = null;
             };
             const reused = reuse ? lastPrepared : null;
             const prepared = reuse ? await load(reused.snapshotDir, {

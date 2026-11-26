@@ -1204,3 +1204,30 @@ test("selected admission requires current and rejects catalog ahead while retain
         await fs.access(prepared.prepared.snapshotDir);
     }
 });
+
+test("an aborted reuse load keeps the staged snapshot: only a refusal drops it (Q-007)", async t => {
+    let loads = 0;
+    const started = latch();
+    const f = await fixture(t, {
+        load: async (dir, options) => {
+            loads++;
+            started.release();
+            await new Promise((resolve, reject) => options.signal.addEventListener("abort", () => reject(Object.assign(Error("aborted"), {
+                code: "IMAGE_ABORTED"
+            }))));
+        }
+    }), m = source();
+    await f.publish(m);
+    const first = await f.coordinator.prepareSelection(m.identityTuple);
+    assert.equal(first.code, "CONTENT_PREPARED");
+    const controller = new AbortController();
+    const pending = f.coordinator.prepareSelection(m.identityTuple, {
+        signal: controller.signal
+    });
+    await started.promise;
+    controller.abort();
+    assert.equal((await pending).code, "COORDINATOR_ABORTED");
+    await until(() => !f.coordinator.snapshot().busy);
+    assert.equal(loads, 1);
+    assert.equal(f.coordinator.snapshot().lastPrepared, first.prepared, "a healthy snapshot is not dropped by an abort");
+});
