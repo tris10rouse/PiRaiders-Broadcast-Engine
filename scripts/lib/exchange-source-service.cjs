@@ -76,7 +76,7 @@ function createExchangeSourceService(machine,trusted={}){
     provider=createExchangeSourceProvider({providerId:s.providerId,sourceRoot:s.expectedCanonicalRoot,cacheDir:machine.cacheRoot,
       journalDir:s.journalDirectory,storeId:s.journalStoreId,binding:{feedId:s.binding.feedId,epoch:s.binding.epoch}},trusted.provider??{});
   }catch(error){revalidator.close();throw error;}
-  let closed=false,attempt=0,browsable=false,catalogCode='CATALOG_NOT_READ',writing=false,reading=null;
+  let closed=false,attempt=0,browsable=false,catalogCode='CATALOG_NOT_READ',writing=false,reading=null,preparationCode=null;
 
   // The configured media root may be an alias, but what it resolves to now
   // must be the canonical spelling retained in machine policy. The loader
@@ -358,12 +358,21 @@ function createExchangeSourceService(machine,trusted={}){
   // Wraps a prepared-event runtime factory: each exchange runtime gets this
   // service's driver. A runtime that is never built closes its driver here;
   // a built runtime closes it itself.
+  // The code of the last refused preparation stays for the diagnostics
+  // (5c-4) until a preparation succeeds: the driver's own cause when it has
+  // one (a corrupt cached snapshot is CACHE_CHANGED or INVALID_MANIFEST, not
+  // the runtime's EVENT_PREPARE_FAILED), else the thrown code.
   function preparedRuntimeFactory(base){
     if(typeof base!=='function')throw fault('SOURCE_SERVICE_OPTIONS_INVALID');
     return async(profile,options)=>{
-      const media=await preparedMedia(profile);
-      try{return await base(profile,{...options,preparedMedia:media});}
-      catch(error){try{media.close();}catch{}throw error;}
+      let media;
+      try{media=await preparedMedia(profile);}catch(error){preparationCode=codeOf(error);throw error;}
+      try{const runtime=await base(profile,{...options,preparedMedia:media});preparationCode=null;return runtime;}
+      catch(error){
+        let cause=null;try{cause=media.failureCode();}catch{}
+        preparationCode=typeof cause==='string'&&CODE.test(cause)?cause:codeOf(error);
+        try{media.close();}catch{}throw error;
+      }
     };
   }
   function status(){
@@ -371,7 +380,8 @@ function createExchangeSourceService(machine,trusted={}){
     return Object.freeze({scope:'exchange-source-service',ready:false,providerId:s.providerId,closed,
       catalog:Object.freeze({available:!closed&&browsable,code:closed?'SOURCE_SERVICE_CLOSED':browsable?null:catalogCode}),
       provider:Object.freeze({busy:p.busy,closed:p.closed,observationRevision:p.observationRevision}),
-      approvals:Object.freeze({read:a.read,revision:a.revision,code:a.code,rolledBack:a.rolledBack,closed:a.closed})});
+      approvals:Object.freeze({read:a.read,revision:a.revision,code:a.code,rolledBack:a.rolledBack,closed:a.closed}),
+      preparation:Object.freeze({code:preparationCode})});
   }
   function close(){if(closed)return;closed=true;browsable=false;attempt++;revalidator.close();provider.close();}
   return Object.freeze({

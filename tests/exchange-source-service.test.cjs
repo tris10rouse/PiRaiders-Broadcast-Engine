@@ -47,7 +47,7 @@ test('the service is built only from a loader-made source machine and owns one p
   const status=first.status();
   assert.deepEqual(JSON.parse(JSON.stringify(status)),{scope:'exchange-source-service',ready:false,providerId:'approved-feed',closed:false,
     catalog:{available:false,code:'CATALOG_NOT_READ'},provider:{busy:false,closed:false,observationRevision:0},
-    approvals:{read:false,revision:null,code:'APPROVAL_NOT_READ',rolledBack:false,closed:false}});
+    approvals:{read:false,revision:null,code:'APPROVAL_NOT_READ',rolledBack:false,closed:false},preparation:{code:null}});
   first.close();first.close();
   assert.equal(first.status().closed,true);assert.equal(first.status().approvals.closed,true);
   const second=serviceFor(t,machine);assert.equal(second.status().closed,false,'closing the first frees the boundary');

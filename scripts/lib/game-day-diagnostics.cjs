@@ -39,13 +39,16 @@ function approvals(source,status){
   if(!a.code||a.code==='APPROVAL_NOT_READ')return entry('not-read',a.code);
   return entry('unreadable',a.code);
 }
-function prepared(snapshot,missing){
+function prepared(snapshot,missing,status){
   if(!snapshot||typeof snapshot!=='object')return entry('unknown',missing);
   const c=snapshot.candidate;
   if(c&&c.cleanup==='open')return entry('prepared');
   if(c)return entry('cleanup',c.cleanup==='failed'?'CLOSE_FAILED':null);
   if(snapshot.preparing===true||snapshot.operation==='preparing')return entry('preparing');
-  return entry('none');
+  // Nothing prepared: the source service's code of its last refused
+  // preparation names why (5c-4), for example CACHE_CHANGED for a cached
+  // snapshot whose bytes changed; null when the last one succeeded.
+  return entry('none',status?.preparation?.code??null);
 }
 function activeRuntime(snapshot){const a=snapshot?.active;return a&&a.cleanup==='open'?a.runtime||null:null;}
 function renderer(snapshot,missing){
@@ -72,7 +75,7 @@ async function diagnose({source=null,manager=null}={}){
   let snapshot=null,missing='SOURCE_PLAYBACK_NOT_READY';
   if(manager){try{snapshot=manager.snapshot();}catch{snapshot=null;}missing='STATE_UNAVAILABLE';}
   const states={exchangeFolder:await exchangeFolder(source),catalogSequence:catalogSequence(source,status),approvals:approvals(source,status),
-    prepared:prepared(snapshot,missing),renderer:renderer(snapshot,missing),ndiSender:ndiSender(snapshot,missing)};
+    prepared:prepared(snapshot,missing,status),renderer:renderer(snapshot,missing),ndiSender:ndiSender(snapshot,missing)};
   return Object.freeze({scope:'game-day-diagnostics',ready:false,mode:source?'source':'local',
     states:Object.freeze(states),neverClaimed:NEVER_CLAIMED});
 }
