@@ -1,0 +1,114 @@
+name: Soak Windows proof
+
+# 5e-2: the soak job (scripts/smoke-soak-windows.cjs, rules in
+# scripts/soak-proof.cjs, docs/design/SOAK_PROOF.md). Triggered by hand for
+# the four-hour soak; a five-minute check run of the same script runs on pull
+# requests that touch the soak, so the job itself is proven. A check run is
+# named as one and never reported as the soak. Hosted-CI evidence only.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/soak-proof.yml'
+      - 'scripts/smoke-soak-windows.cjs'
+      - 'scripts/soak-proof.cjs'
+      - 'scripts/soak-windows-job.cjs'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'Run length in whole minutes (240 to 300 is the soak; 5 to 239 is a check run)'
+        required: true
+        default: '240'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  actual-soak-check-run:
+    if: github.event_name == 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build actual Windows containment, SDK receiver and CI-only console helper
+        run: |
+          npm run build:windows-host
+          node scripts/build-ndi-probe.cjs
+          node scripts/build-console-proof.cjs
+      - name: Prepare pinned Caspar and app-local CI Mesa
+        run: node scripts/prepare-caspar-proof.cjs
+      - name: Verify and install pinned private CI-only NDI runtime
+        run: node scripts/prepare-ndi-proof.cjs
+      - name: Install pinned headless browser for actual workstation controls
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Check run of the soak job (five one-minute cycles, not the soak)
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          PIRAIDERS_SOAK_MINUTES: '5'
+        run: node scripts/smoke-soak-windows.cjs
+      - name: Check that no retained evidence names the proof folder, exchange folder or a private store
+        if: always()
+        run: node scripts/proof-evidence-privacy.cjs soak build/soak-proof-evidence . build/caspar-proof-tools
+      - name: Retain the last cycle's received pixels and the sanitized record only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-check-run-evidence
+          path: build/soak-proof-evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  actual-soak-dispatched:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    # Five hours of cycles at most (the plan refuses more) plus setup and close.
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build actual Windows containment, SDK receiver and CI-only console helper
+        run: |
+          npm run build:windows-host
+          node scripts/build-ndi-probe.cjs
+          node scripts/build-console-proof.cjs
+      - name: Prepare pinned Caspar and app-local CI Mesa
+        run: node scripts/prepare-caspar-proof.cjs
+      - name: Verify and install pinned private CI-only NDI runtime
+        run: node scripts/prepare-ndi-proof.cjs
+      - name: Install pinned headless browser for actual workstation controls
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Soak (or a check run, when under 240 minutes) of the synthetic approved button
+        env:
+          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.sha }}
+          PIRAIDERS_SOAK_MINUTES: ${{ inputs.minutes }}
+        run: node scripts/smoke-soak-windows.cjs
+      - name: Check that no retained evidence names the proof folder, exchange folder or a private store
+        if: always()
+        run: node scripts/proof-evidence-privacy.cjs soak build/soak-proof-evidence . build/caspar-proof-tools
+      - name: Retain the last cycle's received pixels and the sanitized record only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-dispatched-evidence
+          path: build/soak-proof-evidence
+          if-no-files-found: warn
+          retention-days: 30
