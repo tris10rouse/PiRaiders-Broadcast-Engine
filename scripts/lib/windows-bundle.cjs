@@ -9,11 +9,19 @@ const SOURCE_ROOT_FILES = new Set(['server.js', 'package.json', 'package-lock.js
 const SOURCE_DIRECTORIES = new Set(['routes', 'utils', 'views', 'static', 'ASSETS', 'locales']);
 const TEMPLATES = [
   ['packaging/windows/Launch-PiRaiders.cmd', 'Launch-PiRaiders.cmd'],
+  ['packaging/windows/Setup-PiRaiders.cmd', 'Setup-PiRaiders.cmd'],
+  ['packaging/windows/Diagnose-PiRaiders.cmd', 'Diagnose-PiRaiders.cmd'],
   ['packaging/windows/README-WINDOWS.md', 'README-WINDOWS.md'],
   ['packaging/windows/piraiders-launcher.example.json', 'app/config/piraiders-launcher.example.json'],
   ['packaging/windows/piraiders-app.example.json', 'app/config/piraiders-app.example.json'],
+  ['packaging/windows/piraiders-app.source.example.json', 'app/config/piraiders-app.source.example.json'],
   ['packaging/windows/spx-app.example.json', 'app/config/spx-app.example.json']
 ];
+// The operator's entry scripts. Their libraries come with scripts/lib/.
+const ENTRY_SCRIPTS = ['scripts/piraiders-launcher.cjs', 'scripts/piraiders-app.cjs',
+  'scripts/piraiders-setup.cjs', 'scripts/piraiders-diagnose.cjs'];
+const REQUIRED_RUNTIME_SOURCES = ['server.js', 'package.json', 'package-lock.json', 'LICENSE.txt', 'locales/english.json',
+  'static/js/ograf_functions.js', ...ENTRY_SCRIPTS];
 
 function relativePath(value) {
   if (typeof value !== 'string' || !value || value.includes('\\') || value.includes(':') ||
@@ -46,7 +54,7 @@ function sensitiveSource(relative) {
 function allowedSource(relative) {
   relativePath(relative);
   if (sensitiveSource(relative)) return false;
-  if (SOURCE_ROOT_FILES.has(relative) || ['scripts/piraiders-launcher.cjs', 'scripts/piraiders-app.cjs'].includes(relative)) return true;
+  if (SOURCE_ROOT_FILES.has(relative) || ENTRY_SCRIPTS.includes(relative)) return true;
   if (relative.startsWith('scripts/lib/')) return relative !== 'scripts/lib/agent-lease-state.mjs';
   return relative.includes('/') && SOURCE_DIRECTORIES.has(relative.split('/')[0]);
 }
@@ -172,8 +180,7 @@ function buildWindowsBundle() {
     if (!nodeLicense) throw Error('Installed Node runtime license was not found beside node.exe');
     fs.mkdirSync(path.join(bundle, 'app'), { recursive: true });
     const selected = copySourceFiles(root, path.join(bundle, 'app'), tracked);
-    for (const required of ['server.js', 'package.json', 'package-lock.json', 'LICENSE.txt', 'locales/english.json',
-      'static/js/ograf_functions.js', 'scripts/piraiders-launcher.cjs', 'scripts/piraiders-app.cjs']) {
+    for (const required of REQUIRED_RUNTIME_SOURCES) {
       if (!selected.includes(required)) throw Error('Required runtime source missing: ' + required);
     }
     for (const [source, destination] of TEMPLATES) copyFile(root, source, bundle, destination);
@@ -224,4 +231,4 @@ function buildWindowsBundle() {
   }
 }
 
-module.exports = { selectSourceFiles, copySourceFiles, createManifest, verifyManifest, buildWindowsBundle };
+module.exports = { TEMPLATES, REQUIRED_RUNTIME_SOURCES, selectSourceFiles, copySourceFiles, createManifest, verifyManifest, buildWindowsBundle };

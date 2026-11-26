@@ -35,6 +35,10 @@ Just before each write it rereads the list: if the confirmation is no longer exa
 
 One JSON line: `{ok, step, code, done}`, where `done` names the steps passed and what happened to each store. No path, store id or feed id. Exit 0 done, 1 refused, 2 wrong arguments (`SETUP_USAGE`).
 
+## In the Windows ZIP (5f-1)
+
+Part 5f-1 (2026-11-26, fence 98). The ZIP packages `scripts/piraiders-setup.cjs` and `scripts/piraiders-diagnose.cjs` (the build refuses without them), a source-mode machine example `app/config/piraiders-app.source.example.json` and two root entries beside `Launch-PiRaiders.cmd`: `Setup-PiRaiders.cmd [--pin-offline]` and `Diagnose-PiRaiders.cmd`. Each runs only the bundled Node with `--machine` set to the fixed `app/config/piraiders-app.json` and refuses any other argument (exit 2). The example's ids, folders and NDI runtime folder are `<REPLACE: ...>` placeholders that the loader refuses, so a copied example never runs with shared ids. Tests: `tests/windows-bundle-commands.test.cjs` (selection, templates, both entries' fixed lines, the example refused as shipped, accepted with every placeholder replaced and refused with any one left). Linux only; the Windows run of the entries is 5f-3.
+
 ## Not here
 
 - The linked source root rule (5b-2): setup checks the resolved spelling and reads from it, so it accepts a media root reached through a link, while the reader refuses one when the service reads through the alias. 5b-2 decides.
