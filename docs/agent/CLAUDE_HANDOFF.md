@@ -17,7 +17,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5b-3 Offline pins and cached startup on Linux | S | One pin write path, one startup path, Linux tests | landed by #93 on 2026-11-23 (fence 75): `piraiders-setup.cjs --pin-offline`; a pinned button starts cached when the exchange folder is gone (Linux, stand-in runtime) |
 | 5b-4 Windows job: setup command and cached start without the exchange folder | S | Changes the 5a Windows job only; Windows-only failures show up only in CI | landed by #94 on 2026-11-23 (fence 76): the job's stores set up by `piraiders-setup.cjs` (twice, second unchanged); after the online run `--pin-offline`, folder moved away, the app restarted plays the same button from the cache in order, Stop black, clean close (hosted Windows, real Caspar/NDI software) |
 | 5c Diagnostics and recovery | L | Split on 2026-11-26 (fence 77) into 5c-1..5c-5 | in progress |
-| 5c-1 Diagnostics states: one model and a read-only route | S | One module, one GET route, Linux tests | built on 2026-11-26 (fence 77): `game-day-diagnostics.cjs`, `GET /game-day/api/diagnostics`, design note `GAME_DAY_DIAGNOSTICS.md` |
+| 5c-1 Diagnostics states: one model and a read-only route | S | One module, one GET route, Linux tests | landed by #95 on 2026-11-26 (fence 77): `game-day-diagnostics.cjs`, `GET /game-day/api/diagnostics`, design note `GAME_DAY_DIAGNOSTICS.md` |
 | 5c-2 Diagnostics on the Game Day page | S | One panel and one browser test | not started |
 | 5c-3 Diagnostics command | S | One Node command over the stores and the route, Linux tests | not started |
 | 5c-4 Recovery: missing exchange folder, corrupt cache | S | Two faults, Linux tests on real stores | not started |
@@ -43,7 +43,7 @@ Parts left · runs left: 7 parts (5c-2 to 5c-5, 5d to 5f) + 3 parked fix rows ·
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
-| 2026-11-26 | 77 | 5c split; 5c-1 built | 5c split into 5c-1..5c-5 (L to five S); 5c-1: six diagnostic states in one model and `GET /game-day/api/diagnostics`, never on air; 3 Linux tests, each of 8 guards removed fails one; review found a file at the folder spelling read as reachable, fixed with a test |
+| 2026-11-26 | 77 | merged (#95) | 5c split into 5c-1..5c-5 (L to five S); 5c-1: six diagnostic states in one model and `GET /game-day/api/diagnostics`, never on air; 3 Linux tests, each of 8 guards removed fails one; review found a file at the folder spelling read as reachable, fixed with a test |
 | 2026-11-23 | 76 | merged (#94) | 5b-4: Windows activation job sets up its stores with the setup command (twice), pins offline, moves the exchange folder away and plays the same button from the cache; Linux test runs the same steps on the real web adapter (7 tests); review: none confirmed |
 | 2026-11-23 | 75 | merged (#93) | 5b-3: `--pin-offline` writes offline pins of prepared confirmations (reread before each write); cached startup when the folder is gone and the button is pinned; 6 Linux tests, each of 8 guards removed fails one; review found the scan bound's code hidden, fixed with a test |
 | 2026-11-23 | 74 | merged (#92) | 5b-2: linked source root decided (alias allowed when it resolves to the retained spelling; reads go through that spelling); setup answers `source: direct` or `linked`; 3 Linux tests, each guard removed fails one |
