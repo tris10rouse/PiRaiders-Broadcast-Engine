@@ -43,13 +43,16 @@ Shares are rounded down to whole bytes and handles; exactly the bound passes. A 
 
 ## The four-hour run (5e-3)
 
-Not passed yet. Each run is triggered by hand with 240 minutes and recorded here; a failure is never rerun to get green.
+**Passed on 2026-11-26** (second run, master `0d6c5c5`), as hosted-CI evidence only. Each run is triggered by hand with 240 minutes and recorded here; a failure is never rerun to get green.
 
 | Date (UTC) | Commit | Run · job | Result | Cycles completed | Stops issued · seen black | Samples · unreadable | Largest step lateness | Baseline · largest growth |
 |---|---|---|---|---|---|---|---|---|
 | 2026-11-26 | `137a5ee` | 45836057451 · 139965117507 | **failed** at cycle 8, step `launch`, `PROBE_CONNECTION`; cleanup could not close the receiver | 8 of 240 | 8 · 8 (none lost) | 8 · 0 | 12 ms | not judged (the job failed before the rules ran) |
+| 2026-11-26 | `0d6c5c5` | 45856807336 · 140037232297 | **passed** (`soak-windows-proof-passed`, `withinBounds`, `noLostStop`) | 240 of 240 | 240 · 240 (120 RossTalk, 120 route; slowest to black 1263 ms, bound 5000 ms) | 240 · 0 | 16 ms | working set 1,198,714,880 bytes · 0 (bound 1,498,393,600); handles 4,749 · 23 (bound 5,698) |
 
 First run: set-up 0.4 s, application ready 2.6 s, activated 5.1 s, cycles from 12.7 s; cycles 0 to 7 passed with 49 frames in order. At cycle 8's Launch the job's loopback connection to the test-bench SDK receiver failed with a socket error, and closing the receiver failed too, so the receiver probably exited or stopped listening. Its stderr was discarded and its exit not recorded. **Probable cause (Q-011, fence 95), from the code and these timings:** the test-bench receiver (`native/windows/NdiProbe.cs`) ends itself after a fixed 8 minutes (`GlobalDeadlineMs`, failure word `NDI_PROBE_FAILED_PROBE_DEADLINE`, exit 1); started 0.4 s into the job, it stopped listening at about 480 s, between cycle 7's Stop (about 474 s) and cycle 8's Launch (about 494 s), which also explains the failed close (exit 1, not 0). Not confirmed by a recorded exit. Since Q-011 a failed probe request carries the receiver's exit (code, signal, milliseconds after its start) and its fixed-word stderr lines (any other line only counted), and the failure line prints them with the socket's fixed code. Fix row Q-012 lets the soak's receiver live for the whole run; then 5e-3 runs again. **Q-012 (fence 96):** the soak's receiver now lives for the planned run plus 30 minutes (270 for the four-hour soak, 35 for the check run, at most 330), passed as its fourth argument, refused by both sides outside 8 to 330 minutes and echoed in its ready line; every other proof keeps the 8-minute default (`scripts/lib/receiver-lifetime.cjs`). The privacy check passed on the 7 retained frames (artifact `soak-dispatched-evidence`). This is no evidence about the application: the failing part is the test bench's receiver.
+
+Second run (fence 97, after Q-012): receiver lifetime 270 minutes; set-up 0.8 s, application ready 3.5 s, activated 9.5 s, cycles from 20.0 s to 14,402.9 s; 1,441 frames seen; largest working set never above the baseline, handles at most 4,772. Close: graceful, exit 0, signal to exit 245 ms and to every owned process gone 666 ms, SPX port free. The privacy check passed on the 8 retained files (artifact `soak-dispatched-evidence`). Hosted Windows only: one same-machine NDI loopback, synthetic content, a fresh runner.
 
 ## Not shown
 
