@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261126T064636Z-5703de",
+  "status": "idle",
+  "owner": null,
   "fence": 86,
-  "task": "Q-009",
-  "workBranch": "feature/Q-009-dead-event-exit",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-26T06:46:36.584Z",
-  "lastHeartbeat": "2026-11-26T07:35:41.595Z",
-  "expiresAt": "2026-11-26T09:05:41.595Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-26T07:35:57.860Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-26T07:35:57.860Z"
 }
