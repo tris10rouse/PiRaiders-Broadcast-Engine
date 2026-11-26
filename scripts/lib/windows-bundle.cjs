@@ -12,6 +12,7 @@ const TEMPLATES = [
   ['packaging/windows/Setup-PiRaiders.cmd', 'Setup-PiRaiders.cmd'],
   ['packaging/windows/Diagnose-PiRaiders.cmd', 'Diagnose-PiRaiders.cmd'],
   ['packaging/windows/README-WINDOWS.md', 'README-WINDOWS.md'],
+  ['packaging/windows/OPERATOR-CHECKLIST.md', 'OPERATOR-CHECKLIST.md'],
   ['packaging/windows/piraiders-launcher.example.json', 'app/config/piraiders-launcher.example.json'],
   ['packaging/windows/piraiders-app.example.json', 'app/config/piraiders-app.example.json'],
   ['packaging/windows/piraiders-app.source.example.json', 'app/config/piraiders-app.source.example.json'],
