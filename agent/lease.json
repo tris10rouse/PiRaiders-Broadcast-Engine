@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261126T221502Z-382a7d",
   "fence": 100,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "5f-3",
+  "workBranch": "feature/5f-3-zip-setup-diagnose-ci",
   "acquiredAt": "2026-11-26T22:15:02.710Z",
-  "lastHeartbeat": "2026-11-26T22:15:02.710Z",
-  "expiresAt": "2026-11-26T23:45:02.710Z",
+  "lastHeartbeat": "2026-11-26T22:15:24.261Z",
+  "expiresAt": "2026-11-26T23:45:24.261Z",
   "releasedAt": null
 }
