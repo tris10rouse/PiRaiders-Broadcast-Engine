@@ -65,7 +65,8 @@ jobs:
   # BE-006 item 5a part 2: a source machine on a synthetic exchange folder,
   # approved, prepared, activated, played and Stopped through the real routes.
   # 5b-4: its stores set up by the setup command, then a cached start with the
-  # exchange folder moved away.
+  # exchange folder moved away. 5d-2: the app runs in its own console; the
+  # online run is closed by Ctrl+C, the cached run by closing the console window.
   actual-exchange-activation-private-ndi:
     runs-on: windows-latest
     timeout-minutes: 25
@@ -80,10 +81,11 @@ jobs:
           cache: npm
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Build actual Windows containment and SDK receiver
+      - name: Build actual Windows containment, SDK receiver and CI-only console helper
         run: |
           npm run build:windows-host
           node scripts/build-ndi-probe.cjs
+          node scripts/build-console-proof.cjs
       - name: Prepare pinned Caspar and app-local CI Mesa
         run: node scripts/prepare-caspar-proof.cjs
       - name: Verify and install pinned private CI-only NDI runtime
