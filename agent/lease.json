@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261126T205055Z-424053",
+  "status": "idle",
+  "owner": null,
   "fence": 98,
-  "task": "5f",
-  "workBranch": "feature/5f-evaluation-zip",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-26T20:50:55.755Z",
-  "lastHeartbeat": "2026-11-26T21:35:40.250Z",
-  "expiresAt": "2026-11-26T23:05:40.250Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-26T21:35:51.097Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-26T21:35:51.097Z"
 }
