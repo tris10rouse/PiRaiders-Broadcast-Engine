@@ -165,7 +165,7 @@ test('Verify-PiRaiders.cmd runs only the bundled Node on the command, takes no a
   const text = read('packaging/windows/Verify-PiRaiders.cmd');
   const runs = text.split(/\r?\n/).filter(line => /node\.exe"\s/.test(line) && !/^\s*if /i.test(line));
   assert.deepEqual(runs, ['"%PIRAIDERS_BUNDLE_ROOT%runtime\\node.exe" "%PIRAIDERS_BUNDLE_ROOT%app\\scripts\\piraiders-verify-bundle.cjs"']);
-  assert.match(text, /if not "%~1"=="" \(\n  echo Verify-PiRaiders\.cmd takes no arguments\./);
+  assert.match(text, /if not "%~1"=="" \(\r?\n  echo Verify-PiRaiders\.cmd takes no arguments\./);
   assert.match(text, /echo Bundled Node runtime is missing\./);
   assert.doesNotMatch(text, /piraiders-app\.json|config\.json|%\*|%~?[2-9]/);
   const shipped = new Set(bundle.TEMPLATES.map(item => item[1]));
