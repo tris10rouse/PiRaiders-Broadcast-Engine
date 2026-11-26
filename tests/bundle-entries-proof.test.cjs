@@ -7,7 +7,8 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os');
 const {proveBundleEntries,sourceMachineFromExample,checkDiagnose}=require('../scripts/bundle-entries-proof.cjs');
 const bundle=require('../scripts/lib/windows-bundle.cjs');
-const setupCommand=require('../scripts/piraiders-setup.cjs'),diagnoseCommand=require('../scripts/piraiders-diagnose.cjs');
+const setupCommand=require('../scripts/piraiders-setup.cjs'),diagnoseCommand=require('../scripts/piraiders-diagnose.cjs'),verifyCommand=require('../scripts/piraiders-verify-bundle.cjs');
+const METADATA={commitSHA:'b'.repeat(40),spxVersion:'1.3.0',node:{version:'v22.0.0',platform:'win32',arch:'x64'}};
 const ROOT=path.join(__dirname,'..');
 
 // A folder shaped like the extracted ZIP: the shipped templates where the ZIP puts them.
@@ -24,9 +25,11 @@ async function bundleShape(t){
     const local=p=>path.join(parent,'components',p.replace(/^[A-Za-z]:\//,'').replace(/[^A-Za-z0-9/-]/g,'_'));
     value.caspar={executable:local(value.caspar.executable),cwd:local(value.caspar.cwd)};await fs.writeFile(file,JSON.stringify(value,null,2));
   }
+  // The extraction's manifest, as the build writes it (Q-013).
+  await fs.writeFile(path.join(root,'BUILD-MANIFEST.json'),JSON.stringify(bundle.createManifest(root,METADATA),null,2)+'\n');
   return{parent,root,app:path.join(root,'app'),work};
 }
-// Stands in for the two .cmd entries: the same command on the fixed machine
+// Stands in for the three .cmd entries: the same command on the fixed machine
 // file from the app folder, and the entries' own refusal (exit 2) of any
 // other argument. The Windows job runs the real entries instead.
 function inProcessEntries(app,calls=[]){
@@ -40,6 +43,9 @@ function inProcessEntries(app,calls=[]){
     }else if(name==='Diagnose-PiRaiders.cmd'){
       if(args.length)return{exitCode:2,stdout:'Diagnose-PiRaiders.cmd takes no arguments.\n'};
       r=await diagnoseCommand.main(['--machine',machine],{appRoot:app});
+    }else if(name==='Verify-PiRaiders.cmd'){
+      if(args.length)return{exitCode:2,stdout:'Verify-PiRaiders.cmd takes no arguments.\n'};
+      r=verifyCommand.main([],{root:path.dirname(app)});
     }else throw Error('unknown entry');
     return{exitCode:r.exitCode,stdout:JSON.stringify(r.answer)+'\n'};
   };
@@ -48,7 +54,9 @@ function inProcessEntries(app,calls=[]){
 test('setup twice, a wrong argument and diagnose pass over the shipped examples and keep fixed codes only',async t=>{
   const {parent,root,app,work}=await bundleShape(t),calls=[];
   const evidence=await proveBundleEntries({root,work,runEntry:inProcessEntries(app,calls)});
-  assert.deepEqual(calls,[['Setup-PiRaiders.cmd'],['Setup-PiRaiders.cmd'],['Setup-PiRaiders.cmd','--no-such-option'],['Diagnose-PiRaiders.cmd']]);
+  assert.deepEqual(calls,[['Verify-PiRaiders.cmd'],['Setup-PiRaiders.cmd'],['Setup-PiRaiders.cmd'],['Setup-PiRaiders.cmd','--no-such-option'],['Diagnose-PiRaiders.cmd'],['Verify-PiRaiders.cmd']]);
+  assert.deepEqual(evidence.verify.fresh,{exitCode:0,code:'BUNDLE_VERIFIED',files:bundle.TEMPLATES.length,differences:null});
+  assert.deepEqual(evidence.verify.afterSetup,{exitCode:1,code:'BUNDLE_DIFFERS',files:null,differences:['extra']});
   assert.deepEqual(evidence.setup,{first:{journal:'initialized',approvals:'initialized'},second:{journal:'present',approvals:'present'},
     firstCode:null,secondCode:null,storeFiles:evidence.setup.storeFiles,secondRunWroteNothing:true,wrongArgumentExit:2});
   assert.ok(evidence.setup.storeFiles>=2);
@@ -90,7 +98,8 @@ test('a store byte changed by the second setup run or by the refused argument fa
   for(const [call,code] of [[2,'SETUP_SECOND_RUN_WROTE'],[3,'SETUP_USAGE_WROTE']]){
     const {root,app,work}=await bundleShape(t),real=inProcessEntries(app);let n=0;
     const writes=async(name,args)=>{const r=await real(name,args);
-      if(++n===call)await fs.writeFile(path.join(app,'data','exchange-approvals','extra-file'),'x');return r;};
+      // Counts the setup calls only; the verify entry runs before them.
+      if(name!=='Verify-PiRaiders.cmd'&&++n===call)await fs.writeFile(path.join(app,'data','exchange-approvals','extra-file'),'x');return r;};
     await assert.rejects(proveBundleEntries({root,work,runEntry:writes}),{code});
   }
 });
@@ -126,4 +135,25 @@ test('diagnose answers other than stores ready and app not running are refused',
   assert.throws(()=>run({...good,states:{...good.states,renderer:state('acknowledged',null,'app')}}),{code:'DIAGNOSE_UNEXPECTED'});
   assert.throws(()=>run({...good,states:{...good.states,catalogSequence:state('read',null,'stores')}}),{code:'DIAGNOSE_UNEXPECTED'});
   assert.throws(()=>checkDiagnose({exitCode:0,stdout:'not json'}),{code:'DIAGNOSE_ANSWER_UNREADABLE'});
+});
+
+// Q-013: the verify entry runs on the fresh extraction and after setup.
+test('a fresh extraction that differs from its manifest, or extra-only not holding after setup, fails the proof',async t=>{
+  {
+    const {root,app,work}=await bundleShape(t);
+    await fs.appendFile(path.join(root,'README-WINDOWS.md'),'\n');
+    await assert.rejects(proveBundleEntries({root,work,runEntry:inProcessEntries(app)}),e=>e.code==='VERIFY_UNEXPECTED'&&e.fixed.code==='BUNDLE_DIFFERS'&&JSON.stringify(e.fixed.differences)==='["changed"]');
+    // Nothing of the operator's was written before the refusal.
+    await assert.rejects(fs.lstat(path.join(app,'config','piraiders-app.json')),{code:'ENOENT'});
+  }
+  {
+    const {root,app,work}=await bundleShape(t),real=inProcessEntries(app);let n=0;
+    const damages=async(name,args)=>{if(name==='Verify-PiRaiders.cmd'&&++n===2)await fs.rm(path.join(root,'Launch-PiRaiders.cmd'));return real(name,args);};
+    await assert.rejects(proveBundleEntries({root,work,runEntry:damages}),e=>e.code==='VERIFY_UNEXPECTED'&&JSON.stringify(e.fixed.differences)==='["missing","extra"]');
+  }
+  {
+    const {root,app,work}=await bundleShape(t);
+    const unreadable=async(name,args)=>name==='Verify-PiRaiders.cmd'?{exitCode:0,stdout:'not json'}:inProcessEntries(app)(name,args);
+    await assert.rejects(proveBundleEntries({root,work,runEntry:unreadable}),{code:'VERIFY_ANSWER_UNREADABLE'});
+  }
 });

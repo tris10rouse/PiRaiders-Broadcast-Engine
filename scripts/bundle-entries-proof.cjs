@@ -1,10 +1,11 @@
 'use strict';
 // BE-006 item 5f part 3: the extracted ZIP's setup and diagnose entries in
 // source mode, the steps an operator follows in OPERATOR-CHECKLIST.md:
-// copy the shipped SPX example to app/config.json, write
+// Verify-PiRaiders.cmd on the fresh extraction (Q-013), copy the shipped SPX example to app/config.json, write
 // app/config/piraiders-app.json from the shipped source-mode example (only
 // its placeholders replaced), run Setup-PiRaiders.cmd twice and
-// Diagnose-PiRaiders.cmd. Kept apart from the Windows script so Linux tests
+// Diagnose-PiRaiders.cmd, then Verify-PiRaiders.cmd again (only the
+// operator's own files extra). Kept apart from the Windows script so Linux tests
 // run the very same steps with the commands in-process; only the Windows job
 // (scripts/smoke-windows-entries.cjs) runs the real .cmd entries.
 //
@@ -58,6 +59,15 @@ function checkDiagnose(result){
   return fixed;
 }
 
+// The verify answer reduced to its code, exit, file count and difference kinds.
+function checkVerify(result){
+  let value;try{value=JSON.parse(String(result&&result.stdout).trim());}catch{fail('VERIFY_ANSWER_UNREADABLE');}
+  const kinds=Array.isArray(value?.differences)?value.differences.filter(k=>['missing','changed','extra'].includes(k)):null;
+  return{exitCode:Number.isInteger(result.exitCode)?result.exitCode:null,
+    code:typeof value?.code==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(value.code)?value.code:null,
+    files:Number.isSafeInteger(value?.files)?value.files:null,differences:kinds};
+}
+
 const exists=async p=>{try{await fs.lstat(p);return true;}catch{return false;}};
 
 // root: the extracted bundle folder (holding app/ and the root entries).
@@ -66,6 +76,9 @@ async function proveBundleEntries({root,work,runEntry}){
   if(typeof root!=='string'||!path.isAbsolute(root)||typeof work!=='string'||!path.isAbsolute(work)||typeof runEntry!=='function')fail('PROOF_OPTIONS_INVALID');
   const app=path.join(root,'app'),config=path.join(app,'config'),machineFile=path.join(config,'piraiders-app.json'),spxConfig=path.join(app,'config.json');
   for(const p of [machineFile,spxConfig])if(await exists(p))fail('BUNDLE_NOT_FRESH');
+  // Checklist step 1 (Q-013): the fresh extraction matches its manifest.
+  const verified=checkVerify(await runEntry('Verify-PiRaiders.cmd',[]));
+  if(verified.exitCode!==0||verified.code!=='BUNDLE_VERIFIED'||verified.differences!==null)fail('VERIFY_UNEXPECTED',{fixed:verified});
   // Checklist step: a new SPX bench copies the shipped SPX example and makes its folders.
   await fs.copyFile(path.join(config,'spx-app.example.json'),spxConfig,fs.constants.COPYFILE_EXCL);
   for(const dir of ['DATAROOT','LOG','events'])await fs.mkdir(path.join(app,dir),{recursive:true});
@@ -92,8 +105,11 @@ async function proveBundleEntries({root,work,runEntry}){
   if(usage.exitCode!==2)fail('SETUP_USAGE_NOT_REFUSED',{exitCode:Number.isInteger(usage.exitCode)?usage.exitCode:null});
   if(JSON.stringify(await storeBytes(source))!==JSON.stringify(before))fail('SETUP_USAGE_WROTE');
   const diagnose=checkDiagnose(await runEntry('Diagnose-PiRaiders.cmd',[]));
-  return{event:'windows-bundle-entries-proof',setup:{...stores,firstCode:first.answer.code,secondCode:second.answer.code,storeFiles:Object.keys(before).length,
+  // After configuration the operator's own files are extra, and only extra.
+  const afterSetup=checkVerify(await runEntry('Verify-PiRaiders.cmd',[]));
+  if(afterSetup.exitCode!==1||afterSetup.code!=='BUNDLE_DIFFERS'||JSON.stringify(afterSetup.differences)!=='["extra"]')fail('VERIFY_UNEXPECTED',{fixed:afterSetup});
+  return{event:'windows-bundle-entries-proof',verify:{fresh:verified,afterSetup},setup:{...stores,firstCode:first.answer.code,secondCode:second.answer.code,storeFiles:Object.keys(before).length,
     secondRunWroteNothing:true,wrongArgumentExit:2},diagnose};
 }
 
-module.exports={proveBundleEntries,sourceMachineFromExample,checkDiagnose};
+module.exports={proveBundleEntries,sourceMachineFromExample,checkDiagnose,checkVerify};

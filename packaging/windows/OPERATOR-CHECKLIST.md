@@ -1,8 +1,8 @@
 # PiRaiders operator checklist (evaluation bench)
 
-For a disposable, nonproduction Windows x64 PC only. Do the steps in order. Each step says what the command or page shows when it worked, and what to do first when it refuses. The commands print fixed codes only: no paths, ids or names. Before any of them runs, the three `.cmd` entries refuse on their own with a plain sentence and exit 2: a wrong argument, "Bundled Node runtime is missing" (extract the whole ZIP again) or "Application configuration is missing" (step 3). Background and limits: `README-WINDOWS.md` in this folder.
+For a disposable, nonproduction Windows x64 PC only. Do the steps in order. Each step says what the command or page shows when it worked, and what to do first when it refuses. The commands print fixed codes only: no paths, ids or names. Before any of them runs, the four `.cmd` entries refuse on their own with a plain sentence and exit 2: a wrong argument, "Bundled Node runtime is missing" (extract the whole ZIP again) or "Application configuration is missing" (step 3). Background and limits: `README-WINDOWS.md` in this folder.
 
-Every step here is behaviour that exists and is tested, on Linux and, where it says so, on a GitHub-hosted Windows runner. It is not tested on the stadium PC. Windows evidence for steps 6 to 11 comes from the same application run from the source tree on a hosted runner; from this extracted ZIP, CI launches with an empty local catalog only, and runs Setup and Diagnose from the ZIP in part 5f-3 (until then they are tested on Linux only). If a step does not match what you see, stop and keep the console output; do not work around it.
+Every step here is behaviour that exists and is tested, on Linux and, where it says so, on a GitHub-hosted Windows runner. It is not tested on the stadium PC. Windows evidence for steps 6 to 11 comes from the same application run from the source tree on a hosted runner; from this extracted ZIP, CI launches with an empty local catalog only, and runs Verify, Setup and Diagnose from the ZIP (parts 5f-3 and Q-013). If a step does not match what you see, stop and keep the console output; do not work around it.
 
 **Not shown by any test yet:** the stadium PC, Windows 10, a cold-booted PC, a synced or linked Google Drive folder as the exchange folder, NDI over a network, an NDI receiver other than the test receiver, the board's input, and anything on air. "NDI sender running" in Diagnose means this PC's sender process runs; it does not mean a receiver found it, the board shows it, or it is on air.
 
@@ -10,7 +10,17 @@ Every step here is behaviour that exists and is tested, on Linux and, where it s
 
 - Keep the ZIP beside its `PiRaiders-Development-win-x64.zip.sha256` file. Before extracting, compare the ZIP's SHA-256 with that file (for example, PowerShell `Get-FileHash -Algorithm SHA256` on the ZIP). Different: do not extract; get the ZIP again.
 - Extract the whole ZIP into a new, empty, writable folder. Spaces, non-English letters and `!` in the folder path are fine. Do not run anything from inside the ZIP.
-- Leave `BUILD-MANIFEST.json` and the licences as they are. CI checks every extracted file against `BUILD-MANIFEST.json` on each build; the ZIP has no command of its own for that check yet.
+- Leave `BUILD-MANIFEST.json` and the licences as they are.
+- Run `Verify-PiRaiders.cmd` from the extracted folder now, before step 3 writes any file of yours: it checks every extracted file against `BUILD-MANIFEST.json` and takes no arguments. The manifest is not signed: it finds a damaged or incomplete extraction, not a forged download (the SHA-256 comparison above is for that).
+
+**Worked:** exit 0 and one line with the code `BUNDLE_VERIFIED` and the number of files checked, for example `{"ok":true,"code":"BUNDLE_VERIFIED","files":1234}`.
+
+| Code | First thing to do |
+|---|---|
+| `BUNDLE_DIFFERS` | `differences` says which kinds were found: `missing` (a listed file is not there), `changed` (a listed file has other bytes, or is a folder or link) or `extra` (a file the ZIP did not hold), with a count of each. Delete the folder and extract the whole ZIP again into a new, empty folder. `extra` alone after step 3 only means your own files are there; run this check before step 3. |
+| `MANIFEST_INVALID` | `BUILD-MANIFEST.json` is missing, unreadable or not a valid manifest: delete the folder and extract the whole ZIP again; if it repeats, get the ZIP again. |
+| `VERIFY_USAGE` | Only when `app\scripts\piraiders-verify-bundle.cjs` is run directly with an argument (exit 2); use `Verify-PiRaiders.cmd` instead. |
+| `VERIFY_FAILED` | The check stopped unexpectedly: keep the console output, extract the whole ZIP again and run it once more. |
 
 ## 2. Choose local or source mode
 

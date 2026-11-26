@@ -11,6 +11,7 @@ const TEMPLATES = [
   ['packaging/windows/Launch-PiRaiders.cmd', 'Launch-PiRaiders.cmd'],
   ['packaging/windows/Setup-PiRaiders.cmd', 'Setup-PiRaiders.cmd'],
   ['packaging/windows/Diagnose-PiRaiders.cmd', 'Diagnose-PiRaiders.cmd'],
+  ['packaging/windows/Verify-PiRaiders.cmd', 'Verify-PiRaiders.cmd'],
   ['packaging/windows/README-WINDOWS.md', 'README-WINDOWS.md'],
   ['packaging/windows/OPERATOR-CHECKLIST.md', 'OPERATOR-CHECKLIST.md'],
   ['packaging/windows/piraiders-launcher.example.json', 'app/config/piraiders-launcher.example.json'],
@@ -20,7 +21,7 @@ const TEMPLATES = [
 ];
 // The operator's entry scripts. Their libraries come with scripts/lib/.
 const ENTRY_SCRIPTS = ['scripts/piraiders-launcher.cjs', 'scripts/piraiders-app.cjs',
-  'scripts/piraiders-setup.cjs', 'scripts/piraiders-diagnose.cjs'];
+  'scripts/piraiders-setup.cjs', 'scripts/piraiders-diagnose.cjs', 'scripts/piraiders-verify-bundle.cjs'];
 const REQUIRED_RUNTIME_SOURCES = ['server.js', 'package.json', 'package-lock.json', 'LICENSE.txt', 'locales/english.json',
   'static/js/ograf_functions.js', ...ENTRY_SCRIPTS];
 
@@ -120,7 +121,9 @@ function createManifest(root, metadata) {
   });
   return manifest;
 }
-function verifyManifest(root) {
+// The manifest's own checks: metadata, records, no duplicate or case-colliding
+// path, a sorted inventory. Throws on any fault; reads no listed file.
+function readManifest(root) {
   const file = safePath(root, MANIFEST);
   if (!fs.lstatSync(file).isFile() || fs.statSync(file).size > 16 * 1024 * 1024) throw Error('Invalid manifest file');
   const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -128,22 +131,64 @@ function verifyManifest(root) {
   if (!Array.isArray(manifest.files) || !manifest.files.length) throw Error('Empty bundle inventory');
   const seen = new Set(), expected = [];
   for (const item of manifest.files) {
+    if (!item || typeof item !== 'object') throw Error('Invalid bundle file record');
     relativePath(item.path);
     if (item.path === MANIFEST || !Number.isSafeInteger(item.bytes) || item.bytes < 0 ||
         !/^[a-f0-9]{64}$/.test(item.sha256 || '')) throw Error('Invalid bundle file record');
     const key = item.path.toLowerCase();
     if (seen.has(key)) throw Error('Duplicate or case-colliding manifest path');
     seen.add(key); expected.push(item.path);
+  }
+  const sorted = [...expected].sort();
+  if (JSON.stringify(expected) !== JSON.stringify(sorted)) throw Error('Bundle inventory must be sorted');
+  return manifest;
+}
+function verifyManifest(root) {
+  const manifest = readManifest(root);
+  for (const item of manifest.files) {
     const absolute = safePath(root, item.path);
     if (!fs.lstatSync(absolute).isFile() || fs.statSync(absolute).size !== item.bytes || sha256(absolute) !== item.sha256) {
       throw Error('Bundle file integrity mismatch: ' + item.path);
     }
   }
-  const sorted = [...expected].sort();
-  if (JSON.stringify(expected) !== JSON.stringify(sorted)) throw Error('Bundle inventory must be sorted');
+  const expected = manifest.files.map(item => item.path);
   const actual = filesUnder(root).filter(relative => relative !== MANIFEST);
-  if (JSON.stringify(actual) !== JSON.stringify(sorted)) throw Error('Bundle contains missing or unlisted files');
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) throw Error('Bundle contains missing or unlisted files');
   return manifest;
+}
+// Every entry under root that is not a directory, symbolic links and other
+// non-regular entries included (never followed), as bundle-relative paths.
+function entriesUnder(root, prefix = '') {
+  const directory = prefix ? path.join(root, ...prefix.split('/')) : path.resolve(root);
+  const entries = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const relative = prefix ? prefix + '/' + entry.name : entry.name;
+    if (entry.isDirectory()) entries.push(...entriesUnder(root, relative));
+    else entries.push(relative);
+  }
+  return entries;
+}
+// Q-013: the operator's check of an extracted bundle. Counts each kind of
+// difference from the manifest instead of stopping at the first: a listed file
+// absent (missing), present but not the listed regular file, size and SHA-256
+// (changed), an entry the manifest does not list (extra). Throws only when the
+// manifest itself cannot be read or is invalid. Answers counts, never paths.
+function inspectBundle(root) {
+  const manifest = readManifest(root);
+  const counts = { missing: 0, changed: 0, extra: 0 };
+  const listed = new Set();
+  for (const item of manifest.files) {
+    listed.add(item.path);
+    let absolute;
+    try { absolute = safePath(root, item.path); } catch (error) {
+      if (error && error.code === 'ENOENT') counts.missing++; else counts.changed++;
+      continue;
+    }
+    const stat = fs.lstatSync(absolute);
+    if (!stat.isFile() || stat.size !== item.bytes || sha256(absolute) !== item.sha256) counts.changed++;
+  }
+  for (const relative of entriesUnder(root)) if (relative !== MANIFEST && !listed.has(relative)) counts.extra++;
+  return { files: manifest.files.length, counts };
 }
 
 function buildWindowsBundle() {
@@ -232,4 +277,4 @@ function buildWindowsBundle() {
   }
 }
 
-module.exports = { TEMPLATES, REQUIRED_RUNTIME_SOURCES, selectSourceFiles, copySourceFiles, createManifest, verifyManifest, buildWindowsBundle };
+module.exports = { TEMPLATES, REQUIRED_RUNTIME_SOURCES, selectSourceFiles, copySourceFiles, createManifest, verifyManifest, inspectBundle, buildWindowsBundle };

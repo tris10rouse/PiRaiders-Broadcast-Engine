@@ -21,6 +21,7 @@ const union = (...sets) => new Set(sets.flatMap(set => [...set]));
 const SETUP_FILES = ['scripts/piraiders-setup.cjs', 'scripts/lib/exchange-setup.cjs'];
 const DIAGNOSE_FILES = ['scripts/piraiders-diagnose.cjs', 'scripts/lib/game-day-diagnose.cjs'];
 const LAUNCH_FILES = ['scripts/piraiders-app.cjs'];
+const VERIFY_FILES = ['scripts/piraiders-verify-bundle.cjs'];
 const FORWARDED_FILES = ['scripts/lib/game-day-catalog.cjs', 'scripts/lib/exchange-journal.cjs',
   'scripts/lib/exchange-approval-store.cjs', 'scripts/lib/exchange-source-service.cjs'];
 // The launcher's codes that reach its console (main's catch, a fault or a
@@ -43,7 +44,7 @@ test('the bundle packages the operator checklist at the ZIP root from a tracked 
 });
 
 test('every code the checklist names is one the commands can print', () => {
-  const printable = union(...[...SETUP_FILES, ...DIAGNOSE_FILES, ...LAUNCH_FILES, ...FORWARDED_FILES].map(file => literals(file)));
+  const printable = union(...[...SETUP_FILES, ...DIAGNOSE_FILES, ...LAUNCH_FILES, ...VERIFY_FILES, ...FORWARDED_FILES].map(file => literals(file)));
   const codes = named(checklist());
   assert.ok(codes.size >= 20, 'the checklist names the commands\' codes');
   for (const code of codes) assert.ok(printable.has(code), code + ' is not printed by any command');
@@ -58,7 +59,10 @@ test('every refusal code of setup, diagnose and launch has its own line in the c
   // 'SETUP_FEED_' is the prefix of SETUP_FEED_<reader code>, named as such.
   assert.ok(setup.delete('SETUP_FEED_'), 'the feed prefix is in the setup step');
   assert.match(checklist(), /`SETUP_FEED_…`/);
-  for (const code of [...setup, ...diagnose, ...SETUP_FORWARDED]) assert.ok(codes.has(code), code + ' missing from the checklist');
+  // Q-013: every code the verify command prints, success included.
+  const verify = union(...VERIFY_FILES.map(file => literals(file, /'((?:BUNDLE|MANIFEST|VERIFY)_[A-Z0-9_]+)'/g)));
+  assert.deepEqual([...verify].sort(), ['BUNDLE_DIFFERS', 'BUNDLE_VERIFIED', 'MANIFEST_INVALID', 'VERIFY_FAILED', 'VERIFY_USAGE']);
+  for (const code of [...setup, ...diagnose, ...verify, ...SETUP_FORWARDED]) assert.ok(codes.has(code), code + ' missing from the checklist');
   for (const code of LAUNCH_PRINTED) {
     assert.ok(launch.has(code), code + ' is printed by the launcher');
     assert.ok(codes.has(code), code + ' missing from the checklist');

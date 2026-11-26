@@ -3,7 +3,8 @@
 // BE-006 item 5f part 3: on hosted Windows, the CI-built ZIP extracted under
 // a path with spaces, Unicode and `!`, then its real root entries
 // Setup-PiRaiders.cmd (twice, then a wrong argument) and
-// Diagnose-PiRaiders.cmd in source mode over a synthetic exchange folder
+// Diagnose-PiRaiders.cmd in source mode over a synthetic exchange folder,
+// with Verify-PiRaiders.cmd before and after (Q-013)
 // (steps in scripts/bundle-entries-proof.cjs). The entries run with the
 // bundled Node only: no Node, NODE_PATH, NODE_OPTIONS or npm on the path.
 //
@@ -18,7 +19,7 @@ const {verifyManifest}=require('./lib/windows-bundle.cjs');
 const {proveBundleEntries}=require('./bundle-entries-proof.cjs');
 const {auditEvidence,removeViolations}=require('./proof-evidence-privacy.cjs');
 
-const ENTRIES=new Set(['Setup-PiRaiders.cmd','Diagnose-PiRaiders.cmd']);
+const ENTRIES=new Set(['Setup-PiRaiders.cmd','Diagnose-PiRaiders.cmd','Verify-PiRaiders.cmd']);
 const ARGUMENT=/^--[a-z-]{1,32}$/;
 
 // The environment the entries get: the system folders only on the path.
