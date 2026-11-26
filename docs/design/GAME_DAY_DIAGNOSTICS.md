@@ -51,7 +51,9 @@ below 620 px). It reads the route when the page opens, every 5 s after each answ
 A state's code, when it matches the model's code pattern, shows under its words; text only, never markup. A value
 the page does not know, or a missing state, shows "Not known" (never the value itself). Before the first answer
 every row says "Reading…"; when the read fails every row says "Unavailable" (not the last answer) and the summary
-says the diagnostics could not be read. An access answer (sign-in, page authorization) goes to the page's
+says the diagnostics could not be read. A read with no answer within 5 s (the page's bound on every GET) is a failed read: the page shows
+it as failed, and a later read recovers (Q-008, browser test with the page's clock standing still while the server
+holds the read). An access answer (sign-in, page authorization) goes to the page's
 connection banner as the other reads do. After that answer the panel stops reading until the page is reloaded. The summary is a polite live region whose words change only between "read" and "could not be read"; the time of the last read sits on its own line outside it, so a screen reader is not told every 5 s. A fixed note under the rows says a running sender is not a source seen on
 the network, a connected receiver, a selected board input or on air. No row uses "ready" or "on air".
 
