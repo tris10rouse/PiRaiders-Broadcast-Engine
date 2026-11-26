@@ -138,6 +138,8 @@
   }
   function readDiagnostics() {
     clearTimeout(diagTimer);
+    // After a sign-in or authorization answer only a reload reads again.
+    if (accessIssue) return Promise.resolve();
     if (diagFlight) { diagAgain = true; return diagFlight; }
     $('diagnostics-refresh').setAttribute('aria-busy', 'true');
     diagFlight = api('diagnostics').then(value => {

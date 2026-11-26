@@ -111,6 +111,16 @@ test('source machine: six distinct states, loading, keyboard re-read, faults and
   model.fail=0;await readAgain(page,model);assert.equal((await rows(page))[0],'Not the folder set up on this PC');
 });
 
+test('after an access answer the page stops reading diagnostics, also on the button',async t=>{
+  const {page,model,origin}=await scripted(t,{sourceMode:false});
+  model.fail=401;await page.goto(origin+'/game-day');
+  await page.getByText('Sign-in required',{exact:true}).waitFor();
+  await page.waitForFunction(()=>!document.querySelector('#diagnostics-refresh').hasAttribute('aria-busy'));
+  const reads=model.reads;await page.locator('#diagnostics-refresh').click();await new Promise(resolve=>setTimeout(resolve,5600));
+  assert.equal(model.reads,reads,'no diagnostics read once sign-in is required');
+  assert.deepEqual(await rows(page),NAMES.map(()=>'Unavailable'));
+});
+
 test('local machine at 390 px: exchange states not used, one column, no sideways scroll',async t=>{
   const {page,model,origin}=await scripted(t,{sourceMode:false,width:390,height:844});
   model.snapshot={active:{cleanup:'open',runtime:{state:'ready',ready:true,output:'none'}},candidate:null};
