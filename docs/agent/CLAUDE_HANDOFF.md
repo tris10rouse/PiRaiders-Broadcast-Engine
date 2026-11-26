@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-26 (builder run, lock fence 91; 5d-4 cold start against the warm-up). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-26 (builder run, lock fence 92; 5e split, 5e-1 soak rules). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -31,7 +31,10 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | 5d-2 Windows job: graceful close and console close leave nothing owned | S | Changes one Windows job; Windows-only failures show up only in CI | landed by #107 on 2026-11-26 (fence 89): the activation job runs the app in its own console (CI-only `ConsoleProof.cs`); online run closed by Ctrl+C, cached run by the console window's close; `closes` in result.json |
 | 5d-3 Windows job: the app opens Game Day in the default browser | S | One Windows step and a Linux test of the failure path | landed by #108 on 2026-11-26 (fence 90): the activation job's third start without `--no-browser`; app reports `browserOpened: true`, the job finds the new browser process by its exact URL, closes it, then Ctrl+C leaves nothing owned; `defaultBrowser` in result.json |
 | 5d-4 Cold start time against the warm-up, design note | S | Numbers from one Windows job and one note | landed by #109 on 2026-11-26 (fence 91): the activation job's first start timed from spawn to `controller-available` and to the owned Caspar sender running (not discovered, not on air); over the default 15-minute warm-up fails (`COLD_START_OVER_WARM_UP`); `coldStart` in result.json, hosted-CI evidence; note `CLOSE_AND_STARTUP_PROOFS.md` |
-| 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | not started |
+| 5e Four-hour soak | M | A separate long Windows job and recorded memory/handle bounds; one run waits on it | Split on 2026-11-26 (fence 92) into 5e-1..5e-3 |
+| 5e-1 Soak plan, memory/handle bounds and no-lost-Stop rule | S | One module and Linux tests, bounds written before any Windows run | landed by #PR on 2026-11-26 (fence 92): `scripts/soak-proof.cjs`, `tests/soak-proof.test.cjs`, note `SOAK_PROOF.md` |
+| 5e-2 Windows soak job, triggered by hand; short check run on pull requests | S | One new Windows job on the activation job's steps; Windows-only failures show up only in CI | not started |
+| 5e-3 Four-hour soak run and its record | S | One run triggers it and waits about four and a half hours | not started |
 | 5f Evaluation-ready Windows ZIP | M | Packaging exists; adds source mode, setup command, operator checklist, all checks green | not started |
 | Open failing check: browser tests "a late review…" and "a late answer for an earlier event…" failed `HELD_ANSWER_NOT_FINISHED` (Linux push run of `cf91a8c`, job 136447114406; probably also the unnamed Windows `static-contracts` failure on `1819e74`, job 136440648349, not shown) | fix | **Cause found (fence 67):** reproduced locally under load (8 copies on 2 busy CPUs: 7 failures). Chromium's DevTools reported the fully read late answer as failed (`net::ERR_ABORTED`) while the page read every body without an error and Resource Timing recorded the whole download; Playwright's `response.finished()` then never settled. Test-only fix: wait on the browser's Resource Timing record. After: 16 of 16 copies green under the same load. Page code unchanged | fixed: merged on 2026-11-20 (#83; NDI and Caspar proofs are not triggered by a test-only change) |
 | Open failing check: full-app proof (`actual-full-app-private-ndi`) failed in SETUP with `RECEIVER_START_TIMEOUT` on master `ca9000f` (job 136463119504, 22 s in, no evidence kept); second time after `bca398f`. Passed on `ee9b12a` | fix | Cause unknown; the SDK receiver did not report started within the proof's bound. Recurring, so it needs its own look (read `scripts/smoke-full-app-windows.cjs`'s receiver start and its bound). Not rerun | recorded |
@@ -43,14 +46,15 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 
 Closed (fence 64): the console proof's START failure, the Linux browser-suite hang and the NDI negative-control failure each passed on two master runs in a row (`fb4a140`, `8f6f06d`, every check green). Causes of the earlier failures remain unknown; the diagnostics from #79 stay in place. **Console START, fence 67:** it failed again on #83's docs-only `6da55bb` (job 136499812400) and #79's line named it: step `PROCESS_CAPTURE`, one PowerShell process query killed at the proof's 15 s bound. #84 (merged, all 13 checks green on `3925d4c`) runs the same query once before the proof with its own 90 s bound (5.8 s on its first run); the proof's bound is unchanged. A CI mitigation: the NDI and full-app proofs' first listings are unchanged.
 
-**Estimate:** remaining sizes 2 M (5e, 5f) = 4 sized runs. Pace from every merged part so far: 29 runs for 27 sized runs = 1.07. 4 x 1.07 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 6 runs**.
+**Estimate:** remaining sizes 2 S (5e-2, 5e-3) + 1 M (5f) = 4 sized runs. Pace from every merged part so far: 30 runs for 28 sized runs = 1.07. 4 x 1.07 + 2 open failing checks (full-app receiver start, Caspar CEF) = **about 6 runs**.
 
-Parts left · runs left: 2 parts (5e, 5f) + 2 parked fix rows · about 6 runs.
+Parts left · runs left: 3 parts (5e-2, 5e-3, 5f) + 2 parked fix rows · about 6 runs.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-26 | 92 | merged (#PR) | 5e split into 5e-1..5e-3 (M to three S); 5e-1: soak rules in `scripts/soak-proof.cjs` (one-minute cycles of Launch, Next, Next, Previous, Reload over RossTalk, Stop alternating RossTalk and route; working set within baseline + max(25%, 128 MiB), handles within baseline + max(20%, 500); every Stop black within 5 s); 9 Linux tests, each of 15 guards removed fails one; review: a holed samples array crashed instead of `SOAK_SAMPLES_MISSING`, the growth share was rounded up, malformed Stops counted as issued, each fixed with a test |
 | 2026-11-26 | 91 | merged (#109) | 5d-4: cold start of the activation job's first start against the default warm-up (`scripts/cold-start-proof.cjs`, `DEFAULT_PREWARM_MINUTES` exported by `production-window.cjs`); 4 of 5 Linux tests fail on the old code; hosted Windows (job 139864357367): 1,749 ms to controller available, 8,991 ms to sender running, of 900,000; 5d done |
 | 2026-11-26 | 90 | merged (#108) | 5d-3: activation job's third start opens Game Day in the runner's default browser (found by its exact URL in a new process's command line, never kept), closed by the job, then Ctrl+C leaves nothing owned; the opener's failure path (`BROWSER_OPEN_FAILED`, app keeps running) tested on Linux; review: a browser tree that could not be read left the found browser running after a failed run, fixed with a test |
 | 2026-11-26 | 89 | merged (#107) | 5d-2: activation job closes the app at its console, Ctrl+C then the window's close; each within 10 s + 10 s, nothing left in the helper's job, SPX port free; review round fixed the failure line's rule names and a graceful close ended by Windows' Ctrl+C status |
