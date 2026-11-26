@@ -62,6 +62,17 @@ jobs:
       - name: Verify extracted archive and actual launcher
         if: runner.os == 'Windows'
         run: npm run smoke:windows-package
+      - name: Run the extracted ZIP's setup and diagnose entries in source mode (5f-3)
+        if: runner.os == 'Windows'
+        run: npm run smoke:windows-entries
+      - name: Retain setup and diagnose entries evidence (fixed codes only)
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundle-entries-evidence
+          path: build/windows-entries-evidence
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Upload Windows development ZIP (not a user-testable release)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
