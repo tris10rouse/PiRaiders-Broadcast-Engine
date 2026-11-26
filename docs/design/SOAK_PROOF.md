@@ -43,7 +43,13 @@ Shares are rounded down to whole bytes and handles; exactly the bound passes. A 
 
 ## The four-hour run (5e-3)
 
-Not run yet: one run triggers `soak-proof.yml` by hand with 240 minutes and records its result here.
+Not passed yet. Each run is triggered by hand with 240 minutes and recorded here; a failure is never rerun to get green.
+
+| Date (UTC) | Commit | Run · job | Result | Cycles completed | Stops issued · seen black | Samples · unreadable | Largest step lateness | Baseline · largest growth |
+|---|---|---|---|---|---|---|---|---|
+| 2026-11-26 | `137a5ee` | 45836057451 · 139965117507 | **failed** at cycle 8, step `launch`, `PROBE_CONNECTION`; cleanup could not close the receiver | 8 of 240 | 8 · 8 (none lost) | 8 · 0 | 12 ms | not judged (the job failed before the rules ran) |
+
+First run: set-up 0.4 s, application ready 2.6 s, activated 5.1 s, cycles from 12.7 s; cycles 0 to 7 passed with 49 frames in order. At cycle 8's Launch the job's loopback connection to the test-bench SDK receiver failed with a socket error, and closing the receiver failed too, so the receiver probably exited or stopped listening. Its stderr is discarded and its exit is not recorded, so the cause is unknown; Fix row Q-011. The privacy check passed on the 7 retained frames (artifact `soak-dispatched-evidence`). This is no evidence about the application: the failing part is the test bench's receiver.
 
 ## Not shown
 
