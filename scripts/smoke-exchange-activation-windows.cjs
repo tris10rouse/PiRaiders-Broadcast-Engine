@@ -27,6 +27,12 @@
 // approved list alone: the same pictures in order, then Stop black, then a
 // clean close.
 //
+// Close (5d-2): the application runs in a console of its own, as
+// Launch-PiRaiders.cmd does. The online run is closed gracefully, by Ctrl+C in
+// that console; the cached run by closing the console window. Each time every
+// owned process must be gone, within the close bounds, and the SPX port free;
+// the times are kept in result.json (`closes`).
+//
 // Same-machine CI evidence only: no hardware, stadium PC, board or
 // deployment claim. Synthetic data only.
 const assert=require('node:assert/strict');
@@ -46,6 +52,7 @@ const {buildExchangeActivationFixture}=require('./exchange-activation-fixture.cj
 const setup=require('./exchange-activation-setup.cjs');
 const routes=require('./exchange-activation-routes.cjs');
 const {auditEvidence,removeViolations}=require('./proof-evidence-privacy.cjs');
+const consoleClose=require('./console-close-proof.cjs');
 const checkoutRoot=path.resolve(__dirname,'..');
 
 // The order the receiver must see. Names are the evidence file names.
@@ -65,7 +72,7 @@ async function scenario(location){
   const evidence=path.join(checkoutRoot,'build','exchange-activation-proof-evidence'),work=path.join(checkoutRoot,'build','exchange-activation-proof');
   for(const dir of [evidence,work]){await fs.rm(dir,{recursive:true,force:true});await fs.mkdir(dir,{recursive:true});}
   const toolInfo=JSON.parse(await fs.readFile(path.join(tools,'tools.json'),'utf8')),ndi=JSON.parse(await fs.readFile(path.join(tools,'ndi-runtime.json'),'utf8'));
-  for(const file of [PROBE,JOB_HOST,location.jobHost,path.join(location.appRoot,'scripts','piraiders-app.cjs')])await fs.access(file);
+  for(const file of [PROBE,JOB_HOST,consoleClose.CONSOLE_PROOF,location.jobHost,path.join(location.appRoot,'scripts','piraiders-app.cjs')])await fs.access(file);
   const label='PiRaiders-Exchange-CI-'+crypto.randomUUID().replaceAll('-',''),port=await full.freePort(),talk=await full.freePort(),origin='http://127.0.0.1:'+port;
   // SPX's own data (outside the fixture root, which must start empty).
   const spx=path.join(work,'spx'),data=path.join(spx,'data'),log=path.join(spx,'log');
@@ -85,7 +92,7 @@ async function scenario(location){
   const privatePaths=[work,built.sourceRoot,awayRoot,...built.privateRoots,tools,toolInfo.casparDirectory];
   const plan=expectedFrames(built.order),cachedPlan=expectedFrames(built.order,'cached'),frames=[],timings={};let probe,app,browser,page,phase='SETUP',sourceIdentity,report,cleanupTree,lastTreeCounts;
   const started=performance.now(),mark=name=>{timings[name]=Math.round(performance.now()-started);};
-  const answers=[];
+  const answers=[],closes=[],closeAttempts=[];
   const client={
     get:async url=>{const r=await page.evaluate(async url=>{const response=await fetch(url,{signal:AbortSignal.timeout(30000)});return{status:response.status,text:await response.text()};},url);answers.push(r.text);let value;try{value=JSON.parse(r.text);}catch{}return{status:r.status,value};},
     post:async(url,body)=>{const r=await page.evaluate(async([url,body])=>{const response=await fetch(url,{method:'POST',signal:AbortSignal.timeout(60000),headers:{'Content-Type':'application/json',
@@ -123,12 +130,19 @@ async function scenario(location){
     phase=tag+'PREVIOUS_ROUTE';await routes.command(client,'previous');await frame(steps[3].name,steps[3].rgb);mark(tag.toLowerCase()+'sequenceSeen');
     phase=tag+'STOP';await page.locator('#stop').click();await frame(prefix+'-stop-black',[0,0,0],{minFrames:10,minDurationMs:1500});mark(tag.toLowerCase()+'stoppedBlack');
   }
-  // Close the application: every owned process gone, the receiver quiet.
-  async function closeApplication(tag){
+  // Close the application at its console (`graceful`: Ctrl+C; `console-close`:
+  // the window closed): every owned process gone, the SPX port free, the receiver quiet.
+  async function closeApplication(tag,method){
     phase=tag+'CLOSE_CAPTURE';lastTreeCounts=null;cleanupTree=(await full.capturePinnedTree(app.parentIdentity,{deadline:performance.now()+15000})).tree;
     assert.ok(cleanupTree.some(row=>full.normalized(row.ExecutablePath)===full.normalized(casparExe)),'CLOSE_ACTIVE_CASPAR');
-    phase=tag+'CLOSE';app.child.kill();await full.settledChild(app.child);
-    phase=tag+'CLOSE_GONE';await full.until(()=>{lastTreeCounts=observeTree(processTable(),cleanupTree);return lastTreeCounts.surviving===0&&lastTreeCounts.unknown===0;},'APP_TREE_SURVIVED_CLOSE',10000);
+    phase=tag+'CLOSE_SIGNAL';const signalled=performance.now();await consoleClose.sendClose(method,app.parentPid);
+    phase=tag+'CLOSE';const exit=await full.settledChild(app.child);const exited=performance.now();
+    phase=tag+'CLOSE_GONE';await full.until(()=>{lastTreeCounts=observeTree(processTable(),cleanupTree);return lastTreeCounts.surviving===0&&lastTreeCounts.unknown===0;},'APP_TREE_SURVIVED_CLOSE',consoleClose.CLOSE_GONE_BOUND_MS);
+    const goneAt=performance.now();
+    phase=tag+'CLOSE_PORT';await consoleClose.portFree(port);
+    // Raw times first, so a close that breaks a rule still shows them on the failure line.
+    const attempt={method,exitCode:exit.code,signal:exit.signal,signalToExitMs:Math.round(exited-signalled),signalToGoneMs:Math.round(goneAt-signalled)};
+    phase=tag+'CLOSE_RECORD';closeAttempts.push(attempt);closes.push(consoleClose.closeRecord(attempt));
     phase=tag+'CLOSE_QUIET';const quiet=await probe.request('quiet',{durationMs:1500,timeoutMs:20000},25000);assert.equal(quiet.connections,0,'RECEIVER_NOT_QUIET');assert.ok(quiet.quietDurationMs>=1500,'RECEIVER_NOT_QUIET');mark(tag.toLowerCase()+'closed');
     return{connections:quiet.connections,durationMs:quiet.quietDurationMs};
   }
@@ -136,7 +150,7 @@ async function scenario(location){
     // The operator's setup command sets up both private stores; run again it changes nothing.
     phase='SETUP_COMMAND';const setupRuns=setup.checkSetupTwice(await runSetup(false),await runSetup(false));mark('setUp');
     phase='RECEIVER';probe=await full.receiver(tools,ndi.dllPath,label,evidence);
-    phase='APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location);mark('applicationReady');
+    phase='APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location,{consoleHost:consoleClose.CONSOLE_PROOF});mark('applicationReady');
     browser=await chromium.launch({headless:true,args:['--no-sandbox']});await openPage();
     // The page refreshes the source catalog by itself on opening; let that finish first.
     phase='PAGE_REFRESH';const pageRefresh=await routes.pageRefreshSettled(client);mark('pageRefreshSettled');
@@ -145,12 +159,12 @@ async function scenario(location){
     const flow=await routes.approveAndActivate(client,{identityTuple:built.identityTuple,window});mark('activated');
     await playAndStop(flow.eventId,plan,'');
     phase='PRIVACY';assert.equal(routes.namesPrivatePath(answers,privatePaths),false,'ROUTE_ANSWER_NAMES_PRIVATE_PATH');
-    const quiet=await closeApplication('');
+    const quiet=await closeApplication('','graceful');
     // Cached start (5b-4): pin with the app closed, move the exchange folder away, start again.
     phase='PIN_OFFLINE';const offlinePin=setup.checkPinned(await runSetup(true));mark('pinned');
     phase='EXCHANGE_AWAY';await fs.rename(built.sourceRoot,awayRoot);
     await assert.rejects(fs.access(built.sourceRoot),{code:'ENOENT'},'EXCHANGE_FOLDER_STILL_THERE');
-    phase='CACHED_APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location);mark('cachedApplicationReady');
+    phase='CACHED_APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location,{consoleHost:consoleClose.CONSOLE_PROOF});mark('cachedApplicationReady');
     await openPage();
     phase='CACHED_PAGE_REFRESH';const cachedRefresh=await routes.pageRefreshSettled(client);
     assert.equal(cachedRefresh.catalog.available,false,'CACHED_SOURCE_CATALOG_AVAILABLE');
@@ -159,7 +173,8 @@ async function scenario(location){
     await playAndStop(cachedStart.eventId,cachedPlan,'CACHED_');
     phase='CACHED_PRIVACY';assert.equal(routes.namesPrivatePath(answers,privatePaths),false,'ROUTE_ANSWER_NAMES_PRIVATE_PATH');
     await assert.rejects(fs.access(built.sourceRoot),{code:'ENOENT'},'EXCHANGE_FOLDER_STILL_THERE');
-    const cachedQuiet=await closeApplication('CACHED_');
+    const cachedQuiet=await closeApplication('CACHED_','console-close');
+    assert.deepEqual(closes.map(c=>c.method),['graceful','console-close'],'CLOSE_METHODS_BOTH');
     assert.equal(await fs.readFile(configFile,'utf8'),configBytes,'SPX_CONFIG_UNCHANGED');
     report={event:'exchange-activation-windows-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:toolInfo.provenance,ndiProvenance:ndi.provenance,
       runtimeVersion:probe.info.runtimeVersion,actualCLI:true,sourceMachine:true,syntheticExchangeFolder:true,approvalListSetUpBeforeStart:true,
@@ -167,7 +182,7 @@ async function scenario(location){
       routes:['source/refresh','source/events','source/selections','source/review','source/approve','events','prepare','activate','command'],
       pageOwnRefresh:{catalogAvailable:pageRefresh.catalog.available,code:pageRefresh.catalog.code},approvalWindowContainsNow:true,prewarmMinutes:window.prewarmMinutes,publishedOrder:built.order.map(p=>p.name),sourceIdentityHash:sourceIdentity,sourceIdentityStable:true,
       frames,fullFrameOpaqueBlackBeforeLaunch:true,fullFrameOpaqueBlackAfterStop:true,routeAnswersPathFree:true,closeTookEveryOwnedProcess:true,
-      closeReceiverQuiet:quiet,
+      closeReceiverQuiet:quiet,closes,
       cachedStart:{offlinePin,exchangeFolderAbsent:true,sourceCatalogAvailable:false,sourceCatalogCode:cachedRefresh.catalog.code,sameButton:true,routes:['events','prepare','activate','command'],
         publishedOrder:built.order.map(p=>p.name),sourceIdentityStable:true,fullFrameOpaqueBlackBeforeLaunch:true,fullFrameOpaqueBlackAfterStop:true,closeTookEveryOwnedProcess:true,closeReceiverQuiet:cachedQuiet},
       spxConfigUnchanged:true,timingsMs:timings,
@@ -181,7 +196,7 @@ async function scenario(location){
     let sourceStatus=null;if(page&&['APPROVE','PAGE_REFRESH','CACHED_PAGE_REFRESH','CACHED_START'].includes(phase))try{sourceStatus=routes.sourceStatusCodes((await client.get('/game-day/api/source/status')).value);}catch{}
     console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,
       routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,setupExitCode:error&&Number.isInteger(error.exitCode)?error.exitCode:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,sourceStatus,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
-      processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),evidenceViolations,treeCounts:lastTreeCounts||null,
+      processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),closes,closeAttempts,evidenceViolations,treeCounts:lastTreeCounts||null,
       appCategories:app?[...app.categories]:[],timingsMs:timings}));
     throw Error('EXCHANGE_ACTIVATION_PROOF_FAILED');
   }finally{
