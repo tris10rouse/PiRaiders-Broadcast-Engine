@@ -17,7 +17,7 @@ Preserve `BUILD-MANIFEST.json`, the ZIP SHA-256 sidecar and all licenses. The un
 
 ## Source mode: setup and diagnostics (5f-1)
 
-For an exchange source machine, copy `app/config/piraiders-app.source.example.json` (instead of the local example) to `app/config/piraiders-app.json` and replace every `<REPLACE: ...>` value; the loader refuses the file while any is left. Store ids are new random v4 UUIDs, two different ones; the feed id and epoch come from the exchange; `expectedCanonicalRoot` is the exchange folder's real full path (`docs/design/SOURCE_MACHINE_POLICY.md` in the source repository). Then, from the extracted root:
+For an exchange source machine, copy `app/config/piraiders-app.source.example.json` (instead of the local example) to `app/config/piraiders-app.json` and replace every `<REPLACE: ...>` value; the loader refuses the file while any is left. Store ids are new random v4 UUIDs, two different ones; the feed id and epoch come from the exchange, and the epoch is a plain number without quotes; `expectedCanonicalRoot` is the exchange folder's real full path. The design notes named below (`SOURCE_MACHINE_POLICY.md`, `EXCHANGE_SETUP.md`, `GAME_DAY_DIAGNOSTICS.md`) are in the source repository's `docs/design/`, not in this ZIP. Then, from the extracted root:
 
 - `Setup-PiRaiders.cmd`: the setup command (`EXCHANGE_SETUP.md`): checks the machine file, the exchange folder and the feed, and makes the journal and approval list once. Safe to run again. `Setup-PiRaiders.cmd --pin-offline`, with the application closed, pins prepared buttons for a cached start.
 - `Diagnose-PiRaiders.cmd`: the diagnostics command (`GAME_DAY_DIAGNOSTICS.md`): store states without the application, runtime states from the running application or `APP_NOT_RUNNING`.

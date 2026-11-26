@@ -16,7 +16,7 @@ if not exist "%PIRAIDERS_BUNDLE_ROOT%runtime\node.exe" (
   exit /b 2
 )
 if not exist "%PIRAIDERS_BUNDLE_ROOT%app\config\piraiders-app.json" (
-  echo Application configuration is missing. Read OPERATOR-CHECKLIST.md or README-WINDOWS.md first.
+  echo Application configuration is missing. Read README-WINDOWS.md before starting.
   exit /b 2
 )
 pushd "%PIRAIDERS_BUNDLE_ROOT%app" || exit /b 2

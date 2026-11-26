@@ -35,6 +35,9 @@ test('the bundle packages the source example and both root entries from tracked 
 
 function entry(name) {
   const text = read('packaging/windows/' + name);
+  // Every document an entry sends the operator to ships in the ZIP.
+  const shipped = new Set(bundle.TEMPLATES.map(item => item[1]));
+  for (const doc of text.match(/[A-Za-z0-9-]+\.md/g) || []) assert.ok(shipped.has(doc), name + ' names ' + doc);
   assert.match(text, /\r?\n/);
   // Only the bundled Node runs, on the fixed machine file.
   const runs = text.split(/\r?\n/).filter(line => /node\.exe"\s/.test(line) && !/^\s*if /i.test(line));
