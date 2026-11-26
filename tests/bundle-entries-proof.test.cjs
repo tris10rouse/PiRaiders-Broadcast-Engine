@@ -86,6 +86,24 @@ test('a second setup run that sets up again, or a wrong argument not refused, fa
   }
 });
 
+test('a store byte changed by the second setup run or by the refused argument fails the proof',async t=>{
+  for(const [call,code] of [[2,'SETUP_SECOND_RUN_WROTE'],[3,'SETUP_USAGE_WROTE']]){
+    const {root,app,work}=await bundleShape(t),real=inProcessEntries(app);let n=0;
+    const writes=async(name,args)=>{const r=await real(name,args);
+      if(++n===call)await fs.writeFile(path.join(app,'data','exchange-approvals','extra-file'),'x');return r;};
+    await assert.rejects(proveBundleEntries({root,work,runEntry:writes}),{code});
+  }
+});
+
+test('a first setup run that leaves the stores empty fails the proof',async t=>{
+  const {root,app,work}=await bundleShape(t);
+  const empty=async(name,args)=>{if(name==='Setup-PiRaiders.cmd'&&!args.length){
+      for(const d of ['exchange-journal','exchange-approvals'])await fs.mkdir(path.join(app,'data',d),{recursive:true});
+      return{exitCode:0,stdout:JSON.stringify({ok:true,step:'done',code:null,done:{machine:'checked',source:'direct',feed:'checked',journal:'initialized',approvals:'initialized'}})};}
+    return inProcessEntries(app)(name,args);};
+  await assert.rejects(proveBundleEntries({root,work,runEntry:empty}),{code:'STORES_EMPTY'});
+});
+
 test('the example must hold every placeholder and keeps none once filled',()=>{
   const example={mediaRoot:'<REPLACE: a>',output:{runtimeDirectory:'<REPLACE: b>'},source:{journalStoreId:'<REPLACE: c>',approvalStoreId:'<REPLACE: d>',
     expectedCanonicalRoot:'<REPLACE: e>',binding:{feedId:'<REPLACE: f>',epoch:'<REPLACE: g>'}},caspar:{cwd:'C:/x'}};

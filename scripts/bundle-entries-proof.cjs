@@ -82,6 +82,7 @@ async function proveBundleEntries({root,work,runEntry}){
   const setup=async args=>{const r=await runEntry('Setup-PiRaiders.cmd',args);return{exitCode:r.exitCode,answer:fixedAnswer(r.stdout)};};
   const first=await setup([]);
   const before=await storeBytes(source).catch(()=>fail('STORES_MISSING'));
+  if(Object.keys(before).length<2)fail('STORES_EMPTY');
   const second=await setup([]);
   const stores=checkSetupTwice(first,second);
   const after=await storeBytes(source);
