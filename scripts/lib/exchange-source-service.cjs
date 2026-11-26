@@ -387,6 +387,15 @@ function createExchangeSourceService(machine,trusted={}){
     refreshApprovals:()=>revalidator.refresh(),
     // Pass these to createGameDayManager as {admitCandidate,refreshAdmission}.
     admission:Object.freeze({admitCandidate:revalidator.admitCandidate,refreshAdmission:revalidator.refreshAdmission}),
+    // Diagnostics (5c-1): whether the exchange folder resolves to the
+    // retained spelling now; a code only, never the path.
+    // A file at that spelling is not a reachable folder (review, fence 77).
+    rootState:async()=>{
+      if(closed)return Object.freeze({code:'SOURCE_SERVICE_CLOSED'});
+      const rootCode=await sourceRootCode();if(rootCode)return Object.freeze({code:rootCode});
+      let folder=false;try{folder=(await fs.stat(s.expectedCanonicalRoot)).isDirectory();}catch{}
+      return Object.freeze({code:folder?null:'SOURCE_UNAVAILABLE'});
+    },
     status,close});
 }
 module.exports={createExchangeSourceService};

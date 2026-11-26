@@ -8,6 +8,7 @@ const {loadGameDayMachineConfig,createLocalEventCatalog}=require('./game-day-cat
 const {createGameDayManager}=require('./game-day-manager.cjs');
 const {createExchangeSourceService}=require('./exchange-source-service.cjs');
 const {createPreparedEventRuntime}=require('./prepared-event-runtime.cjs');
+const {diagnose}=require('./game-day-diagnostics.cjs');
 const ASSETS=Object.freeze({'/css/piraiders-game-day.css':['static/css/piraiders-game-day.css','text/css'],'/js/piraiders-game-day.js':['static/js/piraiders-game-day.js','application/javascript']});
 const ACTIONS=new Set(['launch','next','previous','toggle-auto','auto','manual','reload','stop']);
 const ID=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -160,6 +161,11 @@ function createGameDayWeb({manager,sourceService,runtimeFactory,port,appRoot,mac
  // source or touches playback; every answer is path-free.
  router.get('/game-day/api/source/status',auth,backendReady,sourceReady,(req,res)=>{
   try{res.json({ok:true,ready:false,status:req.gameDaySource.status(),catalog:req.gameDaySource.catalogState()});}catch{send(res,500,'STATE_UNAVAILABLE');}
+ });
+ // Diagnostics (5c-1): six distinct states, a plain path-free read on every
+ // machine; never "on air". The manager may be absent (an injected service).
+ router.get('/game-day/api/diagnostics',auth,backendReady,(req,res)=>{
+  void diagnose({source:req.gameDayBackend.source,manager:req.gameDayBackend.manager}).then(value=>{if(!res.destroyed&&!res.writableEnded)res.json({ok:true,diagnostics:value});},()=>send(res,500,'STATE_UNAVAILABLE'));
  });
  router.use('/game-day/api',(req,res,next)=>{
   if(req.method!=='POST')return send(res,405,'METHOD_NOT_ALLOWED');
