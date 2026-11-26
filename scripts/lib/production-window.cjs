@@ -7,6 +7,8 @@
  */
 const MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MAX_PREWARM_MS = 60 * 60 * 1000;
+// Warm-up when a window names none (5d-4's cold-start bound reads it).
+const DEFAULT_PREWARM_MINUTES = 15;
 
 function parseInstant(value, label) {
   if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(value)) {
@@ -31,7 +33,7 @@ function normalizeWindow(config) {
   const startMs = parseInstant(config.start, 'start');
   const endMs = parseInstant(config.end, 'end');
   if (endMs <= startMs || endMs - startMs > MAX_WINDOW_MS) throw Error('Production window must be positive and at most 24 hours');
-  const prewarmMinutes = config.prewarmMinutes === undefined ? 15 : config.prewarmMinutes;
+  const prewarmMinutes = config.prewarmMinutes === undefined ? DEFAULT_PREWARM_MINUTES : config.prewarmMinutes;
   if (!Number.isInteger(prewarmMinutes) || prewarmMinutes < 0 || prewarmMinutes * 60000 > MAX_PREWARM_MS) throw Error('Invalid prewarm minutes');
   return Object.freeze({ startMs, endMs, prewarmMs: prewarmMinutes * 60000 });
 }
@@ -95,4 +97,4 @@ class ProductionWindowGate {
     return this.queue;
   }
 }
-module.exports = { normalizeWindow, senderAllowed, nextBoundary, ProductionWindowGate };
+module.exports = { DEFAULT_PREWARM_MINUTES, normalizeWindow, senderAllowed, nextBoundary, ProductionWindowGate };

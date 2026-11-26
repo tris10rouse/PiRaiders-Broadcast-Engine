@@ -41,6 +41,13 @@
 // result.json keeps `defaultBrowser` (the browser's image name, never a
 // command line).
 //
+// Cold start (5d-4): the first start on the fresh runner is timed from the
+// spawn to the application's controller-available line and to the owned
+// Caspar sender running (renderer ready, owned process captured; not
+// discovered, not on air). Either over the production window's default
+// warm-up fails the job (scripts/cold-start-proof.cjs); result.json keeps
+// `coldStart`, hosted-CI evidence, never target-PC evidence.
+//
 // Same-machine CI evidence only: no hardware, stadium PC, board or
 // deployment claim. Synthetic data only.
 const assert=require('node:assert/strict');
@@ -62,6 +69,7 @@ const routes=require('./exchange-activation-routes.cjs');
 const {auditEvidence,removeViolations}=require('./proof-evidence-privacy.cjs');
 const consoleClose=require('./console-close-proof.cjs');
 const defaultBrowser=require('./default-browser-proof.cjs');
+const coldStartProof=require('./cold-start-proof.cjs');
 const checkoutRoot=path.resolve(__dirname,'..');
 
 // The order the receiver must see. Names are the evidence file names.
@@ -99,7 +107,7 @@ async function scenario(location){
     rossTalk:{host:'127.0.0.1',port:talk,allowedSenders:['127.0.0.1'],commandMap:{1:'launch',2:'next',3:'previous',8:'stop'},acknowledgements:true}}});
   const awayRoot=path.join(path.dirname(built.sourceRoot),'exchange-away');
   const privatePaths=[work,built.sourceRoot,awayRoot,...built.privateRoots,tools,toolInfo.casparDirectory];
-  const plan=expectedFrames(built.order),cachedPlan=expectedFrames(built.order,'cached'),frames=[],timings={};let probe,app,browser,page,phase='SETUP',sourceIdentity,report,cleanupTree,lastTreeCounts,browserTree;
+  const plan=expectedFrames(built.order),cachedPlan=expectedFrames(built.order,'cached'),frames=[],timings={};let probe,app,browser,page,phase='SETUP',sourceIdentity,report,cleanupTree,lastTreeCounts,browserTree,coldSpawnedAt,coldControllerAt,coldSenderAt,coldStart;
   const started=performance.now(),mark=name=>{timings[name]=Math.round(performance.now()-started);};
   const answers=[],closes=[],closeAttempts=[];
   const client={
@@ -127,7 +135,7 @@ async function scenario(location){
   // black, Launch, Next over RossTalk, Next and Previous over the route, Stop black.
   async function playAndStop(eventId,steps,tag){
     phase=tag+'RENDERER_READY';await full.until(async()=>{const value=await state();return value.active&&value.active.eventId===eventId&&value.active.runtime.ready;},'APP_RENDERER_READY',90000);mark(tag.toLowerCase()+'rendererReady');
-    phase=tag+'SENDER_IDENTITY';const sender=await full.captureOwnedCaspar(app.parentIdentity,casparExe,{deadline:performance.now()+15000,jobHost:location.jobHost});cleanupTree=sender.tree;
+    phase=tag+'SENDER_IDENTITY';const sender=await full.captureOwnedCaspar(app.parentIdentity,casparExe,{deadline:performance.now()+15000,jobHost:location.jobHost});cleanupTree=sender.tree;coldSenderAt??=performance.now();
     phase=tag+'NDI_DISCOVERY';const discovered=await probe.request('discover',{timeoutMs:30000},35000);
     if(sourceIdentity===undefined){sourceIdentity=discovered.sourceIdentityHash;assert.match(sourceIdentity,/^[a-f0-9]{64}$/,'NDI_SOURCE_IDENTITY');}
     else assert.equal(discovered.sourceIdentityHash,sourceIdentity,'SOURCE_IDENTITY_CHANGED');
@@ -159,7 +167,7 @@ async function scenario(location){
     // The operator's setup command sets up both private stores; run again it changes nothing.
     phase='SETUP_COMMAND';const setupRuns=setup.checkSetupTwice(await runSetup(false),await runSetup(false));mark('setUp');
     phase='RECEIVER';probe=await full.receiver(tools,ndi.dllPath,label,evidence);
-    phase='APPLICATION';app=await full.application(built.machineFile,origin+'/game-day',location,{consoleHost:consoleClose.CONSOLE_PROOF});mark('applicationReady');
+    phase='APPLICATION';coldSpawnedAt=performance.now();app=await full.application(built.machineFile,origin+'/game-day',location,{consoleHost:consoleClose.CONSOLE_PROOF});coldControllerAt=performance.now();mark('applicationReady');
     browser=await chromium.launch({headless:true,args:['--no-sandbox']});await openPage();
     // The page refreshes the source catalog by itself on opening; let that finish first.
     phase='PAGE_REFRESH';const pageRefresh=await routes.pageRefreshSettled(client);mark('pageRefreshSettled');
@@ -167,6 +175,7 @@ async function scenario(location){
     phase='APPROVE';const window=routes.approvalWindow(Date.now(),{afterMs:30*60000});
     const flow=await routes.approveAndActivate(client,{identityTuple:built.identityTuple,window});mark('activated');
     await playAndStop(flow.eventId,plan,'');
+    phase='COLD_START';coldStart=coldStartProof.coldStartRecord({spawnedAt:coldSpawnedAt,controllerAvailableAt:coldControllerAt,senderRunningAt:coldSenderAt});
     phase='PRIVACY';assert.equal(routes.namesPrivatePath(answers,privatePaths),false,'ROUTE_ANSWER_NAMES_PRIVATE_PATH');
     const quiet=await closeApplication('','graceful');
     // Cached start (5b-4): pin with the app closed, move the exchange folder away, start again.
@@ -209,7 +218,7 @@ async function scenario(location){
       cachedStart:{offlinePin,exchangeFolderAbsent:true,sourceCatalogAvailable:false,sourceCatalogCode:cachedRefresh.catalog.code,sameButton:true,routes:['events','prepare','activate','command'],
         publishedOrder:built.order.map(p=>p.name),sourceIdentityStable:true,fullFrameOpaqueBlackBeforeLaunch:true,fullFrameOpaqueBlackAfterStop:true,closeTookEveryOwnedProcess:true,closeReceiverQuiet:cachedQuiet},
       defaultBrowser:{...browserReport,appClose:browserClose,appCloseReceiverQuiet:browserQuiet},
-      spxConfigUnchanged:true,timingsMs:timings,
+      coldStart,spxConfigUnchanged:true,timingsMs:timings,
       sameMachineOnly:true,windows10Tested:false,lanTransportTested:false,stadiumHardwareTested:false};
   }catch(error){
     // The page's visible text instead of a screenshot, kept only when it names no private path.
@@ -221,7 +230,7 @@ async function scenario(location){
     console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,
       routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,setupExitCode:error&&Number.isInteger(error.exitCode)?error.exitCode:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,sourceStatus,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
       processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),closes,closeAttempts,evidenceViolations,treeCounts:lastTreeCounts||null,
-      appCategories:app?[...app.categories]:[],timingsMs:timings}));
+      appCategories:app?[...app.categories]:[],coldStart:coldStart||error?.coldStart||null,timingsMs:timings}));
     throw Error('EXCHANGE_ACTIVATION_PROOF_FAILED');
   }finally{
     const cleanup=[];try{await browser?.close();}catch{cleanup.push('BROWSER');}
