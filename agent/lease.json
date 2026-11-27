@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T063933Z-978ecf",
+  "status": "idle",
+  "owner": null,
   "fence": 111,
-  "task": "Q-023",
-  "workBranch": "feature/Q-023-vcruntime",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T06:39:33.018Z",
-  "lastHeartbeat": "2026-11-27T07:02:06.357Z",
-  "expiresAt": "2026-11-27T08:32:06.357Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T07:02:18.687Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T07:02:18.687Z"
 }
