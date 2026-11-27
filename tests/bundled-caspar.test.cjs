@@ -5,7 +5,7 @@
 // Windows, GPU or output claim follows. Q-021 runs the bundled Caspar on
 // hosted Windows.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os');
-const {bundledLocations,bundledCaspar,softwareLayoutState,ensureSoftwareCaspar,casparReport,SOFTWARE_PROFILE,MESA_FILES}=require('../scripts/lib/bundled-caspar.cjs');
+const {bundledLocations,bundledCaspar,softwareLayoutState,ensureSoftwareCaspar,casparReport,SOFTWARE_PROFILE,MESA_FILES,NDI_DLL}=require('../scripts/lib/bundled-caspar.cjs');
 const {loadGameDayMachineConfig,createLocalEventCatalog}=require('../scripts/lib/game-day-catalog.cjs');
 const {graphicsFor}=require('../scripts/lib/graphics-check.cjs');
 const {preflightRenderer,casparRendererEnvironment}=require('../scripts/lib/caspar-renderer.cjs');
@@ -115,6 +115,11 @@ test('the software copy: made once, Mesa beside its casparcg.exe only, rebuilt w
   for(const rel of ['casparcg.exe','libcef.dll','locales/en-US.pak','casparcg.config'])
     assert.equal(await fs.readFile(path.join(at.software,...rel.split('/')),'utf8'),await fs.readFile(path.join(at.caspar,...rel.split('/')),'utf8'),rel);
   for(const name of MESA_FILES)assert.equal(await fs.readFile(path.join(at.software,name),'utf8'),await fs.readFile(path.join(at.mesa,name),'utf8'),name);
+  // Q-021: the NDI DLL sits beside the mirror's casparcg.exe too. Caspar 2.5.1
+  // loads Processing.NDI.Lib.x64.dll from its start folder first (a wide path);
+  // its NDI_RUNTIME_DIR_V6 fallback is read as narrow text, which loses a
+  // non-ANSI folder name (hosted Windows, job 140494771530: PROBE_SOURCE_NOT_FOUND).
+  assert.equal(await fs.readFile(path.join(at.software,NDI_DLL),'utf8'),await fs.readFile(path.join(at.ndi,NDI_DLL),'utf8'));
   // The bundled runtime/ folder itself still keeps the layout rule.
   const listing=[];for(const dir of ['caspar','mesa','ndi'])for(const name of await fs.readdir(path.join(at.root,'runtime',dir),{recursive:true}))listing.push('runtime/'+dir+'/'+name.split(path.sep).join('/'));
   assert.deepEqual(checkRuntimeLayout([...listing,'runtime/vcredist/VC_redist.x64.exe']),[]);
@@ -152,6 +157,8 @@ test('the copy is refused, with nothing half-made left, when the bundle is not a
     'Mesa missing':async at=>fs.rm(path.join(at.mesa,'libgallium_wgl.dll')),
     'Mesa empty':async at=>fs.writeFile(path.join(at.mesa,'opengl32.dll'),''),
     'Caspar missing':async at=>fs.rm(path.join(at.caspar,'casparcg.exe')),
+    'NDI DLL missing':async at=>fs.rm(path.join(at.ndi,'Processing.NDI.Lib.x64.dll')),
+    'NDI DLL beside the bundled Caspar':async at=>fs.writeFile(path.join(at.caspar,'Processing.NDI.Lib.x64.dll'),'MZ'),
     'a link inside Caspar':async at=>fs.symlink(path.join(at.mesa,'opengl32.dll'),path.join(at.caspar,'linked.dll')),
     'no runtime folder':async at=>fs.rm(path.join(at.root,'runtime'),{recursive:true})};
   for(const [name,spoil] of Object.entries(cases)){

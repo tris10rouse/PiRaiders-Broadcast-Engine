@@ -12,12 +12,18 @@
 //             the fixed mesa-llvmpipe-compat profile. The mirror is made by the
 //             app on this PC, outside the ZIP's runtime\ folder, so the layout
 //             rule (no Mesa beside the bundled Caspar) still holds there.
+//             Q-021: the NDI DLL is placed beside it too. Caspar 2.5.1 loads
+//             Processing.NDI.Lib.x64.dll from its start folder first (a wide
+//             path); its NDI_RUNTIME_DIR_V6 fallback reads the variable as
+//             narrow text, which loses a folder name outside the PC's ANSI
+//             code page (seen on hosted Windows: no NDI source).
 //   NDI:      runtime\ndi, the folder holding Processing.NDI.Lib.x64.dll.
 // Answers carry fixed codes only, never a path or a file name.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 
 const SOFTWARE_PROFILE='mesa-llvmpipe-compat';
 const MESA_FILES=Object.freeze(['opengl32.dll','libgallium_wgl.dll']);
+const NDI_DLL='Processing.NDI.Lib.x64.dll';
 const MARKER='.piraiders-software-layout.json';
 const MAX_FILES=4096,MAX_DEPTH=16;
 function fail(code){throw Object.assign(Error(code),{code});}
@@ -56,7 +62,7 @@ async function listTree(dir){
   return files.sort((a,b)=>a.rel<b.rel?-1:a.rel>b.rel?1:0);
 }
 // What the mirror must hold: Caspar's files at their places and Mesa's two
-// files beside casparcg.exe. Mesa's files never replace one of Caspar's.
+// files and the NDI DLL beside casparcg.exe. They never replace one of Caspar's.
 async function plan(at){
   const caspar=await listTree(at.caspar);
   const names=new Set(caspar.map(f=>f.rel.toLowerCase()));
@@ -67,6 +73,12 @@ async function plan(at){
     const from=path.join(at.mesa,name),info=await fs.lstat(from);
     if(!info.isFile()||info.size<1)fail('SOFTWARE_LAYOUT_SOURCE_INVALID');
     items.push({rel:name,size:info.size,mtimeMs:info.mtimeMs,from});
+  }
+  {
+    if(names.has(NDI_DLL.toLowerCase()))fail('SOFTWARE_LAYOUT_SOURCE_INVALID');
+    const from=path.join(at.ndi,NDI_DLL),info=await fs.lstat(from);
+    if(!info.isFile()||info.size<1)fail('SOFTWARE_LAYOUT_SOURCE_INVALID');
+    items.push({rel:NDI_DLL,size:info.size,mtimeMs:info.mtimeMs,from});
   }
   const fingerprint=crypto.createHash('sha256').update(JSON.stringify(items.map(({rel,size,mtimeMs})=>[rel,size,mtimeMs]))).digest('hex');
   return{items,fingerprint};
@@ -132,4 +144,4 @@ function casparReport(machine){
   return Object.freeze({from:'machine-file',renderer:machine.caspar.rendererProfile===SOFTWARE_PROFILE?'software':'unknown'});
 }
 
-module.exports={SOFTWARE_PROFILE,MESA_FILES,bundledLocations,bundledCaspar,softwareLayoutState,ensureSoftwareCaspar,casparReport};
+module.exports={SOFTWARE_PROFILE,MESA_FILES,NDI_DLL,bundledLocations,bundledCaspar,softwareLayoutState,ensureSoftwareCaspar,casparReport};
