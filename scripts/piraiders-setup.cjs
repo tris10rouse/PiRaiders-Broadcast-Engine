@@ -35,7 +35,7 @@ async function main(argv,{appRoot=path.resolve(__dirname,'..'),nodeExecutable=pr
   const args=parsed(argv);
   if(!args)return{exitCode:2,answer:{ok:false,step:'arguments',code:'SETUP_USAGE',done:{}}};
   let machine;
-  try{machine=await loadGameDayMachineConfig(args.file,{appRoot,nodeExecutable});}
+  try{machine=await loadGameDayMachineConfig(args.file,{appRoot,nodeExecutable,graphicsCheck});}
   catch{return{exitCode:1,answer:{ok:false,step:'machine',code:'MACHINE_CONFIG_INVALID',done:{}}};}
   const answer=args.pin?await pinOfflineApprovals(machine):await setupSourceMachine(machine);
   // Q-019: the OpenGL check and renderer choice, reported only; never a refusal.

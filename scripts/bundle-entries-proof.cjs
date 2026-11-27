@@ -23,13 +23,14 @@ const FIXED=/^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
 // The shipped source example with each placeholder replaced, nothing else:
 // the exchange folder and binding come from the synthetic fixture, the ids are new.
-function sourceMachineFromExample(example,{mediaRoot,canonicalRoot,binding,ndiRuntimeDirectory}){
+// Since Q-020 the example names no Caspar or NDI folder: the bundle's are used.
+function sourceMachineFromExample(example,{mediaRoot,canonicalRoot,binding}){
   const value=JSON.parse(JSON.stringify(example));
-  const set={mediaRoot:()=>{value.mediaRoot=mediaRoot;},runtimeDirectory:()=>{value.output.runtimeDirectory=ndiRuntimeDirectory;},
+  const set={mediaRoot:()=>{value.mediaRoot=mediaRoot;},
     journalStoreId:()=>{value.source.journalStoreId=crypto.randomUUID();},approvalStoreId:()=>{value.source.approvalStoreId=crypto.randomUUID();},
     expectedCanonicalRoot:()=>{value.source.expectedCanonicalRoot=canonicalRoot;},
     feedId:()=>{value.source.binding.feedId=binding.feedId;},epoch:()=>{value.source.binding.epoch=binding.epoch;}};
-  const at={mediaRoot:value.mediaRoot,runtimeDirectory:value.output?.runtimeDirectory,journalStoreId:value.source?.journalStoreId,
+  const at={mediaRoot:value.mediaRoot,journalStoreId:value.source?.journalStoreId,
     approvalStoreId:value.source?.approvalStoreId,expectedCanonicalRoot:value.source?.expectedCanonicalRoot,
     feedId:value.source?.binding?.feedId,epoch:value.source?.binding?.epoch};
   for(const [name,current] of Object.entries(at)){
@@ -102,9 +103,8 @@ async function proveBundleEntries({root,work,runEntry,graphicsRanRequired=false}
   // The synthetic exchange folder; its own machine file is only read for the binding.
   const built=await buildExchangeActivationFixture({root:path.join(work,'proof'),setUpStores:false,machine:{}});
   const fixture=JSON.parse(await fs.readFile(built.machineFile,'utf8'));
-  const ndiRuntimeDirectory=path.join(work,'ndi-runtime');await fs.mkdir(ndiRuntimeDirectory);
   const example=JSON.parse(await fs.readFile(path.join(config,'piraiders-app.source.example.json'),'utf8'));
-  const machine=sourceMachineFromExample(example,{mediaRoot:built.sourceRoot,canonicalRoot:fixture.source.expectedCanonicalRoot,binding:fixture.source.binding,ndiRuntimeDirectory});
+  const machine=sourceMachineFromExample(example,{mediaRoot:built.sourceRoot,canonicalRoot:fixture.source.expectedCanonicalRoot,binding:fixture.source.binding});
   await fs.writeFile(machineFile,JSON.stringify(machine,null,2)+'\n',{flag:'wx'});
   const source={journalDirectory:path.resolve(app,machine.source.journalDirectory),approvalDirectory:path.resolve(app,machine.source.approvalDirectory)};
   for(const p of Object.values(source))if(await exists(p))fail('STORES_NOT_FRESH');

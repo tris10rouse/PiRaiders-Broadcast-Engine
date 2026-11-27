@@ -167,6 +167,10 @@ restarting or closing event; no wording about air, receivers or the board. Teste
 with a scripted server (`tests/browser/game-day-end-dead.browser.cjs`); not with the real manager in a browser, not on
 Windows.
 
+## Graphics renderer and the NDI link (Q-020)
+
+The route's answer also carries `caspar` (`from`, `renderer`, `layout`, `code`; `BUNDLED_RUNTIME.md` › Running the bundled Caspar), beside the six states, never one of them; the command still checks only the six. The panel's **Graphics renderer** row shows Graphics card · Software (bundled Mesa) · Software (Mesa), this PC’s own Caspar · Set by this PC’s own Caspar, with `renderer: gpu` or `software` under it and `SOFTWARE_LAYOUT_FAILED` in amber; any other value is "Not known", a failed read "Unavailable". The **NDI® sender** row holds a link to ndi.video (reached by Tab after Read diagnostics again), and the note ends with NDI's trademark sentence. Browser test at 1440 and 390 px (`tests/browser/game-day-diagnostics.browser.cjs`).
+
 ## Not done here
 
 No other fault recovery is tested. A real Caspar crash on Windows is not tested. The command has not been run on Windows. `ndiSender` has

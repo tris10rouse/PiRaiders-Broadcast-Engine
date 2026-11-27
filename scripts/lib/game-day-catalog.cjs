@@ -6,7 +6,8 @@ const crypto = require('node:crypto');
 const { TextDecoder } = require('node:util');
 const { normalizeRendererProfile } = require('./caspar-renderer.cjs');
 const { normalizePreparedEventProfile } = require('./prepared-event-profile.cjs');
-const { normalizeRendererSetting } = require('./graphics-check.cjs');
+const { normalizeRendererSetting, runGraphicsCheck, chooseRenderer } = require('./graphics-check.cjs');
+const { bundledCaspar, bundledLocations } = require('./bundled-caspar.cjs');
 const MAX_BYTES = 64 * 1024, MAX_ENTRIES = 128;
 const machines = new WeakSet();
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -88,22 +89,45 @@ function compile(machine, raw, selected) {
     rossTalk: machine.rossTalk, output: machine.output });
   return { profile, descriptor };
 }
-async function loadGameDayMachineConfig(file, { appRoot, nodeExecutable } = {}) {
+// Q-020: without a `caspar` block the machine runs the Caspar the ZIP carries
+// (runtime/caspar beside app/) with the renderer the OpenGL check chooses; an
+// NDI output without `runtimeDirectory` uses the ZIP's runtime/ndi. A machine
+// file that names its own Caspar keeps it exactly as before (no check run).
+// `graphicsCheck` holds trusted test boundaries for the check, never file data.
+async function loadGameDayMachineConfig(file, { appRoot, nodeExecutable, graphicsCheck = {} } = {}) {
+  let raw, renderer;
   try {
     appRoot = absolute(appRoot); nodeExecutable = absolute(nodeExecutable); file = absolute(file);
-    const { value: raw } = await readJSON(file);
+    ({ value: raw } = await readJSON(file));
     object(raw, ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'presentation', 'rossTalk', 'source', 'renderer'],
-      ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'rossTalk']);
+      ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'output', 'rossTalk']);
     if (raw.schemaVersion !== 1) throw Error('invalid');
-    object(raw.caspar, ['executable', 'cwd', 'rendererProfile'], ['executable', 'cwd']);
-    const rendererProfile=normalizeRendererProfile(raw.caspar.rendererProfile);
+    // Q-019: auto (default), gpu or software; anything else refuses the file.
+    renderer = normalizeRendererSetting(raw.renderer);
+  } catch { fail('MACHINE_CONFIG_INVALID'); }
+  // The check runs only for the bundled Caspar, once, before the file is
+  // judged further; its answer is fixed words (graphics-check.cjs).
+  let graphics = null;
+  if (!Object.hasOwn(raw, 'caspar')) {
+    const { check, probe } = await runGraphicsCheck({ ...graphicsCheck, appRoot });
+    graphics = Object.freeze({ check, probe, setting: renderer, renderer: chooseRenderer(check, renderer) });
+  }
+  try {
+    let caspar;
+    if (graphics) caspar = bundledCaspar(appRoot, graphics.renderer);
+    else {
+      object(raw.caspar, ['executable', 'cwd', 'rendererProfile'], ['executable', 'cwd']);
+      const rendererProfile=normalizeRendererProfile(raw.caspar.rendererProfile);
+      caspar = { executable: machinePath(appRoot, raw.caspar.executable), cwd: machinePath(appRoot, raw.caspar.cwd), ...(rendererProfile===undefined?{}:{rendererProfile}) };
+    }
+    let output = raw.output;
+    if (output && typeof output === 'object' && !Array.isArray(output) && output.type === 'ndi' && !Object.hasOwn(output, 'runtimeDirectory'))
+      output = { ...output, runtimeDirectory: bundledLocations(appRoot).ndi };
     const machine = { schemaVersion: 1, appRoot, nodeExecutable, spxConfigFile: relative(raw.spxConfigFile),
       catalogDirectory: machinePath(appRoot, raw.catalogDirectory), mediaRoot: machinePath(appRoot, raw.mediaRoot),
       cacheRoot: machinePath(appRoot, raw.cacheRoot), runtimeRoot: machinePath(appRoot, raw.runtimeRoot),
-      caspar: { executable: machinePath(appRoot, raw.caspar.executable), cwd: machinePath(appRoot, raw.caspar.cwd), ...(rendererProfile===undefined?{}:{rendererProfile}) },
-      output: raw.output, presentation: raw.presentation === undefined ? {} : raw.presentation, rossTalk: raw.rossTalk,
-      // Q-019: auto (default), gpu or software; anything else refuses the file.
-      renderer: normalizeRendererSetting(raw.renderer) };
+      caspar, casparFrom: graphics ? 'bundle' : 'machine-file', ...(graphics ? { graphics } : {}),
+      output, presentation: raw.presentation === undefined ? {} : raw.presentation, rossTalk: raw.rossTalk, renderer };
     const roots = [machine.mediaRoot, machine.cacheRoot, machine.runtimeRoot, machine.catalogDirectory];
     if (Object.hasOwn(raw, 'source')) {
       const source = raw.source;

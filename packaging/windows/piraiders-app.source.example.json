@@ -6,14 +6,9 @@
   "cacheRoot": "cache",
   "runtimeRoot": "event-runtime",
   "renderer": "auto",
-  "caspar": {
-    "executable": "C:/PiRaiders-Components/CasparCG/casparcg.exe",
-    "cwd": "C:/PiRaiders-Components/CasparCG"
-  },
   "output": {
     "type": "ndi",
-    "name": "PiRaiders",
-    "runtimeDirectory": "<REPLACE: the folder holding Processing.NDI.Lib.x64.dll>"
+    "name": "PiRaiders"
   },
   "rossTalk": {
     "host": "127.0.0.1",

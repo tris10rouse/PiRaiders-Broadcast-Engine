@@ -9,6 +9,7 @@ const {createGameDayManager}=require('./game-day-manager.cjs');
 const {createExchangeSourceService}=require('./exchange-source-service.cjs');
 const {createPreparedEventRuntime}=require('./prepared-event-runtime.cjs');
 const {diagnose}=require('./game-day-diagnostics.cjs');
+const {casparReport,ensureSoftwareCaspar}=require('./bundled-caspar.cjs');
 const ASSETS=Object.freeze({'/css/piraiders-game-day.css':['static/css/piraiders-game-day.css','text/css'],'/js/piraiders-game-day.js':['static/js/piraiders-game-day.js','application/javascript']});
 const ACTIONS=new Set(['launch','next','previous','toggle-auto','auto','manual','reload','stop']);
 const ID=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -83,6 +84,9 @@ function createGameDayWeb({manager,sourceService,runtimeFactory,port,appRoot,mac
   }catch(error){service.close();throw error;}
  }
  let owned=manager||sourceService?backend(manager,sourceService):null,closed=false,closePromise=null;
+ // Q-020: which Caspar the loaded machine runs, with which renderer, and for
+ // the bundled software renderer whether its mirror was made. Path-free.
+ let casparState=null;
  const ready=owned?Promise.resolve(owned):loadGameDayMachineConfig(machineFile,{appRoot,nodeExecutable:process.execPath}).then(async machine=>{
   if(typeof configFile!=='string'||!path.isAbsolute(configFile))throw failure('APP_CONFIG_INVALID');
   // CWD/configfileref and __dirname can name the same file through Windows8.3
@@ -90,6 +94,14 @@ function createGameDayWeb({manager,sourceService,runtimeFactory,port,appRoot,mac
   const [expectedConfig,actualConfig]=await Promise.all([fs.realpath(path.join(appRoot,machine.spxConfigFile)),fs.realpath(configFile)]);
   const normalize=value=>process.platform==='win32'?value.toLowerCase():value;
   if(normalize(expectedConfig)!==normalize(actualConfig))throw failure('APP_CONFIG_INVALID');
+  // The software renderer runs a mirror of the bundled Caspar with Mesa beside
+  // it, made here once per bundle. If it cannot be made, SPX and the page
+  // still run; a preparation is then refused (MESA_RUNTIME_MISSING).
+  const report=casparReport(machine);
+  if(report.from==='bundle'&&report.renderer==='software'){
+   try{await ensureSoftwareCaspar(machine.appRoot);casparState=Object.freeze({...report,layout:'ready',code:null});}
+   catch{casparState=Object.freeze({...report,layout:'failed',code:'SOFTWARE_LAYOUT_FAILED'});}
+  }else casparState=Object.freeze({...report,layout:'not-needed',code:null});
   owned=machine.source?sourceBackend(machine):backend(createGameDayManager({catalog:createLocalEventCatalog(machine),sourceRoot:machine.mediaRoot,privateRoots:[machine.cacheRoot,machine.runtimeRoot,machine.catalogDirectory]}),null);
   if(closed){
    let stopping;try{stopping=owned.close();}catch{stopping=Promise.reject(failure('CLOSE_FAILED'));}
@@ -165,7 +177,7 @@ function createGameDayWeb({manager,sourceService,runtimeFactory,port,appRoot,mac
  // Diagnostics (5c-1): six distinct states, a plain path-free read on every
  // machine; never "on air". The manager may be absent (an injected service).
  router.get('/game-day/api/diagnostics',auth,backendReady,(req,res)=>{
-  void diagnose({source:req.gameDayBackend.source,manager:req.gameDayBackend.manager}).then(value=>{if(!res.destroyed&&!res.writableEnded)res.json({ok:true,diagnostics:value});},()=>send(res,500,'STATE_UNAVAILABLE'));
+  void diagnose({source:req.gameDayBackend.source,manager:req.gameDayBackend.manager}).then(value=>{if(!res.destroyed&&!res.writableEnded)res.json({ok:true,diagnostics:{...value,caspar:casparState}});},()=>send(res,500,'STATE_UNAVAILABLE'));
  });
  router.use('/game-day/api',(req,res,next)=>{
   if(req.method!=='POST')return send(res,405,'METHOD_NOT_ALLOWED');
