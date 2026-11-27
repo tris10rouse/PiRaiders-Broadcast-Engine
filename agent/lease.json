@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T090814Z-8d8f18",
+  "status": "idle",
+  "owner": null,
   "fence": 115,
-  "task": "Q-027",
-  "workBranch": "feature/Q-027-vcredist-consent",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T09:08:14.675Z",
-  "lastHeartbeat": "2026-11-27T10:03:56.503Z",
-  "expiresAt": "2026-11-27T11:33:56.503Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T10:04:04.124Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T10:04:04.124Z"
 }
