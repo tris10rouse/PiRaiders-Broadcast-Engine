@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261127T181001Z-ea9efb",
   "fence": 124,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "Q-032",
+  "workBranch": "feature/Q-032-bench-app-steps",
   "acquiredAt": "2026-11-27T18:10:01.135Z",
-  "lastHeartbeat": "2026-11-27T18:10:01.135Z",
-  "expiresAt": "2026-11-27T19:40:01.135Z",
+  "lastHeartbeat": "2026-11-27T18:10:20.249Z",
+  "expiresAt": "2026-11-27T19:40:20.249Z",
   "releasedAt": null
 }
