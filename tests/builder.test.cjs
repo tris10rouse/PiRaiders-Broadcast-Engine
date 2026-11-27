@@ -27,8 +27,17 @@ test('the repository queue passes its own lint', () => {
 test('every queue row in ORDER.md is a todo file and the next row is the first of them', () => {
   const { rows, order } = queue.readQueue(root);
   const todo = rows.todo.map(r => r.id);
-  assert.ok(order.length > 0);
-  assert.equal(queue.next(root), order.find(id => todo.includes(id)));
+  // An empty queue is a legitimate state (AGENTS.md › A run, step 7): next is null.
+  assert.equal(queue.next(root), order.find(id => todo.includes(id)) || null);
+  for (const id of rows.todo.map(r => r.id)) assert.ok(order.includes(id), id + ' is not in ORDER.md');
+});
+
+test('an empty queue has no next row and passes lint', () => {
+  const d = tmp('empty');
+  write(d, 'queue/ORDER.md', '');
+  write(d, 'queue/parked/5f.md', row('Parked: split into 5f-1, 5f-2\n'));
+  assert.equal(queue.next(d), null);
+  assert.deepEqual(queue.lint(d), []);
 });
 
 test('lint names a bad header, a missing rule line, a short body and an unordered todo file', () => {
