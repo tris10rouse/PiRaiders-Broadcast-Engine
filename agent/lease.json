@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T081945Z-1e00e8",
+  "status": "idle",
+  "owner": null,
   "fence": 114,
-  "task": "Q-026",
-  "workBranch": "feature/Q-026-vc-redist-zip",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T08:19:45.031Z",
-  "lastHeartbeat": "2026-11-27T09:07:32.151Z",
-  "expiresAt": "2026-11-27T10:37:32.151Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T09:07:40.871Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T09:07:40.871Z"
 }
