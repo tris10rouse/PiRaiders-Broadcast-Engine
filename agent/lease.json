@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T070246Z-6a3620",
+  "status": "idle",
+  "owner": null,
   "fence": 112,
-  "task": "Q-019",
-  "workBranch": "feature/Q-019-opengl-check",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T07:02:46.104Z",
-  "lastHeartbeat": "2026-11-27T08:00:21.718Z",
-  "expiresAt": "2026-11-27T09:30:21.718Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T08:00:32.672Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T08:00:32.672Z"
 }
