@@ -4,9 +4,9 @@
   "owner": "claude-20261126T234636Z-cc934b",
   "fence": 102,
   "task": "5f-4",
-  "workBranch": "feature/5f-4-evaluation-build",
+  "workBranch": "feature/5f-4-record-q-014",
   "acquiredAt": "2026-11-26T23:46:36.532Z",
-  "lastHeartbeat": "2026-11-27T00:15:07.529Z",
-  "expiresAt": "2026-11-27T01:45:07.529Z",
+  "lastHeartbeat": "2026-11-27T00:19:54.136Z",
+  "expiresAt": "2026-11-27T01:49:54.136Z",
   "releasedAt": null
 }
