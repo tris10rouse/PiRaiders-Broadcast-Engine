@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T222334Z-8a6310",
+  "status": "idle",
+  "owner": null,
   "fence": 127,
-  "task": "Q-035",
-  "workBranch": "feature/Q-035-bench-test-extra-files",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T22:23:34.475Z",
-  "lastHeartbeat": "2026-11-27T23:18:48.069Z",
-  "expiresAt": "2026-11-28T00:48:48.069Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T23:18:57.288Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T23:18:57.288Z"
 }
