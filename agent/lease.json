@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261127T070246Z-6a3620",
   "fence": 112,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "Q-019",
+  "workBranch": "feature/Q-019-opengl-check",
   "acquiredAt": "2026-11-27T07:02:46.104Z",
-  "lastHeartbeat": "2026-11-27T07:02:46.104Z",
-  "expiresAt": "2026-11-27T08:32:46.104Z",
+  "lastHeartbeat": "2026-11-27T07:03:45.523Z",
+  "expiresAt": "2026-11-27T08:33:45.523Z",
   "releasedAt": null
 }
