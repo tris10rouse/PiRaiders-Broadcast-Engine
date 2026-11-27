@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T181001Z-ea9efb",
+  "status": "idle",
+  "owner": null,
   "fence": 124,
-  "task": "Q-032",
-  "workBranch": "feature/Q-032-bench-app-steps",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T18:10:01.135Z",
-  "lastHeartbeat": "2026-11-27T19:33:41.701Z",
-  "expiresAt": "2026-11-27T21:03:41.701Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T19:42:16.466Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T19:42:16.466Z"
 }
