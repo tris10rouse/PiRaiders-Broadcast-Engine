@@ -33,7 +33,7 @@ test('the fixed codes and the bundled version come from the component list',()=>
   assert.deepEqual([...vc.BUNDLED_VERSION],COMPONENTS.find(c=>c.id==='vc-redist').version.split('.').map(Number));
   assert.equal(vc.PROMPT,'Install the Microsoft Visual C++ Runtime now? (Y/N) ');
   assert.match(vc.NEXT_STEP,/^VCRUNTIME_MISSING: .*Setup-PiRaiders\.cmd again and answer Y/);
-  assert.equal(vc.installerPath(path.join(path.sep,'bundle','app')),path.join(path.sep,'bundle','runtime','vcredist','VC_redist.x64.exe'));
+  assert.equal(vc.installerPath(path.resolve(path.sep,'bundle','app')),path.resolve(path.sep,'bundle','runtime','vcredist','VC_redist.x64.exe'));
   assert.throws(()=>vc.installerPath('relative/app'),/VCRUNTIME_OPTIONS_INVALID/);
 });
 
@@ -54,7 +54,8 @@ test('the check reads the three system DLLs: present, older, missing, or unknown
     assert.deepEqual(await vc.checkVcRuntime(system(all(bytes))),{check:'VCRUNTIME_UNKNOWN',probe:'failed'});
   const denied={...system(all()),lstat:async()=>{throw Object.assign(Error('no'),{code:'EACCES'});}};
   assert.deepEqual(await vc.checkVcRuntime(denied),{check:'VCRUNTIME_UNKNOWN',probe:'failed'});
-  for(const systemRoot of [undefined,'','Windows','\\\\server\\share\\Windows'])
+  // (undefined would take this PC's own SystemRoot by default.)
+  for(const systemRoot of [null,'','Windows','\\\\server\\share\\Windows'])
     assert.deepEqual(await vc.checkVcRuntime({...system(all()),systemRoot}),{check:'VCRUNTIME_UNKNOWN',probe:'failed'},String(systemRoot));
   assert.deepEqual(await vc.checkVcRuntime({platform:'linux'}),{check:'VCRUNTIME_UNKNOWN',probe:'not-windows'});
 });
@@ -72,7 +73,7 @@ test('installer exit codes become fixed codes',()=>{
 function setupWith(t,{files=all(),answer,exitCode=0,fills=true,installer=true}={}){
   const state={files:{...files},asked:0,ran:[],notices:[]};
   const sys=system(state.files);
-  return{state,options:{...sys,appRoot:path.join(path.sep,'bundle','app'),
+  return{state,options:{...sys,appRoot:path.resolve(path.sep,'bundle','app'),
     ask:async()=>{state.asked++;return answer;},
     installerStat:async file=>{if(!installer)throw Object.assign(Error('missing'),{code:'ENOENT'});return{isFile:()=>true,file};},
     runInstaller:async file=>{state.ran.push(file);if(fills)Object.assign(state.files,all());return{exitCode};},
@@ -98,7 +99,7 @@ test('Setup: missing runs the bundled installer only on Y, and checks again',asy
   const files=all();delete files[dllPath('vcruntime140_1.dll')];
   const {state,options}=setupWith(t,{files,answer:true});
   assert.deepEqual(await vc.vcRuntimeSetup(options),{check:'VCRUNTIME_MISSING',probe:'read',install:'VCRUNTIME_INSTALLED',after:{check:'VCRUNTIME_PRESENT',probe:'read'}});
-  assert.equal(state.asked,1);assert.deepEqual(state.ran,[path.join(path.sep,'bundle','runtime','vcredist','VC_redist.x64.exe')]);assert.deepEqual(state.notices,[]);
+  assert.equal(state.asked,1);assert.deepEqual(state.ran,[path.resolve(path.sep,'bundle','runtime','vcredist','VC_redist.x64.exe')]);assert.deepEqual(state.notices,[]);
   // Older: the same offer.
   const old=setupWith(t,{files:all(pe(0x8664,'14.29.30133.0')),answer:true});
   assert.equal((await vc.vcRuntimeSetup(old.options)).install,'VCRUNTIME_INSTALLED');assert.equal(old.state.ran.length,1);
@@ -135,7 +136,7 @@ test('Setup: unknown or not Windows asks nothing',async t=>{
   const {state,options}=setupWith(t,{files:all(pe(0x14c)),answer:true});
   assert.deepEqual(await vc.vcRuntimeSetup(options),{check:'VCRUNTIME_UNKNOWN',probe:'failed',install:'not-checked',after:null});
   assert.equal(state.asked,0);assert.deepEqual(state.ran,[]);
-  assert.deepEqual(await vc.vcRuntimeSetup({appRoot:path.join(path.sep,'bundle','app'),platform:'linux',ask:async()=>assert.fail('asked')}),
+  assert.deepEqual(await vc.vcRuntimeSetup({appRoot:path.resolve(path.sep,'bundle','app'),platform:'linux',ask:async()=>assert.fail('asked')}),
     {check:'VCRUNTIME_UNKNOWN',probe:'not-windows',install:'not-checked',after:null});
 });
 
