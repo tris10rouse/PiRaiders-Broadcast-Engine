@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T145009Z-9397ae",
+  "status": "idle",
+  "owner": null,
   "fence": 121,
-  "task": "Q-001",
-  "workBranch": "feature/Q-001-receiver-start-timeout",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T14:50:09.816Z",
-  "lastHeartbeat": "2026-11-27T15:58:39.763Z",
-  "expiresAt": "2026-11-27T17:28:39.763Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T15:58:46.878Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T15:58:46.878Z"
 }
