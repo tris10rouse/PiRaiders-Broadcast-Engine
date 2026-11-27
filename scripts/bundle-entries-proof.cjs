@@ -12,54 +12,16 @@
 // `runEntry(name, args)` runs one root entry and answers {exitCode, stdout}.
 // Only fixed words, codes and counts are kept from its answers, never paths.
 // Proof and test use only; the exchange folder is synthetic.
-const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
+const fs=require('node:fs/promises'),path=require('node:path');
 const {buildExchangeActivationFixture}=require('./exchange-activation-fixture.cjs');
 const {checkSetupTwice,storeBytes,fixedAnswer}=require('./exchange-activation-setup.cjs');
 const {CHECK_CODES,chooseRenderer}=require('./lib/graphics-check.cjs');
+const {sourceMachineFromExample,checkDiagnose}=require('./lib/bench-test.cjs');
 
 function fail(code,extra){throw Object.assign(Error(code),{code},extra);}
-const PLACEHOLDER=/<REPLACE:[^>]*>/;
-const FIXED=/^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
-// The shipped source example with each placeholder replaced, nothing else:
-// the exchange folder and binding come from the synthetic fixture, the ids are new.
-// Since Q-020 the example names no Caspar or NDI folder: the bundle's are used.
-function sourceMachineFromExample(example,{mediaRoot,canonicalRoot,binding}){
-  const value=JSON.parse(JSON.stringify(example));
-  const set={mediaRoot:()=>{value.mediaRoot=mediaRoot;},
-    journalStoreId:()=>{value.source.journalStoreId=crypto.randomUUID();},approvalStoreId:()=>{value.source.approvalStoreId=crypto.randomUUID();},
-    expectedCanonicalRoot:()=>{value.source.expectedCanonicalRoot=canonicalRoot;},
-    feedId:()=>{value.source.binding.feedId=binding.feedId;},epoch:()=>{value.source.binding.epoch=binding.epoch;}};
-  const at={mediaRoot:value.mediaRoot,journalStoreId:value.source?.journalStoreId,
-    approvalStoreId:value.source?.approvalStoreId,expectedCanonicalRoot:value.source?.expectedCanonicalRoot,
-    feedId:value.source?.binding?.feedId,epoch:value.source?.binding?.epoch};
-  for(const [name,current] of Object.entries(at)){
-    if(typeof current!=='string'||!PLACEHOLDER.test(current))fail('EXAMPLE_PLACEHOLDER_MISSING',{field:name});
-    set[name]();
-  }
-  if(PLACEHOLDER.test(JSON.stringify(value)))fail('EXAMPLE_PLACEHOLDER_LEFT');
-  return value;
-}
-
-// The diagnose answer reduced to fixed words and codes; checked against what
-// a freshly set-up machine with the app closed must show.
-function checkDiagnose(result){
-  let value;try{value=JSON.parse(String(result&&result.stdout).trim());}catch{fail('DIAGNOSE_ANSWER_UNREADABLE');}
-  const s=value&&value.states;
-  const word=v=>typeof v==='string'&&FIXED.test(v)?v:null,code=v=>v===null?null:(typeof v==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(v)?v:'UNPRINTABLE');
-  const states={};
-  for(const name of ['exchangeFolder','catalogSequence','approvals','prepared','renderer','ndiSender']){
-    const e=s&&s[name];states[name]={state:word(e&&e.state),code:code(e?e.code:null),from:word(e&&e.from)};
-  }
-  const fixed={exitCode:Number.isInteger(result.exitCode)?result.exitCode:null,ok:value?.ok===true,mode:word(value?.mode),app:word(value?.app),ready:value?.ready===true,states};
-  const expect=(name,state,c,from)=>{const e=states[name];if(e.state!==state||e.code!==c||e.from!==from)fail('DIAGNOSE_UNEXPECTED',{fixed,state:name});};
-  if(fixed.exitCode!==0||!fixed.ok||fixed.mode!=='source'||fixed.app!=='not-running'||fixed.ready)fail('DIAGNOSE_UNEXPECTED',{fixed});
-  expect('exchangeFolder','reachable',null,'stores');expect('catalogSequence','read',null,'stores');expect('approvals','readable',null,'stores');
-  for(const name of ['prepared','renderer','ndiSender'])expect(name,'unknown','APP_NOT_RUNNING','app');
-  if(!Number.isSafeInteger(s.catalogSequence.sequence)||s.catalogSequence.sequence<0)fail('DIAGNOSE_UNEXPECTED',{fixed,state:'catalogSequence'});
-  fixed.states.catalogSequence.sequence=s.catalogSequence.sequence;
-  return fixed;
-}
+// The machine file from the shipped example and the diagnose check live in
+// scripts/lib/bench-test.cjs since Q-031 (the bench test uses them too).
 
 // Q-019: an answer's `graphics` reduced to its fixed words. The proof runs on
 // hosted Windows, which has no GPU: the check must not say 4.5 and the
