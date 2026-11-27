@@ -11,8 +11,10 @@ function bindShutdownSignals(target, shutdown) {
 }
 // Q-032: an entry started by a parent with an IPC channel (the bench test
 // starts the app this way) closes what it owns when that channel ends: the
-// parent disconnects it to close the app, or the parent itself ended (also a
-// hard kill). The channel never keeps the entry alive. Launch-PiRaiders.cmd
+// parent disconnects it to close the app, or the parent itself ended (a hard
+// kill of the parent: shown on Linux; on hosted Windows the entry ended
+// without this shutdown, so there the JobHost's parent-loss containment is
+// what closes the app's processes). The channel never keeps the entry alive. Launch-PiRaiders.cmd
 // starts the app without a channel, so nothing changes there.
 function bindParentDisconnect(target, shutdown) {
   if (!target || typeof target.on !== 'function' || typeof shutdown !== 'function') throw Error('Invalid shutdown signal binding');
