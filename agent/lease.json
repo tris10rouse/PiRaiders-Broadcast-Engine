@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T155907Z-2bdd68",
+  "status": "idle",
+  "owner": null,
   "fence": 122,
-  "task": "Q-030",
-  "workBranch": "feature/Q-030-stop-handler-failed",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T15:59:07.972Z",
-  "lastHeartbeat": "2026-11-27T17:21:03.806Z",
-  "expiresAt": "2026-11-27T18:51:03.806Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T17:21:11.332Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T17:21:11.332Z"
 }
