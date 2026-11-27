@@ -31,15 +31,17 @@ after(()=>browser?.close());
 async function port(){const server=net.createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const value=server.address().port;await new Promise(resolve=>server.close(resolve));return value;}
 // Q-030 (2026-11-27): if Stop answers not ok again, say where its time went: how long Stop took, the Node
 // process's worst event-loop delay, and the program page's longest task and longest wait between frames (the
-// page's black needs two frames within 1 s, its connection a heartbeat within 2.5 s). Diagnostics only.
+// page's black needs two frames within 1 s, its connection a heartbeat within 2.5 s). pageLongTasks lists up to four
+// [start, duration] in ms from just before Stop; pageBlack is [start, duration] of the page's first black(). Diagnostics only.
 async function stopWatch(page){
  const loop=monitorEventLoopDelay({resolution:10});loop.enable();
- await page.evaluate(()=>{const w=window.piraidersStopWatch={longTask:0,frameGap:0,last:performance.now(),on:true};
-  w.take=entries=>{for(const entry of entries)w.longTask=Math.max(w.longTask,entry.duration);};try{w.observer=new PerformanceObserver(list=>w.take(list.getEntries()));w.observer.observe({type:'longtask'});}catch{}
+ await page.evaluate(()=>{const w=window.piraidersStopWatch={longTask:0,frameGap:0,last:performance.now(),on:true,t0:performance.now(),tasks:[],black:null};
+  w.take=entries=>{for(const entry of entries){w.longTask=Math.max(w.longTask,entry.duration);if(w.tasks.length<4)w.tasks.push([Math.round(entry.startTime-w.t0),Math.round(entry.duration)]);}};
+  const r=window.piraidersRenderer,black=r?.black;if(black&&!r.piraidersStopWatchWrapped){r.piraidersStopWatchWrapped=true;r.black=function(){const at=performance.now(),value=black.apply(this,arguments),sw=window.piraidersStopWatch;if(sw&&sw.on&&!sw.black)sw.black=[Math.round(at-sw.t0),Math.round(performance.now()-at)];return value;};}try{w.observer=new PerformanceObserver(list=>w.take(list.getEntries()));w.observer.observe({type:'longtask'});}catch{}
   const tick=now=>{w.frameGap=Math.max(w.frameGap,now-w.last);w.last=now;if(w.on)requestAnimationFrame(tick);};requestAnimationFrame(tick);});
  const began=performance.now();
  return async()=>{const stopMs=Math.round(performance.now()-began);loop.disable();
-  const pageSide=await page.evaluate(()=>{const w=window.piraidersStopWatch;w.on=false;if(w.observer){w.take(w.observer.takeRecords());w.observer.disconnect();}return{pageLongTaskMs:Math.round(w.longTask),pageFrameGapMs:Math.round(Math.max(w.frameGap,performance.now()-w.last)),rendererState:window.piraidersRenderer?.state??null};}).catch(error=>({pageUnreadable:String(error?.message||error).slice(0,80)}));
+  const pageSide=await page.evaluate(()=>{const w=window.piraidersStopWatch;w.on=false;if(w.observer){w.take(w.observer.takeRecords());w.observer.disconnect();}return{pageLongTaskMs:Math.round(w.longTask),pageLongTasks:w.tasks,pageBlack:w.black,pageFrameGapMs:Math.round(Math.max(w.frameGap,performance.now()-w.last)),rendererState:window.piraidersRenderer?.state??null};}).catch(error=>({pageUnreadable:String(error?.message||error).slice(0,80)}));
   return{stopMs,nodeLoopMaxMs:Math.round(loop.max/1e6),...pageSide};};
 }
 async function pixels(page,rgb){const png=PNG.sync.read(await page.screenshot()),offset=(Math.floor(png.height/2)*png.width+Math.floor(png.width/2))*4;assert.ok(rgb.every((value,index)=>Math.abs(png.data[offset+index]-value)<=6),'REAL_CHROMIUM_PIXELS');}
