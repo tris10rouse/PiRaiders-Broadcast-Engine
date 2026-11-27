@@ -22,6 +22,8 @@ const SETUP_FILES = ['scripts/piraiders-setup.cjs', 'scripts/lib/exchange-setup.
 const DIAGNOSE_FILES = ['scripts/piraiders-diagnose.cjs', 'scripts/lib/game-day-diagnose.cjs', 'scripts/lib/graphics-check.cjs', 'scripts/lib/vc-runtime.cjs'];
 const LAUNCH_FILES = ['scripts/piraiders-app.cjs'];
 const VERIFY_FILES = ['scripts/piraiders-verify-bundle.cjs'];
+// Q-033: the bench test's console words (PASS, FAIL, its step names) in the quick test.
+const BENCH_FILES = ['scripts/piraiders-bench-test.cjs', 'scripts/lib/bench-test.cjs'];
 const FORWARDED_FILES = ['scripts/lib/game-day-catalog.cjs', 'scripts/lib/exchange-journal.cjs',
   'scripts/lib/exchange-approval-store.cjs', 'scripts/lib/exchange-source-service.cjs'];
 // The launcher's codes that reach its console (main's catch, a fault or a
@@ -44,7 +46,7 @@ test('the bundle packages the operator checklist at the ZIP root from a tracked 
 });
 
 test('every code the checklist names is one the commands can print', () => {
-  const printable = union(...[...SETUP_FILES, ...DIAGNOSE_FILES, ...LAUNCH_FILES, ...VERIFY_FILES, ...FORWARDED_FILES].map(file => literals(file)));
+  const printable = union(...[...SETUP_FILES, ...DIAGNOSE_FILES, ...LAUNCH_FILES, ...VERIFY_FILES, ...BENCH_FILES, ...FORWARDED_FILES].map(file => literals(file)));
   const codes = named(checklist());
   assert.ok(codes.size >= 20, 'the checklist names the commands\' codes');
   for (const code of codes) assert.ok(printable.has(code), code + ' is not printed by any command');
@@ -218,7 +220,9 @@ test('the Windows job prints the ZIP\'s SHA-256 sidecar after the ZIP is built a
 // evidence paragraph agree with the "Evaluation build" section.
 test('README-WINDOWS.md opening, extract lead and evidence paragraph match the evaluation build', () => {
   const readme = read('packaging/windows/README-WINDOWS.md');
-  const opening = readme.split(/\r?\n\r?\n/)[1];
+  // Q-033: the quick test comes first; the opening paragraph follows it.
+  const opening = readme.split(/\r?\n\r?\n/).find(part => part.startsWith('This unsigned development artifact'));
+  assert.ok(opening, 'opening paragraph');
   const extract = section(readme, 'Extract and configure a disposable workstation').split(/\r?\n\r?\n/)[1];
   const evidence = section(readme, 'Compatibility and automated evidence');
   for (const [name, part] of [['opening', opening], ['extract', extract]]) {
