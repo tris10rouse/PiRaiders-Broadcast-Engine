@@ -19,7 +19,7 @@ const {verifyManifest}=require('./lib/windows-bundle.cjs');
 const {proveBundleEntries}=require('./bundle-entries-proof.cjs');
 const {auditEvidence,removeViolations}=require('./proof-evidence-privacy.cjs');
 
-const ENTRIES=new Set(['Setup-PiRaiders.cmd','Diagnose-PiRaiders.cmd','Verify-PiRaiders.cmd']);
+const ENTRIES=new Set(['Setup-PiRaiders.cmd','Diagnose-PiRaiders.cmd','Verify-PiRaiders.cmd','Test-PiRaiders.cmd']);
 const ARGUMENT=/^--[a-z-]{1,32}$/;
 
 // The environment the entries get: the system folders only on the path.
@@ -30,14 +30,15 @@ function plainEnvironment(){
   return env;
 }
 // Runs one root entry through PowerShell; its path and argument enter only
-// as environment data, never as script text.
-function entryRunner(root,powershell,cwd){
+// as environment data, never as script text. Q-033: the bench test's entry
+// runs longer than the others (timeoutMs).
+function entryRunner(root,powershell,cwd,{timeoutMs=120000}={}){
   const base=plainEnvironment();
   return(name,args)=>new Promise((resolve,reject)=>{
     if(!ENTRIES.has(name)||!Array.isArray(args)||args.length>1||args.some(a=>!ARGUMENT.test(a)))return reject(Object.assign(Error('ENTRY_CALL_INVALID'),{code:'ENTRY_CALL_INVALID'}));
     const env={...base,PIRAIDERS_ENTRY:path.join(root,name),PIRAIDERS_ENTRY_ARG:args[0]||''};
     const command=args.length?'& $env:PIRAIDERS_ENTRY $env:PIRAIDERS_ENTRY_ARG; exit $LASTEXITCODE':'& $env:PIRAIDERS_ENTRY; exit $LASTEXITCODE';
-    execFile(powershell,['-NoLogo','-NoProfile','-NonInteractive','-Command',command],{cwd,env,windowsHide:true,shell:false,timeout:120000,maxBuffer:65536,encoding:'utf8'},(error,stdout)=>{
+    execFile(powershell,['-NoLogo','-NoProfile','-NonInteractive','-Command',command],{cwd,env,windowsHide:true,shell:false,timeout:timeoutMs,maxBuffer:65536,encoding:'utf8'},(error,stdout)=>{
       if(error&&(error.killed||typeof error.code!=='number'))return reject(Object.assign(Error('ENTRY_FAILED'),{code:'ENTRY_FAILED'}));
       resolve({exitCode:error?error.code:0,stdout});
     });
@@ -79,4 +80,4 @@ if(require.main===module){
     process.exitCode=1;
   });
 }
-module.exports={smokeWindowsEntries,plainEnvironment};
+module.exports={smokeWindowsEntries,plainEnvironment,entryRunner};

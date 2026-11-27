@@ -12,6 +12,7 @@ const TEMPLATES = [
   ['packaging/windows/Setup-PiRaiders.cmd', 'Setup-PiRaiders.cmd'],
   ['packaging/windows/Diagnose-PiRaiders.cmd', 'Diagnose-PiRaiders.cmd'],
   ['packaging/windows/Verify-PiRaiders.cmd', 'Verify-PiRaiders.cmd'],
+  ['packaging/windows/Test-PiRaiders.cmd', 'Test-PiRaiders.cmd'],
   ['packaging/windows/README-WINDOWS.md', 'README-WINDOWS.md'],
   ['packaging/windows/OPERATOR-CHECKLIST.md', 'OPERATOR-CHECKLIST.md'],
   ['packaging/windows/piraiders-launcher.example.json', 'app/config/piraiders-launcher.example.json'],
@@ -21,7 +22,8 @@ const TEMPLATES = [
 ];
 // The operator's entry scripts. Their libraries come with scripts/lib/.
 const ENTRY_SCRIPTS = ['scripts/piraiders-launcher.cjs', 'scripts/piraiders-app.cjs',
-  'scripts/piraiders-setup.cjs', 'scripts/piraiders-diagnose.cjs', 'scripts/piraiders-verify-bundle.cjs'];
+  'scripts/piraiders-setup.cjs', 'scripts/piraiders-diagnose.cjs', 'scripts/piraiders-verify-bundle.cjs',
+  'scripts/piraiders-bench-test.cjs'];
 const REQUIRED_RUNTIME_SOURCES = ['server.js', 'package.json', 'package-lock.json', 'LICENSE.txt', 'locales/english.json',
   'static/js/ograf_functions.js', ...ENTRY_SCRIPTS];
 
