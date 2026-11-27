@@ -118,6 +118,15 @@ test('AGENTS.md names Builders and the section A run', () => {
   assert.equal(tracker.builders(root) >= 0, true);
 });
 
+test('AGENTS.md: a subagent run never starts a session and leaves notifications to the orchestrator', () => {
+  const text = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
+  const run = text.slice(text.indexOf('## A run'), text.indexOf('## The orchestrator'));
+  assert.match(run, /started as a subagent of the orchestrator, you never call `create_session`/);
+  assert.match(run, /^12\. Release the lease\. \*\*If your prompt says you were started as a subagent of the orchestrator, end here: do not call `create_session`/m);
+  assert.match(run, /`Notify: <message>`/);
+  assert.match(text.slice(text.indexOf('## The orchestrator')), /send each `Notify: <message>` line as one push notification/);
+});
+
 test('the check waiter is green only when every newest check finished well', () => {
   const run = (name, status, conclusion, started_at = '2026-11-23T00:00:00Z') => ({ name, status, conclusion, started_at });
   assert.equal(summarize([]).done, false);
