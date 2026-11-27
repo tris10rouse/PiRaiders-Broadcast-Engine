@@ -80,10 +80,22 @@ async function smokeWindowsBundle(archive) {
   execFileSync(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
     'Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:PIRAIDERS_SMOKE_ARCHIVE, $env:PIRAIDERS_SMOKE_EXTRACT)'], {
     env: { ...process.env, PIRAIDERS_SMOKE_ARCHIVE: path.resolve(archive), PIRAIDERS_SMOKE_EXTRACT: extraction },
-    stdio: 'inherit', windowsHide: true, timeout: 300000
+    stdio: 'inherit', windowsHide: true, timeout: 900000
   });
     const manifest = verifyManifest(root);
     assert.equal(manifest.developmentOnly, true);
+    // Q-018: the pinned third-party runtime, its licences and notices are in
+    // the extracted ZIP, listed in the manifest, laid out by the rule.
+    const { renderNotices, checkRuntimeLayout } = require('./lib/bundled-components.cjs');
+    const listed = manifest.files.map(item => item.path);
+    assert.deepEqual(checkRuntimeLayout(listed.filter(file => file.startsWith('runtime/'))), []);
+    assert.equal(fs.readFileSync(path.join(root, 'THIRD-PARTY-NOTICES.md'), 'utf8'), renderNotices());
+    for (const file of ['THIRD-PARTY-NOTICES.md', 'licenses/CasparCG-LICENSE.txt', 'licenses/Mesa/MIT.txt',
+      'licenses/NDI/NDI License Agreement.pdf', 'licenses/NDI/Processing.NDI.Lib.Licenses.txt',
+      'runtime/caspar/casparcg.exe', 'runtime/mesa/opengl32.dll', 'runtime/mesa/libgallium_wgl.dll',
+      'runtime/ndi/Processing.NDI.Lib.x64.dll']) assert.ok(listed.includes(file), 'bundled runtime file missing: ' + file);
+    assert.deepEqual(listed.filter(file => file.startsWith('runtime/ndi/')), ['runtime/ndi/Processing.NDI.Lib.x64.dll']);
+    assert.ok(!listed.some(file => /ndi tools|ndi studio monitor/i.test(file)), 'NDI Tools must not ship');
     assert.ok(fs.existsSync(path.join(app, 'locales', 'english.json')));
     for (const dependency of ['nodemon', 'playwright', 'playwright-core']) {
       assert.equal(fs.existsSync(path.join(app, 'node_modules', dependency)), false, 'development dependencies must not ship');

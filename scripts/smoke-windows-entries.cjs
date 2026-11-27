@@ -53,7 +53,7 @@ async function smokeWindowsEntries(archive,evidence){
     fs.mkdirSync(extraction);fs.mkdirSync(proofWork);
     execFileSync(powershell,['-NoLogo','-NoProfile','-NonInteractive','-Command',
       'Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:PIRAIDERS_SMOKE_ARCHIVE, $env:PIRAIDERS_SMOKE_EXTRACT)'],{
-      env:{...process.env,PIRAIDERS_SMOKE_ARCHIVE:path.resolve(archive),PIRAIDERS_SMOKE_EXTRACT:extraction},stdio:'inherit',windowsHide:true,timeout:300000});
+      env:{...process.env,PIRAIDERS_SMOKE_ARCHIVE:path.resolve(archive),PIRAIDERS_SMOKE_EXTRACT:extraction},stdio:'inherit',windowsHide:true,timeout:900000});
     const manifest=verifyManifest(root);
     const result=await proveBundleEntries({root,work:proofWork,runEntry:entryRunner(root,powershell,work)});
     const record={...result,sourceCommit:/^[0-9a-f]{40}$/.test(manifest.commitSHA)?manifest.commitSHA:null,manifestVerified:true,

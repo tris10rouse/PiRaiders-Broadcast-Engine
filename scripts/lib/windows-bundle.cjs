@@ -194,9 +194,34 @@ function inspectBundle(root) {
   return { files: manifest.files.length, counts };
 }
 
-function buildWindowsBundle() {
+// Q-018: copy the staged third-party runtime (scripts/bundle-runtime.cjs) into
+// the bundle: runtime/caspar, runtime/mesa, runtime/ndi, their licences and
+// THIRD-PARTY-NOTICES.md. Only those places; nothing may replace a file already
+// in the bundle. Then the layout rule over the bundle's whole runtime/ folder
+// and the notices text are checked again. Throws fixed codes.
+const STAGE_PLACES = ['runtime/caspar/', 'runtime/mesa/', 'runtime/ndi/', 'licenses/'];
+function copyRuntimeStage(stage, bundle) {
+  const { renderNotices, checkRuntimeLayout } = require('./bundled-components.cjs');
+  let files;
+  try { files = filesUnder(stage); } catch (error) { throw Error('RUNTIME_STAGE_MISSING'); }
+  if (!files.includes('THIRD-PARTY-NOTICES.md')) throw Error('RUNTIME_STAGE_MISSING');
+  for (const relative of files) {
+    if (relative !== 'THIRD-PARTY-NOTICES.md' && !STAGE_PLACES.some(place => relative.startsWith(place))) throw Error('RUNTIME_STAGE_UNEXPECTED');
+    const destination = safePath(bundle, relative, true);
+    if (fs.existsSync(destination)) throw Error('RUNTIME_STAGE_COLLISION');
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(safePath(stage, relative), destination, fs.constants.COPYFILE_EXCL);
+  }
+  if (fs.readFileSync(path.join(bundle, 'THIRD-PARTY-NOTICES.md'), 'utf8') !== renderNotices()) throw Error('RUNTIME_NOTICES_MISMATCH');
+  const problems = checkRuntimeLayout(filesUnder(bundle, 'runtime'));
+  if (problems.length) throw Error('RUNTIME_LAYOUT_' + problems[0]);
+  return files;
+}
+
+function buildWindowsBundle({ runtimeStage } = {}) {
   if (process.platform !== 'win32' || process.arch !== 'x64') throw Error('Windows development bundle requires Windows x64');
   if (!process.env.npm_execpath || !fs.statSync(process.env.npm_execpath).isFile()) throw Error('Run the builder with npm run package:windows');
+  if (typeof runtimeStage !== 'string' || !runtimeStage) throw Error('RUNTIME_STAGE_MISSING');
   const root = path.resolve(__dirname, '..', '..');
   const build = safePath(root, 'build/windows', true); fs.mkdirSync(build, { recursive: true });
   const archive = safePath(root, 'build/windows/PiRaiders-Development-win-x64.zip', true);
@@ -210,10 +235,12 @@ function buildWindowsBundle() {
     // Only packaged/build inputs must be clean. Operator files and unrelated
     // documentation do not enter this artifact, whether tracked or untracked.
     const recipes = new Set(['native/windows/JobHost.cs', 'scripts/build-windows-job-host.cjs',
-      'scripts/build-windows-bundle.cjs', ...TEMPLATES.map(item => item[0])]);
+      'scripts/build-windows-bundle.cjs', 'scripts/bundle-runtime.cjs', 'scripts/prepare-caspar-proof.cjs',
+      ...TEMPLATES.map(item => item[0])]);
+    const recipe = relative => recipes.has(relative) || relative.startsWith('packaging/windows/licenses/');
     const assertClean = () => {
       const changed = execFileSync('git', ['diff', '--name-only', '-z', 'HEAD', '--'], { cwd: root, encoding: 'utf8', shell: false }).split('\0').filter(Boolean);
-      if (changed.some(relative => allowedSource(relative) || recipes.has(relative))) throw Error('Packaged source/build inputs must be committed before packaging');
+      if (changed.some(relative => allowedSource(relative) || recipe(relative))) throw Error('Packaged source/build inputs must be committed before packaging');
     };
     assertClean();
     const commitSHA = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', shell: false }).trim();
@@ -222,7 +249,7 @@ function buildWindowsBundle() {
     const index = execFileSync('git', ['ls-files', '--stage', '-z'], { cwd: root, encoding: 'utf8', shell: false }).split('\0').filter(Boolean);
     for (const record of index) {
       const relative = record.slice(record.indexOf('\t') + 1);
-      if (record.startsWith('120000 ') && (allowedSource(relative) || recipes.has(relative))) throw Error('Tracked symlink input is not allowed');
+      if (record.startsWith('120000 ') && (allowedSource(relative) || recipe(relative))) throw Error('Tracked symlink input is not allowed');
     }
     const nodeLicense = ['LICENSE', 'LICENSE.txt'].map(name => path.join(path.dirname(process.execPath), name))
       .find(candidate => fs.existsSync(candidate) && fs.lstatSync(candidate).isFile() && !fs.lstatSync(candidate).isSymbolicLink());
@@ -250,6 +277,7 @@ function buildWindowsBundle() {
       if (JSON.parse(fs.readFileSync(path.join(dependencyRoot, 'package.json'), 'utf8')).version !== version) throw Error('Unexpected image decoder dependency version');
       fs.copyFileSync(path.join(dependencyRoot, 'LICENSE'), path.join(bundle, 'licenses', notice));
     }
+    copyRuntimeStage(runtimeStage, bundle);
     assertClean();
     const metadata = { commitSHA, spxVersion: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version,
       node: { version: process.version, platform: process.platform, arch: process.arch } };
@@ -261,7 +289,7 @@ function buildWindowsBundle() {
     fs.writeFileSync(script, "param([string]$Source, [string]$Destination)\r\n$ErrorActionPreference = 'Stop'\r\nAdd-Type -AssemblyName System.IO.Compression.FileSystem\r\n[System.IO.Compression.ZipFile]::CreateFromDirectory($Source, $Destination, [System.IO.Compression.CompressionLevel]::Optimal, $true)\r\n");
     fs.rmSync(temporaryArchive, { force: true });
     execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-File', script, bundle, temporaryArchive], {
-      cwd: root, stdio: 'inherit', shell: false, windowsHide: true, timeout: 300000
+      cwd: root, stdio: 'inherit', shell: false, windowsHide: true, timeout: 900000
     });
     fs.rmSync(script, { force: true });
     if (!fs.statSync(temporaryArchive).isFile() || fs.statSync(temporaryArchive).size === 0) throw Error('No ZIP archive produced');
@@ -280,4 +308,4 @@ function buildWindowsBundle() {
   }
 }
 
-module.exports = { TEMPLATES, REQUIRED_RUNTIME_SOURCES, selectSourceFiles, copySourceFiles, createManifest, verifyManifest, inspectBundle, buildWindowsBundle };
+module.exports = { STAGE_PLACES, copyRuntimeStage, TEMPLATES, REQUIRED_RUNTIME_SOURCES, selectSourceFiles, copySourceFiles, createManifest, verifyManifest, inspectBundle, buildWindowsBundle };
