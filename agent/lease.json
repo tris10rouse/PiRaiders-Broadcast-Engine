@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261127T090814Z-8d8f18",
   "fence": 115,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "Q-027",
+  "workBranch": "feature/Q-027-vcredist-consent",
   "acquiredAt": "2026-11-27T09:08:14.675Z",
-  "lastHeartbeat": "2026-11-27T09:08:14.675Z",
-  "expiresAt": "2026-11-27T10:38:14.675Z",
+  "lastHeartbeat": "2026-11-27T09:08:33.803Z",
+  "expiresAt": "2026-11-27T10:38:33.803Z",
   "releasedAt": null
 }
