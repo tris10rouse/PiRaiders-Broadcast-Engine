@@ -5,6 +5,7 @@
   "mediaRoot": "<REPLACE: the exchange folder as this PC reaches it>",
   "cacheRoot": "cache",
   "runtimeRoot": "event-runtime",
+  "renderer": "auto",
   "caspar": {
     "executable": "C:/PiRaiders-Components/CasparCG/casparcg.exe",
     "cwd": "C:/PiRaiders-Components/CasparCG"

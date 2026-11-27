@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const { TextDecoder } = require('node:util');
 const { normalizeRendererProfile } = require('./caspar-renderer.cjs');
 const { normalizePreparedEventProfile } = require('./prepared-event-profile.cjs');
+const { normalizeRendererSetting } = require('./graphics-check.cjs');
 const MAX_BYTES = 64 * 1024, MAX_ENTRIES = 128;
 const machines = new WeakSet();
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -91,7 +92,7 @@ async function loadGameDayMachineConfig(file, { appRoot, nodeExecutable } = {}) 
   try {
     appRoot = absolute(appRoot); nodeExecutable = absolute(nodeExecutable); file = absolute(file);
     const { value: raw } = await readJSON(file);
-    object(raw, ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'presentation', 'rossTalk', 'source'],
+    object(raw, ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'presentation', 'rossTalk', 'source', 'renderer'],
       ['schemaVersion', 'spxConfigFile', 'catalogDirectory', 'mediaRoot', 'cacheRoot', 'runtimeRoot', 'caspar', 'output', 'rossTalk']);
     if (raw.schemaVersion !== 1) throw Error('invalid');
     object(raw.caspar, ['executable', 'cwd', 'rendererProfile'], ['executable', 'cwd']);
@@ -100,7 +101,9 @@ async function loadGameDayMachineConfig(file, { appRoot, nodeExecutable } = {}) 
       catalogDirectory: machinePath(appRoot, raw.catalogDirectory), mediaRoot: machinePath(appRoot, raw.mediaRoot),
       cacheRoot: machinePath(appRoot, raw.cacheRoot), runtimeRoot: machinePath(appRoot, raw.runtimeRoot),
       caspar: { executable: machinePath(appRoot, raw.caspar.executable), cwd: machinePath(appRoot, raw.caspar.cwd), ...(rendererProfile===undefined?{}:{rendererProfile}) },
-      output: raw.output, presentation: raw.presentation === undefined ? {} : raw.presentation, rossTalk: raw.rossTalk };
+      output: raw.output, presentation: raw.presentation === undefined ? {} : raw.presentation, rossTalk: raw.rossTalk,
+      // Q-019: auto (default), gpu or software; anything else refuses the file.
+      renderer: normalizeRendererSetting(raw.renderer) };
     const roots = [machine.mediaRoot, machine.cacheRoot, machine.runtimeRoot, machine.catalogDirectory];
     if (Object.hasOwn(raw, 'source')) {
       const source = raw.source;

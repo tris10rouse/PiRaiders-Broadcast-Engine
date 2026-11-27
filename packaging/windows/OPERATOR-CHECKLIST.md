@@ -44,6 +44,8 @@ Run `Setup-PiRaiders.cmd` from the extracted folder, with the application closed
 
 **Worked:** exit 0 and one line that starts `{"ok":true,"step":"done"` with `journal` and `approvals` each `initialized` (made now) the first time. Run it again: `present` and `present`, nothing changed. (`bound` means a journal that was already there got its binding now.) `"source":"direct"` or `"linked"` says how the exchange folder was reached.
 
+The same line ends with `"graphics"`: whether this PC's graphics driver gives OpenGL 4.5 (`GPU_OPENGL_45`, `GPU_OPENGL_TOO_OLD` or `GPU_OPENGL_UNKNOWN`), whether the check ran (`ran`; `missing`: the bundled check is not there, extract the whole ZIP again; `failed`: it gave no answer in 15 s, which counts as unknown), the machine file's `renderer` setting (`auto` unless you set `gpu` or `software`) and the renderer chosen: `gpu` only for `GPU_OPENGL_45` under `auto`, otherwise `software`. It is a report, never a refusal, and not yet used to start CasparCG (a later part). It is tested on a hosted Windows runner without a graphics card (too old or unknown, `software`); a PC with a graphics card is not tested.
+
 | Code | First thing to do |
 |---|---|
 | `SETUP_USAGE` | Only when `app\scripts\piraiders-setup.cjs` is run directly with wrong arguments (exit 2); use `Setup-PiRaiders.cmd` instead. |
@@ -65,6 +67,8 @@ Run `Setup-PiRaiders.cmd` from the extracted folder, with the application closed
 Run `Diagnose-PiRaiders.cmd`. It reads only; it never writes. It works with the application open or closed.
 
 **Worked:** exit 0 and one line with `"ok":true` and six states. With the application closed, in source mode: `exchangeFolder` is `reachable`, `catalogSequence` is `read` with a number, `approvals` is `readable`; `prepared`, `renderer` and `ndiSender` are `unknown` with `APP_NOT_RUNNING`, and `app` is `not-running`. In local mode the three exchange states are `not-used`. `"ready":false` is always printed: Diagnose never says ready or on air.
+
+Beside the six states, `"graphics"` is the same OpenGL 4.5 check and renderer choice as Setup prints (step 4).
 
 Diagnose refuses (exit 1) only with `MACHINE_CONFIG_INVALID` or `DIAGNOSE_FAILED`. Every other code below is one of the state codes inside an exit-0 line with `"ok":true`: read each state's `code`, not only the exit.
 

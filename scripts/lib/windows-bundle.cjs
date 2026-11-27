@@ -235,6 +235,7 @@ function buildWindowsBundle({ runtimeStage } = {}) {
     // Only packaged/build inputs must be clean. Operator files and unrelated
     // documentation do not enter this artifact, whether tracked or untracked.
     const recipes = new Set(['native/windows/JobHost.cs', 'scripts/build-windows-job-host.cjs',
+      'native/windows/GraphicsCheck.cs', 'scripts/build-graphics-check.cjs',
       'scripts/build-windows-bundle.cjs', 'scripts/bundle-runtime.cjs', 'scripts/prepare-caspar-proof.cjs',
       ...TEMPLATES.map(item => item[0])]);
     const recipe = relative => recipes.has(relative) || relative.startsWith('packaging/windows/licenses/');
@@ -267,6 +268,9 @@ function buildWindowsBundle({ runtimeStage } = {}) {
     copyFile(root, 'LICENSE.txt', bundle, 'licenses/SPX-LICENSE.txt');
     execFileSync(process.execPath, [path.join(root, 'scripts', 'build-windows-job-host.cjs')], { cwd: root, stdio: 'inherit', shell: false, windowsHide: true });
     copyFile(root, 'build/windows/PiRaiders.JobHost.exe', bundle, 'app/build/windows/PiRaiders.JobHost.exe');
+    // Q-019: the OpenGL 4.5 check Setup and Diagnose run.
+    execFileSync(process.execPath, [path.join(root, 'scripts', 'build-graphics-check.cjs')], { cwd: root, stdio: 'inherit', shell: false, windowsHide: true });
+    copyFile(root, 'build/windows/PiRaiders.GraphicsCheck.exe', bundle, 'app/build/windows/PiRaiders.GraphicsCheck.exe');
     execFileSync(process.execPath, [process.env.npm_execpath, 'ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], {
       cwd: path.join(bundle, 'app'), stdio: 'inherit', shell: false, windowsHide: true, timeout: 180000
     });
