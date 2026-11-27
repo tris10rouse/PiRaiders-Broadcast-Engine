@@ -2,7 +2,7 @@
 
 Q-016, owner's decision in chat on 2026-11-27: he accepts the CasparCG (GPL v3 or later), Mesa (MIT and its notices) and NDI SDK/runtime licence terms, and asks for everything the app needs to be bundled instead of proposed. He believes every target PC has a graphics card with OpenGL 4.5 but is not sure, so Mesa ships as the fallback. Split on 2026-11-27 (fence 108) into Q-017 to Q-022.
 
-Status after Q-017 (2026-11-27): the list, the notices text and the layout rule exist and are tested on Linux. **The ZIP does not carry these components yet**; that is Q-018. Nothing is signed, released or deployed.
+Status after Q-018 (2026-11-27, fence 109): `npm run package:windows` downloads the pins, refuses any SHA-256 mismatch, stages the components and the ZIP carries them (`runtime/caspar/`, `runtime/mesa/`, `runtime/ndi/`, `licenses/`, `THIRD-PARTY-NOTICES.md`, all in `BUILD-MANIFEST.json`). **The app does not start them yet** (Q-020). The Microsoft VC++ runtime Caspar needs is not in the ZIP yet (Q-023). Nothing is signed, released or deployed.
 
 ## The list
 
@@ -32,10 +32,23 @@ Read from the vendor's pages [Software Distribution](https://docs.ndi.video/all/
 
 The licence agreement text itself comes from the installed runtime (`NDI License Agreement.pdf`, `Processing.NDI.Lib.Licenses.txt`, seen in CI, `WINDOWS_NDI_PROOF.md`) and goes in `licenses/NDI/` (Q-018).
 
+## How the ZIP build takes them (Q-018)
+
+`scripts/build-windows-bundle.cjs` first runs `scripts/bundle-runtime.cjs` (build machine only, not packaged): it downloads each pin through the CI proofs' `download()` (SHA-256 refused on mismatch, size bounded), unpacks with 7-Zip, and stages into `build/windows/runtime-stage/`; `buildWindowsBundle({ runtimeStage })` refuses to run without that stage, copies it only into `runtime/caspar/`, `runtime/mesa/`, `runtime/ndi/`, `licenses/` and the notices file (no file may replace one already in the bundle), then checks the notices text and `checkRuntimeLayout()` over the whole `runtime/` folder again. Any code stops the build.
+
+- **CasparCG:** every file of the release archive, unchanged (the archive has its files at its root). Its `LICENSE` (GPL v3 text, checked) also becomes `licenses/CasparCG-LICENSE.txt`.
+- **Mesa:** `x64/opengl32.dll` and `x64/libgallium_wgl.dll` only (opengl32 is the WGL front that loads libgallium_wgl; both checked x64). The CI Caspar proof copies more of Mesa's x64 DLLs beside Caspar; whether these two are enough for Caspar's software path is proven only when Q-020/Q-021 run the bundled Caspar on hosted Windows. The release archive carries no licence text, so `packaging/windows/licenses/Mesa/` holds committed copies of Mesa's `licenses/` folder and `docs/license.rst` at tag `mesa-26.2.6` and mesa-dist-win's `LICENSE` at tag `26.2.6`; they go to `licenses/Mesa/`.
+- **NDI:** the installer is never run. A build-only tool, innoextract 1.9 (its Windows release ZIP, SHA-256 `6989342c…3065` pinned in `bundle-runtime.cjs`; zlib-style licence; not shipped), reads the installer's files. Only `Processing.NDI.Lib.x64.dll` is taken, refused unless its SHA-256 is `adca7e9c…028a`, it is an x64 PE and its version resource reads 6.4.0.2. `NDI License Agreement.pdf` and `Processing.NDI.Lib.Licenses.txt` (each SHA-256 pinned) go to `licenses/NDI/`. The installer's x86, DirectShow and File DLLs are not taken; NDI Tools are not in it.
+- Checked on Linux on 2026-11-27 with the real pinned downloads (unpacked with Linux unzip, 7z and innoextract 1.9, not the Windows tools): 306 runtime files, layout rule clean, about 818 MB unpacked.
+
+## VC++ runtime (Q-018 finding)
+
+Caspar's release archive does **not** carry the Microsoft x64 VC++ runtime. Read on 2026-11-27 from the import tables of `casparcg.exe` and every DLL in the archive: `casparcg.exe`, the three SFML DLLs and the three TBB DLLs import `MSVCP140.dll`, `VCRUNTIME140.dll` and `VCRUNTIME140_1.dll`, none of which is in the archive (the `api-ms-win-crt-*` imports are the Universal CRT, part of Windows 10 and later). Hosted Windows runners have the VC++ runtime installed system-wide, so CI cannot show its absence. Shipping it is Q-023: either the three DLLs app-local beside `casparcg.exe` (Microsoft's documented local deployment) or the official `VC_redist.x64.exe` (a versioned download exists: Microsoft's `aka.ms` link redirected on 2026-11-27 to a URL carrying SHA-256 `cc0ff0eb…713b`), run by Setup only with the operator's consent.
+
 ## Layout rule
 
 Windows loads `opengl32.dll` from the executable's own folder before the system's. Mesa's copy beside the Caspar executable that should use the graphics card would replace the driver. `checkRuntimeLayout(paths)` answers fixed codes for a bundle's `runtime/` paths: `CASPAR_MISSING`, `CASPAR_NOT_UNIQUE`, `MESA_BESIDE_CASPAR` (any letter case), `MESA_MISSING`, `NDI_RUNTIME_MISSING` (the DLL must be in `runtime/ndi/`). The ZIP build (Q-018) refuses any code. How the software renderer then reaches Mesa without that copy is Q-020's decision.
 
 ## Parts
 
-Q-017 list, notices, rule (this note) · Q-018 the ZIP carries them · Q-019 OpenGL 4.5 check · Q-020 the app runs the bundled Caspar with the chosen renderer, defaults point at the bundle · Q-021 extracted-ZIP Windows proof from bundled components only · Q-022 new evaluation build recorded.
+Q-017 list, notices, rule (this note) · Q-018 the ZIP carries them · Q-023 the VC++ runtime Caspar needs · Q-019 OpenGL 4.5 check · Q-020 the app runs the bundled Caspar with the chosen renderer, defaults point at the bundle · Q-021 extracted-ZIP Windows proof from bundled components only · Q-022 new evaluation build recorded.

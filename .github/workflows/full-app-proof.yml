@@ -113,7 +113,7 @@ jobs:
 
   actual-extracted-full-app-private-ndi:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:

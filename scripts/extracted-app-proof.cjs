@@ -71,7 +71,7 @@ function prepareExtracted(archive,expectedSource){
  const work=fs.mkdtempSync(path.join(os.tmpdir(),'PiRaiders output 鷹 ! ')),extraction=path.join(work,'Extracted package'),powershell=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
  try{
   fs.mkdirSync(extraction);
-  execFileSync(powershell,['-NoLogo','-NoProfile','-NonInteractive','-Command','Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:PIRAIDERS_PROOF_ARCHIVE, $env:PIRAIDERS_PROOF_EXTRACT)'],{env:{...process.env,PIRAIDERS_PROOF_ARCHIVE:zip,PIRAIDERS_PROOF_EXTRACT:extraction},stdio:'ignore',windowsHide:true,timeout:300000});
+  execFileSync(powershell,['-NoLogo','-NoProfile','-NonInteractive','-Command','Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:PIRAIDERS_PROOF_ARCHIVE, $env:PIRAIDERS_PROOF_EXTRACT)'],{env:{...process.env,PIRAIDERS_PROOF_ARCHIVE:zip,PIRAIDERS_PROOF_EXTRACT:extraction},stdio:'ignore',windowsHide:true,timeout:900000});
   assert.equal(hash(zip),archiveSHA256,'ARCHIVE_CHANGED_DURING_EXTRACT');
   const root=path.join(extraction,'PiRaiders-Development'),record=inventory(root),location=extractedLocation(root,record);assert.equal(record.sourceCommit,expectedSource,'ARCHIVE_SOURCE_COMMIT');
   const nodeVersion=execFileSync(location.nodeExecutable,['--version'],{encoding:'utf8',timeout:5000,maxBuffer:128,windowsHide:true,env:cleanAppEnvironment(process.env,process.env.SystemRoot)}).trim();

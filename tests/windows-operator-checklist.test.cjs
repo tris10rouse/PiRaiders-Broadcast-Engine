@@ -209,7 +209,8 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
     assert.match(part, /disposable,? nonproduction Windows x64 PC/, name);
   }
   // Opening: what it is not, and the stadium warning until the owner's off-air test.
-  for (const not of [/not signed/, /not a release/, /not deployed/, /CasparCG, Mesa and NDI binaries are not included/,
+  for (const not of [/not signed/, /not a release/, /not deployed/, /carries pinned CasparCG Server, Mesa's x64 OpenGL files and the NDI runtime DLL/, /THIRD-PARTY-NOTICES\.md/,
+    /recorded evaluation build predates them/, /app does not start them yet/, /VC\+\+ runtime Caspar needs is not included/,
     /Do not install on stadium equipment/, /owner approves an off-air test/])
     assert.match(opening, not, 'opening ' + not);
   // Extracted-app output is CI evidence from the named hosted-Windows check.
@@ -218,6 +219,6 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
   // The old wording is gone everywhere.
   for (const old of [/not the first user-testable release/, /output from this extracted artifact .* remain unverified/,
     /No manual testing is requested from the project owner until/, /extracted full application, reproducible legal/, /does not yet configure CI.s explicit software-Mesa/,
-    /Do not describe this ZIP as a user-testable build/, /Actual output from the extracted application still requires/])
+    /Do not describe this ZIP as a user-testable build/, /CasparCG, Mesa and NDI binaries are not included/, /Actual output from the extracted application still requires/])
     assert.doesNotMatch(readme, old, String(old));
 });
