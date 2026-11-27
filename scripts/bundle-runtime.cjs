@@ -7,16 +7,24 @@
 // from inside the NDI installer are refused unless their own SHA-256 match
 // the pins below and the DLL is an x64 PE of the pinned version. The staged
 // tree (runtime/, licenses/, THIRD-PARTY-NOTICES.md) is refused unless
-// checkRuntimeLayout() answers no code. Design: docs/design/BUNDLED_RUNTIME.md.
+// checkRuntimeLayout() answers no code. Q-026: Microsoft's VC++ runtime
+// installer is placed unchanged (pinned bytes and version, never run here),
+// and every runtime .exe and .dll must import only DLLs that the bundle,
+// Windows or that installer provides (RUNTIME_IMPORT_MISSING otherwise).
+// Design: docs/design/BUNDLED_RUNTIME.md.
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { COMPONENTS, renderNotices, checkRuntimeLayout } = require('./lib/bundled-components.cjs');
+const { checkRuntimeImports } = require('./lib/pe-imports.cjs');
 
 const byId = id => COMPONENTS.find(item => item.id === id);
-const LIMITS = Object.freeze({ casparcg: 350000000, mesa: 500000000, 'ndi-runtime': 150 * 1024 * 1024 });
+const LIMITS = Object.freeze({ casparcg: 350000000, mesa: 500000000, 'ndi-runtime': 150 * 1024 * 1024, 'vc-redist': 64 * 1024 * 1024 });
+// Microsoft's installer as the ZIP carries it, and the file version its
+// version resource must read (the component's version plus ".0").
+const VC_REDIST = Object.freeze({ name: 'VC_redist.x64.exe', version: '14.44.35211.0', sha256: byId('vc-redist').sha256 });
 // Build tool only (never shipped): reads the NDI runtime installer's files
 // without running the installer, so the build machine's own NDI install,
 // registry and PATH are never touched.
@@ -39,7 +47,7 @@ const MESA_FILES = Object.freeze(['opengl32.dll', 'libgallium_wgl.dll']);
 const MESA_LICENCE_DIRECTORY = 'packaging/windows/licenses/Mesa';
 
 class StageError extends Error {}
-const fail = code => { throw new StageError(code); };
+const fail = (code, detail) => { const error = new StageError(code); if (detail) error.detail = detail; throw error; };
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
 // PE machine and the VS_FIXEDFILEINFO file version (a.b.c.d), or null when the
@@ -87,10 +95,11 @@ function oneFile(dir, name, code) {
 }
 
 // Builds stage/ from already-extracted inputs. extracted = { casparcg, mesa,
-// ndi } (folders as the archives unpack: Caspar's files at its root, Mesa's
-// x64/ folder, the installer's app/ folder). Linux-testable: no download, no
+// ndi, vcredist } (folders as the archives unpack: Caspar's files at its root,
+// Mesa's x64/ folder, the NDI installer's app/ folder; vcredist is the
+// downloaded VC_redist.x64.exe itself). Linux-testable: no download, no
 // archive tool. Returns the staged runtime/ paths.
-function stageRuntime({ stage, extracted, repoRoot = path.resolve(__dirname, '..'), ndiFiles = NDI_FILES }) {
+function stageRuntime({ stage, extracted, repoRoot = path.resolve(__dirname, '..'), ndiFiles = NDI_FILES, vcRedist = VC_REDIST }) {
   if (fs.existsSync(stage)) fail('STAGE_EXISTS');
   fs.mkdirSync(stage, { recursive: true });
   const licences = path.join(stage, 'licenses');
@@ -131,9 +140,24 @@ function stageRuntime({ stage, extracted, repoRoot = path.resolve(__dirname, '..
     copyInto(path.dirname(file), path.basename(file), licences, 'NDI/' + licence.name);
   }
   // Nothing else of the installer (no x86, DirectShow or File DLLs, no NDI Tools).
+  // Microsoft's VC++ runtime installer: the pinned download, unchanged, never run.
+  const vc = byId('vc-redist');
+  let vcBytes;
+  try { vcBytes = fs.lstatSync(extracted.vcredist).isFile() ? fs.readFileSync(extracted.vcredist) : null; } catch { vcBytes = null; }
+  if (!vcBytes) fail('VC_REDIST_LAYOUT');
+  if (sha256(vcBytes) !== vcRedist.sha256) fail('VC_REDIST_HASH');
+  if (peInfo(vcBytes).version !== vcRedist.version || !vcRedist.version.startsWith(vc.version + '.')) fail('VC_REDIST_VERSION');
+  const vcTarget = path.join(stage, ...vc.folder.split('/'), vcRedist.name);
+  fs.mkdirSync(path.dirname(vcTarget), { recursive: true });
+  fs.writeFileSync(vcTarget, vcBytes, { flag: 'wx' });
   const runtimePaths = regularFiles(path.join(stage, 'runtime')).map(file => 'runtime/' + file);
   const problems = checkRuntimeLayout(runtimePaths);
   if (problems.length) fail('RUNTIME_LAYOUT_' + problems[0]);
+  // Every DLL a runtime file imports is provided (Q-026); the first gap is named.
+  let missing;
+  try { missing = checkRuntimeImports(path.join(stage, 'runtime')); }
+  catch (error) { fail(error.message === 'RUNTIME_PE_INVALID' ? 'RUNTIME_PE_INVALID' : 'RUNTIME_IMPORT_CHECK_FAILED', error.file); }
+  if (missing.length) fail('RUNTIME_IMPORT_MISSING', missing[0].file + ' imports ' + missing[0].dll + (missing.length > 1 ? ' (and ' + (missing.length - 1) + ' more)' : ''));
   fs.writeFileSync(path.join(stage, 'THIRD-PARTY-NOTICES.md'), renderNotices());
   return runtimePaths;
 }
@@ -160,7 +184,7 @@ function unpackAll(work, archives) {
   run(sevenZip, ['x', '-y', '-o' + mesa, archives.mesa]);
   run(sevenZip, ['x', '-y', '-o' + tool, archives.innoextract]);
   run(path.join(tool, 'innoextract.exe'), ['--extract', '--silent', '--output-dir', ndi, archives['ndi-runtime']]);
-  return { casparcg, mesa, ndi: path.join(ndi, 'app') };
+  return { casparcg, mesa, ndi: path.join(ndi, 'app'), vcredist: archives['vc-redist'] };
 }
 
 // Build entry: stage into build/windows/runtime-stage. Windows x64 only.
@@ -185,6 +209,8 @@ async function main() {
   }
 }
 const code = error => /^[A-Z][A-Z0-9_]{1,80}$/.test(error?.message) ? error.message : 'RUNTIME_STAGE_FAILED';
-if (require.main === module) main().catch(error => { console.error('Bundled runtime failed: ' + code(error)); process.exitCode = 1; });
+// The detail names only bundle-relative runtime files and DLL names.
+const detail = error => error instanceof StageError && typeof error.detail === 'string' && /^[A-Za-z0-9_.+ ()/-]{1,300}$/.test(error.detail) ? ': ' + error.detail : '';
+if (require.main === module) main().catch(error => { console.error('Bundled runtime failed: ' + code(error) + detail(error)); process.exitCode = 1; });
 
-module.exports = { INNOEXTRACT, NDI_FILES, MESA_FILES, MESA_LICENCE_DIRECTORY, peInfo, stageRuntime, downloadAll, main };
+module.exports = { INNOEXTRACT, NDI_FILES, VC_REDIST, StageError, MESA_FILES, MESA_LICENCE_DIRECTORY, peInfo, stageRuntime, downloadAll, main };

@@ -195,11 +195,12 @@ function inspectBundle(root) {
 }
 
 // Q-018: copy the staged third-party runtime (scripts/bundle-runtime.cjs) into
-// the bundle: runtime/caspar, runtime/mesa, runtime/ndi, their licences and
+// the bundle: runtime/caspar, runtime/mesa, runtime/ndi, runtime/vcredist
+// (Q-026), their licences and
 // THIRD-PARTY-NOTICES.md. Only those places; nothing may replace a file already
 // in the bundle. Then the layout rule over the bundle's whole runtime/ folder
 // and the notices text are checked again. Throws fixed codes.
-const STAGE_PLACES = ['runtime/caspar/', 'runtime/mesa/', 'runtime/ndi/', 'licenses/'];
+const STAGE_PLACES = ['runtime/caspar/', 'runtime/mesa/', 'runtime/ndi/', 'runtime/vcredist/', 'licenses/'];
 function copyRuntimeStage(stage, bundle) {
   const { renderNotices, checkRuntimeLayout } = require('./bundled-components.cjs');
   let files;

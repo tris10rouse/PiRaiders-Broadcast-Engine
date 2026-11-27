@@ -210,7 +210,7 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
   }
   // Opening: what it is not, and the stadium warning until the owner's off-air test.
   for (const not of [/not signed/, /not a release/, /not deployed/, /carries pinned CasparCG Server, Mesa's x64 OpenGL files and the NDI runtime DLL/, /THIRD-PARTY-NOTICES\.md/,
-    /recorded evaluation build predates them/, /app does not start them yet/, /VC\+\+ runtime Caspar needs is not included/,
+    /recorded evaluation build predates them/, /app does not start them yet/, /Microsoft's VC\+\+ runtime installer Caspar needs \(`runtime\/vcredist\/VC_redist\.x64\.exe`, unchanged\)/, /Setup does not run that installer yet/,
     /Do not install on stadium equipment/, /owner approves an off-air test/])
     assert.match(opening, not, 'opening ' + not);
   // Extracted-app output is CI evidence from the named hosted-Windows check.
