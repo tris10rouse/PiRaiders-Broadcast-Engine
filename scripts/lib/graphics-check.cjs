@@ -6,7 +6,7 @@
 // output is taken only when it is exactly one code; nothing it prints is ever
 // echoed, so no GPU name or driver path can reach an answer. The machine
 // file's `renderer` (auto, gpu or software) may force the choice. Running
-// Caspar with the choice is Q-020's; this module only answers.
+// Caspar with the choice is bundled-caspar.cjs's (Q-020); this module only answers.
 const fs=require('node:fs/promises'),path=require('node:path'),{execFile}=require('node:child_process');
 
 const CHECK_CODES=Object.freeze(['GPU_OPENGL_45','GPU_OPENGL_TOO_OLD','GPU_OPENGL_UNKNOWN']);
@@ -55,6 +55,9 @@ async function graphicsFor(machine,trusted={}){
   // Required here, not at the top: the machine loader requires this module.
   const {isGameDayMachineConfig}=require('./game-day-catalog.cjs');
   if(!isGameDayMachineConfig(machine))fail('MACHINE_CONFIG_INVALID');
+  // Q-020: a machine on the bundled Caspar ran the check when it loaded and
+  // runs the renderer that answer chose; report that answer, not a new one.
+  if(machine.graphics)return machine.graphics;
   const {check,probe}=await runGraphicsCheck({appRoot:machine.appRoot,...trusted});
   return Object.freeze({check,probe,setting:machine.renderer,renderer:chooseRenderer(check,machine.renderer)});
 }

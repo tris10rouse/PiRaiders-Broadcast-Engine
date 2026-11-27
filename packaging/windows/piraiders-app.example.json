@@ -6,10 +6,6 @@
   "cacheRoot": "cache",
   "runtimeRoot": "event-runtime",
   "renderer": "auto",
-  "caspar": {
-    "executable": "C:/PiRaiders-Components/CasparCG/casparcg.exe",
-    "cwd": "C:/PiRaiders-Components/CasparCG"
-  },
   "output": {
     "type": "none"
   },

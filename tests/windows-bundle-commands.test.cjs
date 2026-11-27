@@ -62,16 +62,12 @@ test('Diagnose-PiRaiders.cmd runs the diagnose command and takes no arguments', 
   assert.match(text, /if not "%~1"=="" \(/);
 });
 
-// Windows absolute paths in the example are not absolute on Linux: map them to
-// a temporary folder there so the loader judges the same field set.
+// Q-020: the example names no Caspar or NDI folder (the bundle's are used).
 function filled(raw, dir) {
   const value = JSON.parse(JSON.stringify(raw));
-  const local = p => process.platform === 'win32' ? p : path.join(dir, p.replace(/^[A-Za-z]:\//, '').replace(/[^A-Za-z0-9/-]/g, '_'));
-  value.caspar.executable = local(value.caspar.executable); value.caspar.cwd = local(value.caspar.cwd);
   const exchange = path.join(dir, 'exchange'); fs.mkdirSync(exchange, { recursive: true });
   return { value, replace: {
     mediaRoot: v => { v.mediaRoot = exchange; },
-    runtimeDirectory: v => { v.output.runtimeDirectory = path.join(dir, 'ndi'); },
     journalStoreId: v => { v.source.journalStoreId = crypto.randomUUID(); },
     approvalStoreId: v => { v.source.approvalStoreId = crypto.randomUUID(); },
     expectedCanonicalRoot: v => { v.source.expectedCanonicalRoot = exchange; },
@@ -98,6 +94,10 @@ test('the source example is refused as shipped, accepted once every placeholder 
   const machine = await load(complete);
   assert.equal(machine.source.providerId, raw.source.providerId);
   assert.equal(machine.output.type, 'ndi');
+  // Q-020: the shipped example runs the bundled Caspar and NDI runtime beside app/.
+  assert.equal(machine.casparFrom, 'bundle');
+  assert.equal(machine.caspar.executable.startsWith(path.join(dir, 'runtime')), true);
+  assert.equal(machine.output.runtimeDirectory, path.join(dir, 'runtime', 'ndi'));
   for (const left of Object.keys(replace)) {
     const partial = JSON.parse(JSON.stringify(value));
     for (const [name, set] of Object.entries(replace)) if (name !== left) set(partial);

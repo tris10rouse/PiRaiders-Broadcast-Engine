@@ -27,7 +27,7 @@ async function scripted(t,{sourceMode=true,width=1440,height=1000}={}){
   // What the stand-in source service and manager report; diagnose() turns it into the route's answer.
   const model={root:{code:null},catalog:{available:true,catalog:{catalogSequence:7}},status:{catalog:{code:null},approvals:{read:true}},
     snapshot:{active:{cleanup:'open',runtime:{state:'ready',ready:true,output:'ndi'}},candidate:null},
-    override:null,fail:0,hold:null,reads:0};
+    caspar:{from:'bundle',renderer:'software',layout:'ready',code:null},override:null,fail:0,hold:null,reads:0};
   const source={rootState:async()=>model.root,catalogState:()=>model.catalog,status:()=>model.status};
   const manager={snapshot:()=>model.snapshot};
   const html=await exphbs.create({extname:'.handlebars'}).render(VIEW,{csrfToken:'c'.repeat(64),sourceMode},{layout:false});
@@ -41,7 +41,8 @@ async function scripted(t,{sourceMode=true,width=1440,height=1000}={}){
     if(route==='diagnostics'&&req.method==='GET'){
       model.reads++;const hold=model.hold;model.hold=null;if(hold){hold.entered.resolve();await hold.release.promise;}
       if(model.fail)return answer(model.fail,{ok:false,code:'STATE_UNAVAILABLE'});
-      const diagnostics=model.override||await diagnose({source:sourceMode?source:null,manager});
+      // Q-020: the web adapter adds which Caspar runs beside the six states.
+      const diagnostics=model.override||{...await diagnose({source:sourceMode?source:null,manager}),caspar:model.caspar};
       return answer(200,{ok:true,diagnostics});
     }
     if(route==='state'&&req.method==='GET')return answer(200,{ok:true,state:pageState});
@@ -59,6 +60,7 @@ async function scripted(t,{sourceMode=true,width=1440,height=1000}={}){
 const rows=page=>page.evaluate(names=>names.map(n=>document.getElementById('diag-'+n).firstChild?.textContent??''),NAMES);
 const codes=page=>page.evaluate(names=>names.map(n=>document.querySelector('#diag-'+n+' .diag-code')?.textContent??null),NAMES);
 async function readAgain(page,model){const before=model.reads;await page.locator('#diagnostics-refresh').click();await page.waitForFunction(()=>!document.querySelector('#diagnostics-refresh').hasAttribute('aria-busy'));assert.ok(model.reads>before);}
+const caspar=page=>page.evaluate(()=>{const e=document.getElementById('diag-caspar');return{text:e.firstChild?.textContent??'',lines:[...e.querySelectorAll('.diag-code')].map(x=>x.textContent),tone:e.dataset.tone};});
 function noClaims(texts){for(const text of texts){assert.doesNotMatch(text,/\bready\b/i);assert.doesNotMatch(text,/on air|on-air|receiver|board input|discovered/i);}}
 
 test('source machine: six distinct states, loading, keyboard re-read, faults and an unreadable answer',async t=>{
@@ -77,7 +79,14 @@ test('source machine: six distinct states, loading, keyboard re-read, faults and
   const up=await rows(page);
   assert.deepEqual(up,['Reachable','Catalog sequence 7 read','Readable','None prepared','Acknowledged','Sender running']);
   assert.equal(new Set(up).size,6);noClaims(up);assert.deepEqual(await codes(page),[null,null,null,null,null,null]);
-  assert.equal(await page.locator('#diagnostics dt').count(),6);
+  assert.equal(await page.locator('#diagnostics dt').count(),7,'six states and the graphics renderer');
+  // Q-020: the renderer the bundled Caspar uses, and the ndi.video link beside the NDI sender.
+  assert.deepEqual(await caspar(page),{text:'Software (bundled Mesa)',lines:['renderer: software'],tone:''});
+  const link=page.locator('#ndi-link');
+  assert.equal(await link.getAttribute('href'),'https://ndi.video');assert.equal(await link.getAttribute('rel'),'noopener noreferrer');assert.ok(await link.isVisible());
+  assert.equal(await link.evaluate(a=>a.closest('[data-state]').dataset.state),'ndiSender','the link sits in the NDI sender row');
+  assert.match(await page.locator('#diagnostics-note').textContent(),/NDI® is a registered trademark of Vizrt NDI AB\./);
+  assert.equal(await page.locator('#diagnostics dt').nth(6).textContent(),'NDI® sender');
   await page.screenshot({path:path.join(evidence,'game-day-diagnostics-source-desktop.png'),fullPage:true});
   // The live status line stays the same across quiet reads; the time is outside it.
   const live=await page.locator('#diagnostics-summary').textContent();
@@ -94,6 +103,9 @@ test('source machine: six distinct states, loading, keyboard re-read, faults and
   await page.locator('#source-refresh').focus();let reached=false;
   for(let i=0;i<60&&!reached;i++){await page.keyboard.press('Tab');reached=await page.evaluate(()=>document.activeElement?.id==='diagnostics-refresh');}
   assert.ok(reached,'Tab reaches Read diagnostics again');
+  await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement?.id),'ndi-link','Tab then reaches the ndi.video link');
+  assert.notEqual(await page.locator('#ndi-link').evaluate(a=>getComputedStyle(a).outlineStyle),'none','the link shows its focus');
+  await page.locator('#diagnostics-refresh').focus();
 
   // Faults: each state says its own thing, with its code.
   model.root={code:'SOURCE_UNAVAILABLE'};model.catalog={available:false};model.status={catalog:{code:'CATALOG_UNAVAILABLE'},approvals:{read:false,code:'APPROVAL_STORE_UNREADABLE'}};
@@ -111,6 +123,22 @@ test('source machine: six distinct states, loading, keyboard re-read, faults and
   assert.deepEqual((await rows(page)).filter((_,i)=>[0,2,3,4,5].includes(i)),['Not the folder set up on this PC','Not read yet','Preparation cleanup not confirmed','No active event','Not running']);
   assert.equal(await page.locator('#diag-prepared').getAttribute('data-tone'),'attention');
 
+  // Q-020: the graphics card, a software copy that could not be made, and a machine file's own Caspar.
+  model.caspar={from:'bundle',renderer:'gpu',layout:'not-needed',code:null};await readAgain(page,model);
+  assert.deepEqual(await caspar(page),{text:'Graphics card',lines:['renderer: gpu'],tone:''});
+  model.caspar={from:'bundle',renderer:'software',layout:'failed',code:'SOFTWARE_LAYOUT_FAILED'};await readAgain(page,model);
+  assert.deepEqual(await caspar(page),{text:'Software (bundled Mesa)',lines:['renderer: software','SOFTWARE_LAYOUT_FAILED'],tone:'attention'});
+  await page.screenshot({path:path.join(evidence,'game-day-diagnostics-renderer-failed.png'),fullPage:true});
+  model.caspar={from:'machine-file',renderer:'unknown',layout:'not-needed',code:null};await readAgain(page,model);
+  assert.deepEqual(await caspar(page),{text:'Set by this PC’s own Caspar',lines:[],tone:''});
+  model.caspar={from:'machine-file',renderer:'software',layout:'not-needed',code:null};await readAgain(page,model);
+  assert.deepEqual(await caspar(page),{text:'Software (Mesa), this PC’s own Caspar',lines:['renderer: software'],tone:''});
+  // Values the page does not know are never echoed; no caspar answer is not known.
+  for(const value of [{from:'bundle',renderer:'<b>gpu</b>'},{from:'elsewhere',renderer:'gpu'},'gpu',null]){
+    model.caspar=value;await readAgain(page,model);
+    assert.deepEqual(await caspar(page),{text:'Not known',lines:[],tone:'attention'},JSON.stringify(value));
+  }
+  model.caspar={from:'bundle',renderer:'software',layout:'ready',code:null};
   // A state value the page does not know is never echoed; a missing one is not known.
   model.override={scope:'game-day-diagnostics',ready:false,mode:'source',states:{exchangeFolder:{state:'on-air',code:'ON_AIR'},catalogSequence:{state:'read',code:null,sequence:'7'},approvals:{state:'readable',code:'<b>x</b>'},prepared:{state:'none',code:null},renderer:{state:'acknowledged',code:null}},neverClaimed:[]};
   await readAgain(page,model);
@@ -121,6 +149,7 @@ test('source machine: six distinct states, loading, keyboard re-read, faults and
   // The route fails: every row unavailable, not the last answer.
   model.override=null;model.fail=500;await readAgain(page,model);
   assert.deepEqual(await rows(page),NAMES.map(()=>'Unavailable'));
+  assert.deepEqual(await caspar(page),{text:'Unavailable',lines:[],tone:'attention'});
   assert.equal(await page.locator('#diagnostics-summary').textContent(),'Diagnostics could not be read. Check the connection to the application, then read them again.');
   await page.screenshot({path:path.join(evidence,'game-day-diagnostics-source-unavailable.png'),fullPage:true});
   model.fail=0;await readAgain(page,model);assert.equal((await rows(page))[0],'Not the folder set up on this PC');
@@ -163,5 +192,10 @@ test('local machine at 390 px: exchange states not used, one column, no sideways
       below:document.querySelector('#diagnostics-section').getBoundingClientRect().top>=document.querySelector('.playback-section').getBoundingClientRect().bottom-1};});
   assert.equal(layout.page,0);assert.ok(layout.main<=0,'main does not scroll sideways');assert.equal(layout.lefts,1,'one column');
   assert.ok(layout.sameLine,'name and value share a line at 390 px');assert.ok(layout.below,'below playback');
+  // Q-020 at 390 px: the renderer row and the ndi.video link fit, the link on its own line inside the NDI sender row.
+  assert.deepEqual(await caspar(page),{text:'Software (bundled Mesa)',lines:['renderer: software'],tone:''});
+  const ndi=await page.evaluate(()=>{const row=document.querySelector('[data-state=ndiSender]').getBoundingClientRect(),dd=document.getElementById('diag-ndiSender').getBoundingClientRect(),a=document.getElementById('ndi-link').getBoundingClientRect();
+    return{inside:a.left>=row.left-1&&a.right<=row.right+1&&a.bottom<=row.bottom+1,below:a.top>=dd.bottom-1,visible:a.width>0&&a.height>0};});
+  assert.deepEqual(ndi,{inside:true,below:true,visible:true});
   await page.screenshot({path:path.join(evidence,'game-day-diagnostics-local-390.png'),fullPage:true});
 });

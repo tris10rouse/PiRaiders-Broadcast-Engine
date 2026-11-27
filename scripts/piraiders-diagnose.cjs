@@ -14,6 +14,8 @@
 // renderer setting and the renderer chosen; a check, not a render claim.
 // `vcRuntime` (Q-027): whether this PC has the Microsoft x64 VC++ runtime
 // Caspar needs ({check, probe}); Diagnose only reports, it never installs.
+// `caspar` (Q-020): {from: bundle|machine-file, renderer: gpu|software|unknown,
+// layout: ready|missing|unknown|not-needed}; Diagnose never builds the mirror.
 // Nothing here is a source seen on a network, a receiver, the board or on air.
 // Exit 0 read, 1 refused, 2 wrong arguments.
 const path=require('node:path');
@@ -21,6 +23,7 @@ const {graphicsFor}=require('./lib/graphics-check.cjs');
 const {vcRuntimeReport}=require('./lib/vc-runtime.cjs');
 const {loadGameDayMachineConfig}=require('./lib/game-day-catalog.cjs');
 const {diagnoseMachine}=require('./lib/game-day-diagnose.cjs');
+const {casparReport,softwareLayoutState}=require('./lib/bundled-caspar.cjs');
 
 function parsed(argv){
   if(argv.length!==2||argv[0]!=='--machine'||typeof argv[1]!=='string'||!path.isAbsolute(argv[1]))return null;
@@ -30,11 +33,15 @@ async function main(argv,{appRoot=path.resolve(__dirname,'..'),nodeExecutable=pr
   const args=parsed(argv);
   if(!args)return{exitCode:2,answer:{ok:false,code:'DIAGNOSE_USAGE'}};
   let machine;
-  try{machine=await loadGameDayMachineConfig(args.file,{appRoot,nodeExecutable});}
+  try{machine=await loadGameDayMachineConfig(args.file,{appRoot,nodeExecutable,graphicsCheck});}
   catch{return{exitCode:1,answer:{ok:false,code:'MACHINE_CONFIG_INVALID'}};}
   const answer=await diagnoseMachine(machine);
   // Q-019: the OpenGL check and renderer choice, beside the six states.
-  return{exitCode:answer.ok?0:1,answer:{...answer,graphics:await graphicsFor(machine,graphicsCheck),vcRuntime:await vcRuntimeReport(vcRuntime)}};
+  // Q-020: which Caspar this machine runs and with which renderer; for the
+  // bundled software renderer also whether the app's mirror is there (read only).
+  const caspar=casparReport(machine);
+  const layout=caspar.from==='bundle'&&caspar.renderer==='software'?await softwareLayoutState(machine.appRoot):'not-needed';
+  return{exitCode:answer.ok?0:1,answer:{...answer,graphics:await graphicsFor(machine,graphicsCheck),caspar:{...caspar,layout},vcRuntime:await vcRuntimeReport(vcRuntime)}};
 }
 if(require.main===module){
   main(process.argv.slice(2)).then(({exitCode,answer})=>{

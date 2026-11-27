@@ -227,7 +227,7 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
   }
   // Opening: what it is not, and the stadium warning until the owner's off-air test.
   for (const not of [/not signed/, /not a release/, /not deployed/, /carries pinned CasparCG Server, Mesa's x64 OpenGL files and the NDI runtime DLL/, /THIRD-PARTY-NOTICES\.md/,
-    /recorded evaluation build predates them/, /app does not start them yet/, /Microsoft's VC\+\+ runtime installer Caspar needs \(`runtime\/vcredist\/VC_redist\.x64\.exe`, unchanged\)/, /Setup asks "Install the Microsoft Visual C\+\+ Runtime now\? \(Y\/N\)" and runs the installer only on Y/, /untested on a PC without the runtime/,
+    /recorded evaluation build predates them/, /the app starts that bundled Caspar by default/, /nothing else to install/, /Microsoft's VC\+\+ runtime installer Caspar needs \(`runtime\/vcredist\/VC_redist\.x64\.exe`, unchanged\)/, /Setup asks "Install the Microsoft Visual C\+\+ Runtime now\? \(Y\/N\)" and runs the installer only on Y/, /untested on a PC without the runtime/,
     /Do not install on stadium equipment/, /owner approves an off-air test/])
     assert.match(opening, not, 'opening ' + not);
   // Extracted-app output is CI evidence from the named hosted-Windows check.
@@ -236,6 +236,26 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
   // The old wording is gone everywhere.
   for (const old of [/not the first user-testable release/, /output from this extracted artifact .* remain unverified/,
     /No manual testing is requested from the project owner until/, /extracted full application, reproducible legal/, /does not yet configure CI.s explicit software-Mesa/,
-    /Do not describe this ZIP as a user-testable build/, /Setup does not run that installer yet/, /CasparCG, Mesa and NDI binaries are not included/, /Actual output from the extracted application still requires/])
+    /Do not describe this ZIP as a user-testable build/, /Setup does not run that installer yet/, /CasparCG, Mesa and NDI binaries are not included/, /app does not start them yet/, /the app does not use them yet/, /Caspar\/Mesa\/NDI binaries are not bundled here/, /separately prepare verified\/legal CasparCG\/Mesa\/NDI components/, /Actual output from the extracted application still requires/])
     assert.doesNotMatch(readme, old, String(old));
+});
+
+// Q-020: the documents point at the bundled components and keep the stadium
+// warning with CasparCG's AMCP listener on every interface.
+test('Q-020: examples, README and checklist point at the bundled CasparCG, Mesa and NDI runtime', () => {
+  for (const file of ['packaging/windows/piraiders-app.example.json', 'packaging/windows/piraiders-app.source.example.json']) {
+    const value = JSON.parse(read(file));
+    assert.equal(Object.hasOwn(value, 'caspar'), false, file + ' names no Caspar: the bundle is used');
+    assert.equal(Object.hasOwn(value.output, 'runtimeDirectory'), false, file + ' names no NDI folder');
+    assert.doesNotMatch(read(file), /PiRaiders-Components|Processing\.NDI/);
+  }
+  const readme = read('packaging/windows/README-WINDOWS.md'), bundled = section(readme, 'Bundled CasparCG, renderer and NDI \\(Q-020\\)');
+  for (const words of [/runtime\\caspar\\casparcg\.exe/, /runtime-software\\caspar\\/, /runtime\\ndi\\Processing\.NDI\.Lib\.x64\.dll/, /https:\/\/ndi\.video/,
+    /NDI® is a registered trademark of Vizrt NDI AB/, /`renderer: gpu` or `software`/, /MESA_RUNTIME_MISSING/, /AMCP control port listens on every network interface/,
+    /do not install it on stadium equipment without the owner's approval and an off-air test/, /gpu` path on a PC with a graphics card \(a manual check\)/])
+    assert.match(bundled, words, String(words));
+  const list = checklist();
+  assert.match(list, /Leave out a `caspar` block and the NDI `runtimeDirectory`/);
+  assert.match(list, /Nothing else needs to be installed/);
+  assert.doesNotMatch(list, /not yet used to start CasparCG/);
 });

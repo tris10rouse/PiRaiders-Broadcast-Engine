@@ -20,13 +20,8 @@ async function bundleShape(t){
   const root=path.join(parent,'Extracted package','PiRaiders-Development'),work=path.join(parent,'work');
   for(const [source,target] of bundle.TEMPLATES){const file=path.join(root,...target.split('/'));await fs.mkdir(path.dirname(file),{recursive:true});await fs.copyFile(path.join(ROOT,source),file);}
   await fs.mkdir(work);
-  // The example's Caspar paths are Windows paths, not absolute on Linux: map
-  // them into the temporary folder in the copy (as windows-bundle-commands does).
-  if(process.platform!=='win32'){
-    const file=path.join(root,'app','config','piraiders-app.source.example.json'),value=JSON.parse(await fs.readFile(file,'utf8'));
-    const local=p=>path.join(parent,'components',p.replace(/^[A-Za-z]:\//,'').replace(/[^A-Za-z0-9/-]/g,'_'));
-    value.caspar={executable:local(value.caspar.executable),cwd:local(value.caspar.cwd)};await fs.writeFile(file,JSON.stringify(value,null,2));
-  }
+  // Q-020: the shipped example has no Caspar or NDI path (the bundle's are
+  // used), so it is copied as shipped on every platform.
   // The extraction's manifest, as the build writes it (Q-013).
   await fs.writeFile(path.join(root,'BUILD-MANIFEST.json'),JSON.stringify(bundle.createManifest(root,METADATA),null,2)+'\n');
   return{parent,root,app:path.join(root,'app'),work};
@@ -118,11 +113,11 @@ test('a first setup run that leaves the stores empty fails the proof',async t=>{
 });
 
 test('the example must hold every placeholder and keeps none once filled',()=>{
-  const example={mediaRoot:'<REPLACE: a>',output:{runtimeDirectory:'<REPLACE: b>'},source:{journalStoreId:'<REPLACE: c>',approvalStoreId:'<REPLACE: d>',
+  const example={mediaRoot:'<REPLACE: a>',output:{type:'ndi',name:'N'},source:{journalStoreId:'<REPLACE: c>',approvalStoreId:'<REPLACE: d>',
     expectedCanonicalRoot:'<REPLACE: e>',binding:{feedId:'<REPLACE: f>',epoch:'<REPLACE: g>'}},caspar:{cwd:'C:/x'}};
-  const values={mediaRoot:'/m',canonicalRoot:'/m',binding:{feedId:'id',epoch:1},ndiRuntimeDirectory:'/n'};
+  const values={mediaRoot:'/m',canonicalRoot:'/m',binding:{feedId:'id',epoch:1}};
   const filled=sourceMachineFromExample(example,values);
-  assert.doesNotMatch(JSON.stringify(filled),/REPLACE/);assert.equal(filled.source.binding.epoch,1);assert.deepEqual(filled.caspar,{cwd:'C:/x'});
+  assert.doesNotMatch(JSON.stringify(filled),/REPLACE/);assert.equal(filled.source.binding.epoch,1);assert.deepEqual(filled.caspar,{cwd:'C:/x'});assert.deepEqual(filled.output,{type:'ndi',name:'N'});
   assert.throws(()=>sourceMachineFromExample({...example,mediaRoot:'/already'},values),{code:'EXAMPLE_PLACEHOLDER_MISSING'});
   assert.throws(()=>sourceMachineFromExample({...example,extra:'<REPLACE: new>'},values),{code:'EXAMPLE_PLACEHOLDER_LEFT'});
 });

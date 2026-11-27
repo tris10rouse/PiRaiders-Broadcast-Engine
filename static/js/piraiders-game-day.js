@@ -140,6 +140,22 @@
     element.dataset.state = value || 'unknown';
     element.dataset.tone = !value || DIAG_ATTENTION.has(value) || (value === 'cleanup' && code) ? 'attention' : '';
   }
+  // Q-020: which renderer the Caspar this machine runs uses (graphics card or
+  // the bundled Mesa software renderer). Words for fixed values only.
+  const CASPAR_WORDS = { 'bundle gpu': 'Graphics card', 'bundle software': 'Software (bundled Mesa)',
+    'machine-file software': 'Software (Mesa), this PC’s own Caspar', 'machine-file unknown': 'Set by this PC’s own Caspar' };
+  function showCaspar(value) {
+    const element = $('diag-caspar');
+    const known = value && typeof value === 'object' && typeof value.from === 'string' && typeof value.renderer === 'string' && Object.hasOwn(CASPAR_WORDS, value.from + ' ' + value.renderer);
+    const text = known ? CASPAR_WORDS[value.from + ' ' + value.renderer] : value === undefined ? 'Unavailable' : 'Not known';
+    const parts = [document.createTextNode(text)];
+    if (known && value.renderer !== 'unknown') { const line = document.createElement('span'); line.className = 'diag-code'; line.textContent = 'renderer: ' + value.renderer; parts.push(line); }
+    const failed = known && value.layout === 'failed';
+    if (failed && typeof value.code === 'string' && DIAG_CODE.test(value.code)) { const span = document.createElement('span'); span.className = 'diag-code'; span.textContent = value.code; parts.push(span); }
+    element.replaceChildren(...parts);
+    element.dataset.state = known ? value.renderer : 'unknown';
+    element.dataset.tone = !known || failed ? 'attention' : '';
+  }
   function readDiagnostics() {
     clearTimeout(diagTimer);
     // After a sign-in or authorization answer only a reload reads again.
@@ -150,11 +166,13 @@
       const states = value.ok && value.diagnostics && typeof value.diagnostics === 'object' ? value.diagnostics.states : null;
       if (!states || typeof states !== 'object') throw Error();
       for (const name of Object.keys(DIAG)) showDiagnostic(name, states[name] ?? null);
+      showCaspar(value.diagnostics.caspar ?? null);
       // The live line changes only between read and unreadable; the time sits outside it, so a screen reader is not told every 5 s.
       setText('diagnostics-summary', 'Diagnostics read. They are read again every few seconds.');
       setText('diagnostics-time', 'Read at ' + new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) + '.'); $('diagnostics-time').hidden = false;
     }).catch(error => {
       for (const name of Object.keys(DIAG)) showDiagnostic(name, undefined);
+      showCaspar(undefined);
       setText('diagnostics-summary', 'Diagnostics could not be read. Check the connection to the application, then read them again.'); $('diagnostics-time').hidden = true;
       if (accessCodes.has(error.code)) setConnection(accessState(error.code));
     }).finally(() => {

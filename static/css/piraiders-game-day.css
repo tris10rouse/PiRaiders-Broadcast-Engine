@@ -43,6 +43,8 @@ body[data-mode=source] .playback-section{grid-column:2;grid-row:1/span 2}
 .diagnostics dd[data-tone=attention]{color:var(--amber)}
 .diagnostics .diag-code{display:block;font-size:11px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
 @media(max-width:900px){.diagnostics{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:620px){.diagnostics-section{padding:21px 18px}.diagnostics{grid-template-columns:1fr;gap:12px}.diagnostics div{display:flex;justify-content:space-between;gap:15px}.diagnostics dt{margin:0}.diagnostics dd{text-align:right}}
+@media(max-width:620px){.diagnostics-section{padding:21px 18px}.diagnostics{grid-template-columns:1fr;gap:12px}.diagnostics div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 15px}.diagnostics dd.diag-link{flex-basis:100%;margin-top:0}.diagnostics dt{margin:0}.diagnostics dd{text-align:right}}
 .diag-time{margin-top:2px;font-size:12px}
+.diagnostics dd.diag-link{margin-top:4px;font-size:12px}
+.diagnostics .diag-link a{color:inherit}
 .dead-event{margin:0 0 22px}.dead-event p{color:var(--text)}.dead-event>button,.dead-event .button-pair{margin-top:12px}.dead-event .button-pair{max-width:440px}.dead-event button{margin-left:0}.dead-event .button-pair button{margin:0}

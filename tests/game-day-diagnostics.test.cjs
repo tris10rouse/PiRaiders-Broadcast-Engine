@@ -160,6 +160,7 @@ test('the route on a local machine, on an injected service and behind the SPX lo
   const s=await serve(t,{manager,appRoot:root});const p=await s.page();
   const local=(await s.request('/game-day/api/diagnostics',{headers:{Cookie:p.cookie}})).value.diagnostics;
   onlySix(local);assert.equal(local.mode,'local');
+  assert.equal(local.caspar,null,'Q-020: an injected manager has no machine file, so which Caspar runs is not known');
   assert.deepEqual(states(local),{exchangeFolder:'not-used',catalogSequence:'not-used',approvals:'not-used',prepared:'none',renderer:'not-active',ndiSender:'not-running'});
   await s.stop();
   // An injected service alone has no manager and, without rootState, no folder answer.
