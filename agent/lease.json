@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261127T034238Z-79b717",
   "fence": 107,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "Q-015",
+  "workBranch": "feature/Q-015-readme-windows-eval",
   "acquiredAt": "2026-11-27T03:42:38.180Z",
-  "lastHeartbeat": "2026-11-27T03:42:38.180Z",
-  "expiresAt": "2026-11-27T05:12:38.180Z",
+  "lastHeartbeat": "2026-11-27T03:43:04.773Z",
+  "expiresAt": "2026-11-27T05:13:04.773Z",
   "releasedAt": null
 }
