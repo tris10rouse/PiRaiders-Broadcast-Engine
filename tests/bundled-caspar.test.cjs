@@ -38,14 +38,15 @@ const load=(b,file,graphicsCheck)=>loadGameDayMachineConfig(file,{appRoot:b.app,
 async function exists(file){try{await fs.lstat(file);return true;}catch{return false;}}
 
 test('the bundled places: runtime beside app, the software copy outside runtime/',()=>{
-  const at=bundledLocations(path.join(path.sep,'x','PiRaiders','app'));
-  assert.equal(at.caspar,path.join(path.sep,'x','PiRaiders','runtime','caspar'));
-  assert.equal(at.ndi,path.join(path.sep,'x','PiRaiders','runtime','ndi'));
-  assert.equal(at.software,path.join(path.sep,'x','PiRaiders','runtime-software','caspar'));
-  assert.deepEqual(bundledCaspar(path.join(path.sep,'x','PiRaiders','app'),'gpu'),{executable:path.join(at.caspar,'casparcg.exe'),cwd:at.caspar},'gpu: the bundled Caspar, no profile');
-  assert.deepEqual(bundledCaspar(path.join(path.sep,'x','PiRaiders','app'),'software'),{executable:path.join(at.software,'casparcg.exe'),cwd:at.software,rendererProfile:SOFTWARE_PROFILE});
+  // path.resolve: an absolute path on this platform (Windows adds the drive).
+  const base=path.resolve(path.sep,'x','PiRaiders'),app=path.join(base,'app'),at=bundledLocations(app);
+  assert.equal(at.caspar,path.join(base,'runtime','caspar'));
+  assert.equal(at.ndi,path.join(base,'runtime','ndi'));
+  assert.equal(at.software,path.join(base,'runtime-software','caspar'));
+  assert.deepEqual(bundledCaspar(app,'gpu'),{executable:path.join(at.caspar,'casparcg.exe'),cwd:at.caspar},'gpu: the bundled Caspar, no profile');
+  assert.deepEqual(bundledCaspar(app,'software'),{executable:path.join(at.software,'casparcg.exe'),cwd:at.software,rendererProfile:SOFTWARE_PROFILE});
   assert.throws(()=>bundledCaspar('relative/app','gpu'),/BUNDLED_CASPAR_OPTIONS_INVALID/);
-  assert.throws(()=>bundledCaspar(path.join(path.sep,'x','app'),'auto'),/BUNDLED_CASPAR_OPTIONS_INVALID/);
+  assert.throws(()=>bundledCaspar(app,'auto'),/BUNDLED_CASPAR_OPTIONS_INVALID/);
 });
 
 test('a machine file without caspar runs the bundled Caspar with the chosen renderer; NDI from runtime/ndi',async t=>{
