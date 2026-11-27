@@ -13,6 +13,7 @@
 // never shipped in the application ZIP. No stadium PC or hardware claim.
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { performance } = require('node:perf_hooks');
 const { processTable, descendants, observeTree } = require('./windows-process-evidence.cjs');
 
 // The URL arrives in an environment variable, never in the command text. A
@@ -65,11 +66,35 @@ function browserTree(rows, roots, before) {
 }
 // The proof closes the browser it found (whole tree, forced), then waits until
 // none of it runs. A taskkill that fails because the process already went is fine.
-async function closeBrowser(tree, { until, kill = pid => execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', timeout: 15000, windowsHide: true }), table = processTable, boundMs = 15000 } = {}) {
+// Over the bound (Q-034) the error carries the time waited and the tree's last
+// counts (fixed numbers only), so the failure line says what stayed.
+async function closeBrowser(tree, { until, kill = pid => execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', timeout: 15000, windowsHide: true }), table = processTable, boundMs = 15000, now = () => performance.now() } = {}) {
   for (const row of tree) { try { kill(row.ProcessId); } catch { /* checked below */ } }
-  let counts;
-  await until(() => { counts = observeTree(table(), tree); return counts.surviving === 0 && counts.unknown === 0; }, 'BROWSER_SURVIVED_CLOSE', boundMs);
+  let counts = null;
+  const started = now();
+  try {
+    await until(() => { counts = observeTree(table(), tree); return counts.surviving === 0 && counts.unknown === 0; }, 'BROWSER_SURVIVED_CLOSE', boundMs);
+  } catch (error) {
+    // Unreadable or contradictory evidence still fails at once, with its own code.
+    const failure = error instanceof Error ? error : Error('BROWSER_SURVIVED_CLOSE');
+    failure.closeWait = Object.freeze({ step: 'browser', waitedMs: Math.max(0, Math.round(now() - started)), boundMs,
+      tree: counts && Object.freeze({ tracked: counts.tracked, surviving: counts.surviving, gone: counts.gone, unknown: counts.unknown }) });
+    throw failure;
+  }
   return counts;
+}
+// Q-034: after a close, how many processes of the browser's image that started
+// after the snapshot still run (and how many rows could not be read). Counts only.
+function browserLeftovers(rows, image, before) {
+  if (!Array.isArray(rows) || typeof image !== 'string' || image === '' || !(before instanceof Set)) throw Error('BROWSER_TABLE_INVALID');
+  const wanted = image.toLowerCase();
+  let running = 0, unreadable = 0;
+  for (const row of rows) {
+    if (!row || typeof row.ExecutablePath !== 'string' || row.ExecutablePath.toLowerCase() !== wanted) continue;
+    if (typeof row.CreationUtcTicks !== 'string' || !/^[1-9][0-9]{0,18}$/.test(row.CreationUtcTicks)) { unreadable++; continue; }
+    if (!before.has(row.ProcessId + ':' + row.CreationUtcTicks)) running++;
+  }
+  return { running, unreadable };
 }
 const IMAGE_NAME = /^[a-z0-9_.-]{1,64}\.exe$/;
 function browserRecord({ appReportedOpened, image, roots, tracked, closeMs }) {
@@ -82,4 +107,4 @@ function browserRecord({ appReportedOpened, image, roots, tracked, closeMs }) {
     browserProcessesTracked: tracked, closedByProofMs: Math.round(closeMs), everyBrowserProcessGone: true };
 }
 
-module.exports = { BROWSER_QUERY, urlPattern, processKeys, browserRoots, browserTable, browserTree, closeBrowser, browserRecord };
+module.exports = { BROWSER_QUERY, urlPattern, processKeys, browserRoots, browserTable, browserTree, closeBrowser, browserLeftovers, browserRecord };
