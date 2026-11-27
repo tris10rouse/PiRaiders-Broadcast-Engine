@@ -12,6 +12,7 @@ const {casparRendererEnvironment,preflightRenderer}=require('./caspar-renderer.c
 const {CasparConsole}=require('./caspar-console.cjs');
 function safeRoot(value){return typeof value==='string'&&value.length<=4096&&!/[\x00-\x1f\x7f]/.test(value)&&path.isAbsolute(value);}
 function safePrivateRoots(value){return Array.isArray(value)&&Object.getPrototypeOf(value)===Array.prototype&&value.length<=3&&Reflect.ownKeys(value).length===value.length+1&&Array.from({length:value.length},(_,index)=>Object.getOwnPropertyDescriptor(value,String(index))).every(item=>item&&Object.hasOwn(item,'value')&&item.enumerable&&safeRoot(item.value));}
+const NDI_DLL='Processing.NDI.Lib.x64.dll';
 function failure(code){return Object.assign(Error(code),{code});}
 function same(a,b){return process.platform==='win32'?a.toLowerCase()===b.toLowerCase():a===b;}
 function within(parent,child){const a=process.platform==='win32'?parent.toLowerCase():parent,b=process.platform==='win32'?child.toLowerCase():child;return a===b||(!path.relative(a,b).startsWith('..'+path.sep)&&path.relative(a,b)!=='..'&&!path.isAbsolute(path.relative(a,b)));}
@@ -29,7 +30,7 @@ async function paths(profile,{source=profile.provider==='local-manual'&&profile.
   for(const dir of [...(manageSpx?[profile.spx.cwd]:[]),profile.caspar.cwd])if(!(await fs.stat(dir)).isDirectory())throw failure('PROFILE_PATHS');
   if(manageSpx&&same(await fs.realpath(profile.spx.executable),await fs.realpath(profile.caspar.executable)))throw failure('PROFILE_PATHS');
   await preflightRenderer(profile.caspar);
-  if(profile.output.type==='ndi'){try{if(!(await fs.stat(path.join(profile.output.runtimeDirectory,'Processing.NDI.Lib.x64.dll'))).isFile())throw failure('NDI_RUNTIME_MISSING');}catch{throw failure('NDI_RUNTIME_MISSING');}}
+  if(profile.output.type==='ndi'){try{if(!(await fs.stat(path.join(profile.output.runtimeDirectory,NDI_DLL))).isFile())throw failure('NDI_RUNTIME_MISSING');}catch{throw failure('NDI_RUNTIME_MISSING');}}
   if(profile.provider==='local-manual'&&profile.media.startup.mode==='cached'){
     const selected=await fs.realpath(profile.media.startup.snapshotDir),cache=await fs.realpath(profile.media.cacheDir);
     if(same(selected,cache)||!within(cache,selected))throw failure('PROFILE_PATHS');
@@ -56,6 +57,11 @@ async function createPreparedEventRuntime(raw,{spawnProcess,consoleFactory=child
     directory=await fs.mkdtemp(path.join(profile.caspar.runtimeDir,'event-'));
     for(const child of ['media','log','data','template'])await fs.mkdir(path.join(directory,child));
     await fs.writeFile(path.join(directory,'caspar.config'),preparedCasparConfig(profile,directory,{relativePaths:true}),{flag:'wx'});
+    // Q-021: CasparCG 2.5.1 loads the NDI DLL from its start folder (this
+    // directory, a wide path) first and only then from NDI_RUNTIME_DIR_V6,
+    // which it reads as narrow text and so loses a folder name outside the
+    // PC's ANSI code page. A copy here works for either renderer.
+    if(profile.output.type==='ndi')await fs.copyFile(path.join(profile.output.runtimeDirectory,NDI_DLL),path.join(directory,NDI_DLL),require('node:fs').constants.COPYFILE_EXCL);
   }catch(error){if(directory)await fs.rm(directory,{recursive:true,force:true}).catch(()=>{});throw failure(['PROFILE_INVALID','PROFILE_PATHS','NDI_RUNTIME_MISSING','MESA_RUNTIME_MISSING','WINDOWS_REQUIRED','EVENT_OPTIONS_INVALID'].includes(error.code)?error.code:'EVENT_PREPARE_FAILED');}
   const spawn=spawnProcess||((exe,args,options,privateInput)=>spawnSupervisedProcess(exe,args,options,{forwardStdin:privateInput,...(privateInput?{productionWindow:nativeWindowPolicy}:{})}));
   let launcher,windowExpired=false,closed=false,started=false,startPromise,closePromise,state='prepared',lastError=null,stamp=0,current=null,standby=null;

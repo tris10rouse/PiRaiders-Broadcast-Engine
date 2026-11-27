@@ -131,22 +131,17 @@ jobs:
           node scripts/build-ndi-probe.cjs
       - name: Build genuine committed-source Windows development ZIP
         run: npm run package:windows
-      - name: Prepare pinned Caspar and app-local CI Mesa
-        run: node scripts/prepare-caspar-proof.cjs
-      - name: Verify and install pinned private CI-only NDI runtime
-        run: node scripts/prepare-ndi-proof.cjs
       - name: Install pinned headless browser for actual workstation controls
         run: npx --no-install playwright install --with-deps --only-shell chromium
-      - name: Prove extracted CMD bundled Node SPX and native NDI output
-        id: extracted_output
+      # Q-021: no CI-prepared Caspar, Mesa or NDI installer here. The app runs the
+      # ZIP's own CasparCG (software renderer: the mirror with the ZIP's Mesa) and
+      # NDI DLL; the test-bench receiver loads the ZIP's NDI DLL too. The OpenGL
+      # check's answer on this runner is recorded in result.json; the GPU path is
+      # a manual gate on a real PC.
+      - name: Prove extracted CMD bundled Node SPX and native NDI output from the ZIP's own Caspar, Mesa and NDI runtime only
         env:
           PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: node scripts/smoke-full-app-windows.cjs build/caspar-proof-tools build/windows/PiRaiders-Development-win-x64.zip
-      - name: Diagnose ASCII versus Unicode Caspar configuration argv after failed output
-        if: ${{ failure() && steps.extracted_output.outcome == 'failure' }}
-        env:
-          PIRAIDERS_PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: node scripts/probe-caspar-config-path-windows.cjs
+        run: node scripts/smoke-full-app-windows.cjs build/extracted-proof-bench build/windows/PiRaiders-Development-win-x64.zip
       - name: Retain synthetic received pixels and sanitized application evidence only
         if: always()
         uses: actions/upload-artifact@v4
