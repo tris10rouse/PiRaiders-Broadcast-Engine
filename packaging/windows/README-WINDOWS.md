@@ -4,6 +4,12 @@ This unsigned development artifact is **not the first user-testable release**. I
 
 **Operator steps:** `OPERATOR-CHECKLIST.md` in this folder lists the evaluation steps in order (check the download, choose local or source mode, write the machine file and ids, Setup, Diagnose, Launch, approve and prepare on Game Day, Stop, close, pin offline, cached start), with the code each command prints when it worked and the first thing to do on each refusal, and what no test has shown.
 
+## Evaluation build
+
+Every CI run builds a ZIP like this one. The evaluation build is the one ZIP that CI built from a single master commit on which every check passed; that commit, its CI run and the ZIP's SHA-256 are recorded in the source repository's `docs/agent/CLAUDE_HANDOFF.md` (this file cannot name its own commit). Compare your ZIP's SHA-256 with that record and with the sidecar file before extracting (`OPERATOR-CHECKLIST.md` step 1). It is for evaluation on a disposable, nonproduction Windows x64 PC.
+
+It is not signed, not a release (nothing is published), not deployed and not an installer. It was not tested on the stadium PC, Windows 10, the board's input, NDI over a network, or on air; CI on GitHub-hosted Windows runners does not establish any of those. CasparCG, Mesa and NDI binaries are not included.
+
 ## Extract and configure a disposable workstation
 
 No manual testing is requested from the project owner until an honest evaluation build is announced. For a developer bench, extract the entire ZIP into a new writable folder on nonproduction Windows x64; do not run inside the archive or overwrite an existing installation. No system Node/npm/PM2 or repository checkout is needed. Installed .NET Framework v4 is required for the containment host. Windows CI does not establish Windows10 target-PC or stadium compatibility.
@@ -24,7 +30,7 @@ For an exchange source machine, copy `app/config/piraiders-app.source.example.js
 - `Setup-PiRaiders.cmd`: the setup command (`EXCHANGE_SETUP.md`): checks the machine file, the exchange folder and the feed, and makes the journal and approval list once. Safe to run again. `Setup-PiRaiders.cmd --pin-offline`, with the application closed, pins prepared buttons for a cached start.
 - `Diagnose-PiRaiders.cmd`: the diagnostics command (`GAME_DAY_DIAGNOSTICS.md`): store states without the application, runtime states from the running application or `APP_NOT_RUNNING`.
 
-Both use only the bundled Node and the fixed `app/config/piraiders-app.json`, print one JSON line of fixed codes (no paths or ids) and exit 0 done, 1 refused, 2 wrong arguments. Their run from an extracted ZIP on hosted Windows is part 5f-3; until then they are tested on Linux only.
+Both use only the bundled Node and the fixed `app/config/piraiders-app.json`, print one JSON line of fixed codes (no paths or ids) and exit 0 done, 1 refused, 2 wrong arguments. Windows CI runs both from the extracted ZIP in source mode against a synthetic exchange folder (part 5f-3); they are also tested on Linux.
 
 ## Compatibility and automated evidence
 
@@ -32,7 +38,7 @@ The earlier `app/scripts/piraiders-launcher.cjs` remains packaged for component/
 
 Windows CI now builds and extracts the final ZIP under a spaces/Unicode/`!` path, verify its original inventory, and test the actual fixed command entry with no system Node. Passing smoke coverage starts the real bundled parent/HMAC/SPX/Game Day, reads its empty local catalog, preserves SPX config bytes, then kills the proven actual CLI parent and requires all captured CLI-owned process generations and the HTTP listener to disappear while the outer bench root is positively still alive (so its fallback cannot mask inner containment). Separate retained legacy smoke starts real bundled SPX plus an explicitly simulated AMCP service and verifies its production-window shutdown. Bundled worker full PNG/JPEG decode, immutable/offline staging and authenticated transport are also tested; presentation acknowledgments in those component cases remain simulated. No CasparCG/CEF/NDI frame or hardware result follows from this package smoke.
 
-The setup and diagnostics commands and the operator checklist (`OPERATOR-CHECKLIST.md`) ship in this ZIP; a four-hour soak passed on a hosted Windows runner from the source tree. Output through the extracted full application, setup and diagnostics run from the extracted ZIP on Windows (part 5f-3), reproducible legal component/Mesa setup and clean-machine installation remain release gates. The root launcher does not yet configure CI's explicit software-Mesa environment. Do not describe this ZIP as a user-testable build, formal release, signed installer or target-hardware certification. No live stadium, external LAN receiver, Daktronics/D8VIDEO-P/DMP routing or board input was tested by this package increment.
+The setup and diagnostics commands and the operator checklist (`OPERATOR-CHECKLIST.md`) ship in this ZIP; a four-hour soak passed on a hosted Windows runner from the source tree. Setup and diagnostics run from the extracted ZIP on hosted Windows (part 5f-3). Output through the extracted full application, reproducible legal component/Mesa setup and clean-machine installation remain release gates. The root launcher does not yet configure CI's explicit software-Mesa environment. Do not describe this ZIP as a user-testable build, formal release, signed installer or target-hardware certification. No live stadium, external LAN receiver, Daktronics/D8VIDEO-P/DMP routing or board input was tested by this package increment.
 
 Rollback: stop the development application, preserve intentionally created configuration/content/logs, and remove only its extracted folder. Do not delete or overwrite an existing SPX installation or media.
 

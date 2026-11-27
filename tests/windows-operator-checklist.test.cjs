@@ -155,3 +155,44 @@ test('the entries\' own refusals are their sentences, not codes, and Diagnose st
   const auth = text.split(/\r?\n/).find(l => l.startsWith('| `APP_AUTH_REQUIRED`'));
   assert.ok(auth && /cannot sign in/.test(auth) && /Diagnostics/.test(auth), auth);
 });
+
+// 5f-4: the ZIP's own documents say what the evaluation build is and is not,
+// and the Windows job prints the ZIP's SHA-256 so the record can quote it.
+function section(text, heading) {
+  const start = text.search(new RegExp('^#+ ' + heading + '\\s*$', 'm'));
+  assert.ok(start >= 0, 'missing section: ' + heading);
+  const rest = text.slice(start).split(/\r?\n/);
+  const end = rest.findIndex((line, i) => i > 0 && /^#+ /.test(line));
+  return rest.slice(0, end < 0 ? undefined : end).join('\n');
+}
+
+test('README-WINDOWS.md and the checklist say what the evaluation build is and is not', () => {
+  for (const relative of ['packaging/windows/README-WINDOWS.md', SOURCE]) {
+    const part = section(read(relative), 'Evaluation build');
+    // What it is: one master commit, every check green, recorded outside the ZIP.
+    assert.match(part, /master commit/, relative);
+    assert.match(part, /every check/, relative);
+    assert.match(part, /docs\/agent\/CLAUDE_HANDOFF\.md/, relative);
+    assert.match(part, /SHA-256/, relative);
+    // What it is not.
+    for (const not of [/not signed/, /not a release/, /not deployed/, /stadium PC/, /board/, /on air/])
+      assert.match(part, not, relative + ' ' + not);
+    assert.doesNotMatch(part, /https?:\/\/|\b[0-9a-f]{40}\b/, relative);
+  }
+});
+
+test('README-WINDOWS.md no longer calls the extracted ZIP\'s setup and diagnose run a later part', () => {
+  const readme = read('packaging/windows/README-WINDOWS.md');
+  assert.doesNotMatch(readme, /until then they are tested on Linux only/);
+  assert.doesNotMatch(readme, /setup and diagnostics run from the extracted ZIP on Windows \(part 5f-3\)/);
+});
+
+test('the Windows job prints the ZIP\'s SHA-256 sidecar after the ZIP is built and before it is uploaded', () => {
+  const ci = read('.github/workflows/ci.yml');
+  const build = ci.indexOf('run: npm run package:windows');
+  const print = ci.search(/run: Get-Content -LiteralPath build\/windows\/PiRaiders-Development-win-x64\.zip\.sha256/);
+  const upload = ci.indexOf('name: piraiders-windows-development');
+  assert.ok(build > 0 && print > build && upload > print, JSON.stringify({ build, print, upload }));
+  const step = ci.slice(ci.lastIndexOf('- name:', print), print);
+  assert.match(step, /if: runner\.os == 'Windows'/);
+});
