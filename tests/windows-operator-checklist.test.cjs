@@ -196,3 +196,28 @@ test('the Windows job prints the ZIP\'s SHA-256 sidecar after the ZIP is built a
   const step = ci.slice(ci.lastIndexOf('- name:', print), print);
   assert.match(step, /if: runner\.os == 'Windows'/);
 });
+
+// Q-015: the opening paragraph, the "Extract and configure" lead and the
+// evidence paragraph agree with the "Evaluation build" section.
+test('README-WINDOWS.md opening, extract lead and evidence paragraph match the evaluation build', () => {
+  const readme = read('packaging/windows/README-WINDOWS.md');
+  const opening = readme.split(/\r?\n\r?\n/)[1];
+  const extract = section(readme, 'Extract and configure a disposable workstation').split(/\r?\n\r?\n/)[1];
+  const evidence = section(readme, 'Compatibility and automated evidence');
+  for (const [name, part] of [['opening', opening], ['extract', extract]]) {
+    assert.match(part, /evaluation build/i, name);
+    assert.match(part, /disposable,? nonproduction Windows x64 PC/, name);
+  }
+  // Opening: what it is not, and the stadium warning until the owner's off-air test.
+  for (const not of [/not signed/, /not a release/, /not deployed/, /CasparCG, Mesa and NDI binaries are not included/,
+    /Do not install on stadium equipment/, /owner approves an off-air test/])
+    assert.match(opening, not, 'opening ' + not);
+  // Extracted-app output is CI evidence from the named hosted-Windows check.
+  for (const part of [opening, evidence]) assert.match(part, /actual-extracted-full-app-private-ndi/);
+  assert.match(evidence, /hosted Windows/);
+  // The old wording is gone everywhere.
+  for (const old of [/not the first user-testable release/, /output from this extracted artifact .* remain unverified/,
+    /No manual testing is requested from the project owner until/, /extracted full application, reproducible legal/, /does not yet configure CI.s explicit software-Mesa/,
+    /Do not describe this ZIP as a user-testable build/, /Actual output from the extracted application still requires/])
+    assert.doesNotMatch(readme, old, String(old));
+});
