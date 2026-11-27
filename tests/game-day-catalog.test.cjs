@@ -157,12 +157,16 @@ test('concurrent real file rewrites fail closed or yield one complete validated 
   const versions = [a + ' '.repeat(65536 - Buffer.byteLength(a)), b + '\t'.repeat(65536 - Buffer.byteLength(b))];
   await f.write(f.event, versions[0]); const target = path.join(f.catalogDirectory, 'football.json'), script = path.join(f.root, 'writer.cjs');
   const versionsFile = path.join(f.root, 'writer-input.json'); await fs.writeFile(versionsFile, JSON.stringify(versions));
-  await fs.writeFile(script, "const fs=require('node:fs');let i=0;const values=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));process.send('ready');setInterval(()=>{fs.writeFileSync(process.argv[2],values[i++%2]);},0);");
+  await fs.writeFile(script, "const fs=require('node:fs');let i=0;const values=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));function write(){fs.writeFileSync(process.argv[2],values[i++%2]);if(i%20)setImmediate(write);else setTimeout(write,5);}process.send('ready',write);");
   const child = fork(script, [target, versionsFile], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
   f.cleanup(async () => { if (child.exitCode === null && child.signalCode === null) { const exited = once(child, 'exit'); child.kill(); await exited; } }); await once(child, 'message');
-  const hashes = new Set(versions.map(hash)); let refused = 0;
-  for (let i = 0; i < 30; i++) { try { const result = await catalog.read('football'); assert.ok(hashes.has(result.revision), 'accepted a mixed revision'); } catch (error) { assert.equal(error.code, 'CATALOG_INVALID'); refused++; } }
-  assert.ok(refused > 0, 'concurrent write race was not exercised');
+  // The writer rewrites in untimed bursts of 20 with short pauses between, so reads both overlap rewrites (refused) and
+  // fall between them (accepted). Reads go on until both have been seen or a bounded time passes, so a slow runner cannot
+  // pass without a race; every accepted read must still be one whole version.
+  const hashes = new Set(versions.map(hash)), deadline = Date.now() + 10000; let refused = 0, accepted = 0, reads = 0;
+  while (reads < 30 || ((refused === 0 || accepted === 0) && Date.now() < deadline)) { reads++; try { const result = await catalog.read('football'); assert.ok(hashes.has(result.revision), 'accepted a mixed revision'); accepted++; } catch (error) { assert.equal(error.code, 'CATALOG_INVALID'); refused++; } }
+  assert.ok(refused > 0, 'concurrent write race was not exercised in ' + reads + ' reads over 10 s');
+  assert.ok(accepted > 0, 'no read fell between rewrites in ' + reads + ' reads over 10 s');
 });
 
 
