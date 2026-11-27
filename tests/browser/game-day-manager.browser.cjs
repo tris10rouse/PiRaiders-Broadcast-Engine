@@ -6,6 +6,7 @@ const os=require('node:os');
 const path=require('node:path');
 const net=require('node:net');
 const {EventEmitter}=require('node:events');
+const {monitorEventLoopDelay,performance}=require('node:perf_hooks');
 const {chromium}=require('playwright');
 const {PNG}=require('pngjs');
 const {createGameDayManager}=require('../../scripts/lib/game-day-manager.cjs');
@@ -28,6 +29,19 @@ before(async()=>{browser=await chromium.launch({headless:true,...(process.env.PI
 });
 after(()=>browser?.close());
 async function port(){const server=net.createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const value=server.address().port;await new Promise(resolve=>server.close(resolve));return value;}
+// Q-030 (2026-11-27): if Stop answers not ok again, say where its time went: how long Stop took, the Node
+// process's worst event-loop delay, and the program page's longest task and longest wait between frames (the
+// page's black needs two frames within 1 s, its connection a heartbeat within 2.5 s). Diagnostics only.
+async function stopWatch(page){
+ const loop=monitorEventLoopDelay({resolution:10});loop.enable();
+ await page.evaluate(()=>{const w=window.piraidersStopWatch={longTask:0,frameGap:0,last:performance.now(),on:true};
+  w.take=entries=>{for(const entry of entries)w.longTask=Math.max(w.longTask,entry.duration);};try{w.observer=new PerformanceObserver(list=>w.take(list.getEntries()));w.observer.observe({type:'longtask'});}catch{}
+  const tick=now=>{w.frameGap=Math.max(w.frameGap,now-w.last);w.last=now;if(w.on)requestAnimationFrame(tick);};requestAnimationFrame(tick);});
+ const began=performance.now();
+ return async()=>{const stopMs=Math.round(performance.now()-began);loop.disable();
+  const pageSide=await page.evaluate(()=>{const w=window.piraidersStopWatch;w.on=false;if(w.observer){w.take(w.observer.takeRecords());w.observer.disconnect();}return{pageLongTaskMs:Math.round(w.longTask),pageFrameGapMs:Math.round(Math.max(w.frameGap,performance.now()-w.last)),rendererState:window.piraidersRenderer?.state??null};}).catch(error=>({pageUnreadable:String(error?.message||error).slice(0,80)}));
+  return{stopMs,nodeLoopMaxMs:Math.round(loop.max/1e6),...pageSide};};
+}
 async function pixels(page,rgb){const png=PNG.sync.read(await page.screenshot()),offset=(Math.floor(png.height/2)*png.width+Math.floor(png.width/2))*4;assert.ok(rgb.every((value,index)=>Math.abs(png.data[offset+index]-value)<=6),'REAL_CHROMIUM_PIXELS');}
 async function fixture(t){
  const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders manager browser '))),component=path.join(root,'component');await fs.mkdir(component);const executable=path.join(component,'casparcg.exe');await fs.writeFile(executable,'synthetic OS boundary; never executed');
@@ -59,8 +73,10 @@ test('pending initial factory excludes old direct TCP Reload when prewarm opens 
  const f=await fixture(t),m=f.manager;await f.activateAlpha();const pending=m.prepare('beta',req(m));await until(()=>f.state.betaEntered,'BETA_FACTORY_HELD');assert.equal(f.state.factory[0].options.canPrepare(),false);
  const page=await f.prewarm(),wire=await f.connect();await wire.command(1);await pixels(page,[240,20,20]);const count=f.state.stage.alpha;
  await wire.command(5,false);assert.equal(f.state.stage.alpha,count,'OLD_DECODER_NOT_ENTERED');assert.equal(m.snapshot().active.runtime.lastError,'BUSY');await pixels(page,[240,20,20]);
- // Diagnostics only (2026-11-20): this Stop answered not ok once on a hosted Windows run; name its answer and state if it does again.
- const stopped=await m.dispatch('stop',req(m));assert.equal(stopped.ok,true,'STOP_ANSWER '+JSON.stringify(stopped)+' RUNTIME '+JSON.stringify({state:m.snapshot().active?.runtime?.state,lastError:m.snapshot().active?.runtime?.lastError,preparing:m.snapshot().preparing}));await pixels(page,[0,0,0]);assert.equal(m.snapshot().preparing,true);
+ // Diagnostics only (2026-11-20, Q-030 2026-11-27): this Stop answered not ok twice on hosted Windows; name its answer,
+ // state and timings (stopWatch above) if it does again. The assertion stays strict.
+ const watch=await stopWatch(page),stopped=await m.dispatch('stop',req(m)),timing=await watch();
+ assert.equal(stopped.ok,true,'STOP_ANSWER '+JSON.stringify(stopped)+' RUNTIME '+JSON.stringify({state:m.snapshot().active?.runtime?.state,ready:m.snapshot().active?.runtime?.ready,lastError:m.snapshot().active?.runtime?.lastError,preparing:m.snapshot().preparing})+' TIMING '+JSON.stringify(timing));await pixels(page,[0,0,0]);assert.equal(m.snapshot().preparing,true);
  f.state.betaGate.resolve();assert.equal((await pending).code,'WINDOW_ACTIVE');assert.equal(m.snapshot().candidate,null);assert.equal(f.state.children.length,1);assert.equal(f.state.factory[0].options.canPrepare(),true);
  await wire.command(1);await wire.command(5);assert.equal(f.state.stage.alpha,count+1);await pixels(page,[240,20,20]);
 });
@@ -78,8 +94,10 @@ test('a program page that stalls past the heartbeat during Stop answers not ok a
  const f=await fixture(t),m=f.manager;await f.activateAlpha();const page=await f.prewarm(),wire=await f.connect();await wire.command(1);await pixels(page,[240,20,20]);
  // One-shot: the next black (Stop's) blocks the page's main thread for 4 s, longer than the 2.5 s heartbeat.
  await page.evaluate(()=>{const r=window.piraidersRenderer,black=r.black;let armed=true;r.black=function(){const value=black.apply(this,arguments);if(armed){armed=false;const end=Date.now()+4000;while(Date.now()<end);}return value;};});
- const stopped=await m.dispatch('stop',req(m));
+ const watch=await stopWatch(page),stopped=await m.dispatch('stop',req(m)),timing=await watch();
  assert.deepEqual(stopped,{ok:false,code:'HANDLER_FAILED'},'STOP_ANSWER '+JSON.stringify(stopped));
+ // The Stop diagnostics above see this stall: the page's longest wait between frames covers the 4 s block.
+ assert.ok(timing.pageFrameGapMs>=3500,'STOP_WATCH_SEES_PAGE_STALL '+JSON.stringify(timing));
  assert.equal(m.snapshot().active.runtime.lastError,'CANCELLED');assert.equal(m.snapshot().active.runtime.ready,false,'NO_VERIFIED_RENDERER');
  await pixels(page,[0,0,0]);
 });
