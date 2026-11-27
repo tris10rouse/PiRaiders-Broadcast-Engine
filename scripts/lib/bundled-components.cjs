@@ -17,7 +17,7 @@ const COMPONENTS = Object.freeze([
     sha256: 'c0756f53f49908fba94f17a43b83d45fd275201e24ab1676530d7bb26832efc6',
     licence: 'GPL-3.0-or-later', folder: 'runtime/caspar',
     source: 'https://github.com/CasparCG/server/tree/v2.5.1-stable',
-    files: Object.freeze(['the official Windows release archive, unchanged']),
+    files: Object.freeze(['the files of the official Windows release archive, extracted unchanged']),
     note: 'Its licence text is in licenses/CasparCG-LICENSE.txt. Its exact corresponding source is the upstream tag v2.5.1-stable at the Source link.'
   }),
   Object.freeze({
@@ -42,20 +42,28 @@ const COMPONENTS = Object.freeze([
 ]);
 
 const SAFE_FOLDER = /^runtime\/[a-z][a-z0-9-]*$/;
+// One line of printable text, no leading or trailing space: nothing that could
+// add a line or a heading to the notices.
+const line = value => typeof value === 'string' && value.length > 0 && value === value.trim() && !/[\x00-\x1f\x7f]/.test(value);
 function validComponent(item) {
   return item && typeof item === 'object' && typeof item.id === 'string' && /^[a-z][a-z0-9-]*$/.test(item.id) &&
-    typeof item.name === 'string' && item.name && typeof item.version === 'string' && item.version &&
-    typeof item.licence === 'string' && item.licence && /^[a-f0-9]{64}$/.test(item.sha256 || '') &&
-    typeof item.url === 'string' && item.url.startsWith('https://') && SAFE_FOLDER.test(item.folder || '') &&
-    Array.isArray(item.files) && item.files.length > 0 && typeof item.note === 'string' &&
-    (item.source === null || (typeof item.source === 'string' && item.source.startsWith('https://')));
+    line(item.name) && line(item.version) && line(item.licence) && line(item.note) &&
+    typeof item.sha256 === 'string' && /^[a-f0-9]{64}$/.test(item.sha256) &&
+    line(item.url) && item.url.startsWith('https://') && typeof item.folder === 'string' && SAFE_FOLDER.test(item.folder) &&
+    Array.isArray(item.files) && item.files.length > 0 && item.files.every(line) &&
+    (item.source === null || (line(item.source) && item.source.startsWith('https://')));
 }
 
 // THIRD-PARTY-NOTICES.md for the ZIP's root. Same text for the same list.
 // NDI carries ® on its first use only; the trademark sentence follows it.
+// The text speaks of the ZIP and its licenses/ files: only the ZIP build
+// (Q-018) writes it, after it has placed and checked those files.
 function renderNotices(list = COMPONENTS) {
   if (!Array.isArray(list) || !list.length) throw Error('COMPONENTS_EMPTY');
   if (!list.every(validComponent)) throw Error('COMPONENT_INVALID');
+  for (const key of ['id', 'folder']) {
+    if (new Set(list.map(item => item[key])).size !== list.length) throw Error('COMPONENT_INVALID');
+  }
   const lines = ['# Third-party notices', '',
     'This development ZIP carries the third-party runtime components below, each at a pinned version whose download was checked against the SHA-256 shown before it was used. Nothing is downloaded when the app runs. Licence texts are in the licenses/ folder. The Node.js runtime, SPX and the image decoders keep their own licence files there too.', ''];
   for (const item of list) {
@@ -75,8 +83,13 @@ function renderNotices(list = COMPONENTS) {
 // empty when the layout is right. Windows loads opengl32.dll from the
 // executable's own folder before the system's, so Mesa's copy there would
 // replace the graphics driver for Caspar: refused (Q-016 criterion 3).
+// Only plain spellings are judged: an empty, "." or ".." part, a part ending in
+// a dot or a space (Windows drops those), a backslash or a control character
+// is LAYOUT_INVALID, so no other spelling of a folder can slip past the rule.
+const plainPart = part => part.length > 0 && part !== '.' && part !== '..' && !/[. ]$/.test(part) &&
+  !/[\\:\x00-\x1f\x7f]/.test(part);
 function checkRuntimeLayout(paths) {
-  if (!Array.isArray(paths) || !paths.every(p => typeof p === 'string' && p && !p.includes('\\'))) throw Error('LAYOUT_INVALID');
+  if (!Array.isArray(paths) || !paths.every(p => typeof p === 'string' && p.split('/').every(plainPart))) throw Error('LAYOUT_INVALID');
   const lower = paths.map(p => p.toLowerCase());
   const dir = p => p.slice(0, p.lastIndexOf('/') + 1);
   const name = p => p.slice(p.lastIndexOf('/') + 1);

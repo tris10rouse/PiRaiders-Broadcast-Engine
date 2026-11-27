@@ -67,6 +67,13 @@ test('notices refuse an empty or invalid component list', () => {
   assert.throws(() => renderNotices([]), /COMPONENTS_EMPTY/);
   assert.throws(() => renderNotices([{ ...byId('mesa'), sha256: 'nothex' }]), /COMPONENT_INVALID/);
   assert.throws(() => renderNotices([{ ...byId('mesa'), folder: '../mesa' }]), /COMPONENT_INVALID/);
+  // Review round: nothing may add a line or a heading, or print a non-text file entry.
+  for (const change of [{ files: [1, {}] }, { files: [''] }, { url: 'https://x\n# injected' }, { name: 'Mesa\n## x' },
+    { note: 'a\rb' }, { version: ' ' }, { sha256: [byId('mesa').sha256] }, { source: 'https://x\ny' }, { licence: ' MIT' }]) {
+    assert.throws(() => renderNotices([{ ...byId('mesa'), ...change }]), /COMPONENT_INVALID/, JSON.stringify(change));
+  }
+  assert.throws(() => renderNotices([byId('mesa'), byId('mesa')]), /COMPONENT_INVALID/);
+  assert.throws(() => renderNotices([byId('mesa'), { ...byId('casparcg'), folder: 'runtime/mesa' }]), /COMPONENT_INVALID/);
 });
 
 test('layout: Mesa opengl32.dll beside a casparcg.exe is refused, in any letter case', () => {
@@ -95,4 +102,13 @@ test('layout: one Caspar executable, Mesa and the NDI runtime each in their own 
     'runtime/mesa/opengl32.dll']), ['NDI_RUNTIME_MISSING']);
   assert.throws(() => checkRuntimeLayout('runtime/caspar/casparcg.exe'), /LAYOUT_INVALID/);
   assert.throws(() => checkRuntimeLayout(['runtime\\caspar\\casparcg.exe']), /LAYOUT_INVALID/);
+});
+
+test('layout: other spellings of a folder or file name are refused, never judged', () => {
+  const rest = ['runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll'];
+  for (const odd of ['runtime/caspar//opengl32.dll', 'runtime/caspar/./opengl32.dll', 'runtime/caspar/opengl32.dll.',
+    'runtime/caspar/opengl32.dll ', 'runtime/caspar/x/../opengl32.dll', '/runtime/caspar/opengl32.dll',
+    './runtime/caspar/casparcg.exe', 'runtime/caspar/a:b', 'runtime/caspar/a\u0000b', '']) {
+    assert.throws(() => checkRuntimeLayout(['runtime/caspar/casparcg.exe', odd, ...rest]), /LAYOUT_INVALID/, JSON.stringify(odd));
+  }
 });
