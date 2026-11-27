@@ -12,10 +12,17 @@
 // Safe to run again: it changes nothing when both stores are there.
 // Prints one JSON line with steps and codes only (no paths or ids), and
 // `graphics` (Q-019): the OpenGL 4.5 check code, whether the check ran, the
-// machine file's renderer setting and the renderer chosen (gpu or software).
+// machine file's renderer setting and the renderer chosen (gpu or software);
+// `vcRuntime` (Q-027): whether this PC has the Microsoft x64 VC++ runtime
+// Caspar needs. When it is missing or older, and the console is interactive,
+// Setup asks "Install the Microsoft Visual C++ Runtime now? (Y/N)" and runs
+// the bundled runtime/vcredist/VC_redist.x64.exe only on Y; otherwise it
+// installs nothing and prints the one-line next step on the console (stderr).
+// Not asked with --pin-offline. A report, never a refusal.
 // Exit 0 done, 1 refused, 2 wrong arguments.
 const path=require('node:path');
 const {graphicsFor}=require('./lib/graphics-check.cjs');
+const {vcRuntimeSetup,vcRuntimeReport}=require('./lib/vc-runtime.cjs');
 const {loadGameDayMachineConfig}=require('./lib/game-day-catalog.cjs');
 const {setupSourceMachine,pinOfflineApprovals}=require('./lib/exchange-setup.cjs');
 
@@ -24,7 +31,7 @@ function parsed(argv){
   if(argv.length!==2&&!pin||argv[0]!=='--machine'||typeof argv[1]!=='string'||!path.isAbsolute(argv[1]))return null;
   return{file:path.resolve(argv[1]),pin};
 }
-async function main(argv,{appRoot=path.resolve(__dirname,'..'),nodeExecutable=process.execPath,graphicsCheck={}}={}){
+async function main(argv,{appRoot=path.resolve(__dirname,'..'),nodeExecutable=process.execPath,graphicsCheck={},vcRuntime={}}={}){
   const args=parsed(argv);
   if(!args)return{exitCode:2,answer:{ok:false,step:'arguments',code:'SETUP_USAGE',done:{}}};
   let machine;
@@ -32,7 +39,10 @@ async function main(argv,{appRoot=path.resolve(__dirname,'..'),nodeExecutable=pr
   catch{return{exitCode:1,answer:{ok:false,step:'machine',code:'MACHINE_CONFIG_INVALID',done:{}}};}
   const answer=args.pin?await pinOfflineApprovals(machine):await setupSourceMachine(machine);
   // Q-019: the OpenGL check and renderer choice, reported only; never a refusal.
-  return{exitCode:answer.ok?0:1,answer:{...answer,graphics:await graphicsFor(machine,graphicsCheck)}};
+  const graphics=await graphicsFor(machine,graphicsCheck);
+  // Q-027: the VC++ runtime, and the installer only after the operator's Y.
+  const vc=args.pin?{...await vcRuntimeReport(vcRuntime),install:'not-asked',after:null}:await vcRuntimeSetup({appRoot,...vcRuntime});
+  return{exitCode:answer.ok?0:1,answer:{...answer,graphics,vcRuntime:vc}};
 }
 if(require.main===module){
   main(process.argv.slice(2)).then(({exitCode,answer})=>{

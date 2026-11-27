@@ -18,7 +18,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { COMPONENTS, renderNotices, checkRuntimeLayout } = require('./lib/bundled-components.cjs');
-const { checkRuntimeImports } = require('./lib/pe-imports.cjs');
+const { checkRuntimeImports, peInfo: readPeInfo, PeError } = require('./lib/pe-imports.cjs');
 
 const byId = id => COMPONENTS.find(item => item.id === id);
 const LIMITS = Object.freeze({ casparcg: 350000000, mesa: 500000000, 'ndi-runtime': 150 * 1024 * 1024, 'vc-redist': 64 * 1024 * 1024 });
@@ -50,22 +50,10 @@ class StageError extends Error {}
 const fail = (code, detail) => { const error = new StageError(code); if (detail) error.detail = detail; throw error; };
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
-// PE machine and the VS_FIXEDFILEINFO file version (a.b.c.d), or null when the
-// file carries none. Throws RUNTIME_PE_INVALID on anything that is not a PE.
+// PE machine and file version (pe-imports.cjs); a malformed file is refused
+// with this stage's own RUNTIME_PE_INVALID.
 function peInfo(bytes) {
-  if (!Buffer.isBuffer(bytes) || bytes.length < 64 || bytes.toString('ascii', 0, 2) !== 'MZ') fail('RUNTIME_PE_INVALID');
-  const offset = bytes.readUInt32LE(60);
-  if (offset < 64 || offset > bytes.length - 6 || bytes.readUInt32LE(offset) !== 0x00004550) fail('RUNTIME_PE_INVALID');
-  const machine = bytes.readUInt16LE(offset + 4);
-  const signature = Buffer.from([0xbd, 0x04, 0xef, 0xfe]);
-  // The first signature followed by structure version 1.0 (the same four bytes
-  // can occur by chance in code before the version resource).
-  for (let at = bytes.indexOf(signature); at >= 0 && at + 16 <= bytes.length; at = bytes.indexOf(signature, at + 1)) {
-    if (bytes.readUInt32LE(at + 4) !== 0x00010000) continue;
-    const ms = bytes.readUInt32LE(at + 8), ls = bytes.readUInt32LE(at + 12);
-    return { machine, version: [ms >>> 16, ms & 0xffff, ls >>> 16, ls & 0xffff].join('.') };
-  }
-  return { machine, version: null };
+  try { return readPeInfo(bytes); } catch (error) { if (error instanceof PeError) fail('RUNTIME_PE_INVALID'); throw error; }
 }
 
 // Regular files under dir as forward-slash relative paths. A symbolic link or

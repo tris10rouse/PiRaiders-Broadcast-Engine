@@ -18,8 +18,8 @@ const union = (...sets) => new Set(sets.flatMap(set => [...set]));
 
 // What each command prints: the command file, the library it answers from and
 // the store codes the setup step forwards as they are.
-const SETUP_FILES = ['scripts/piraiders-setup.cjs', 'scripts/lib/exchange-setup.cjs', 'scripts/lib/graphics-check.cjs'];
-const DIAGNOSE_FILES = ['scripts/piraiders-diagnose.cjs', 'scripts/lib/game-day-diagnose.cjs', 'scripts/lib/graphics-check.cjs'];
+const SETUP_FILES = ['scripts/piraiders-setup.cjs', 'scripts/lib/exchange-setup.cjs', 'scripts/lib/graphics-check.cjs', 'scripts/lib/vc-runtime.cjs'];
+const DIAGNOSE_FILES = ['scripts/piraiders-diagnose.cjs', 'scripts/lib/game-day-diagnose.cjs', 'scripts/lib/graphics-check.cjs', 'scripts/lib/vc-runtime.cjs'];
 const LAUNCH_FILES = ['scripts/piraiders-app.cjs'];
 const VERIFY_FILES = ['scripts/piraiders-verify-bundle.cjs'];
 const FORWARDED_FILES = ['scripts/lib/game-day-catalog.cjs', 'scripts/lib/exchange-journal.cjs',
@@ -72,6 +72,23 @@ test('every refusal code of setup, diagnose and launch has its own line in the c
     const cells = line.split('|').map(c => c.trim()).filter(Boolean);
     assert.ok(cells.length >= 2 && cells[cells.length - 1].length > 10, 'no action on: ' + line);
   }
+});
+
+// Q-027: every VC++ runtime code Setup can print has its own line in step 4.
+test('every VC++ runtime code has its own line in step 4, with the question and the manual gate', () => {
+  const vc = require('../scripts/lib/vc-runtime.cjs');
+  const step4 = checklist().split('## 4. Run Setup')[1].split('## 5.')[0];
+  const rows = step4.split(/\r?\n/).filter(l => /^\|\s*`VCRUNTIME_/.test(l)).map(l => l.match(/`([A-Z_]+)`/)[1]);
+  const codes = [...vc.CHECK_CODES, ...vc.INSTALL_CODES].filter(c => c !== 'VCRUNTIME_PRESENT' && c !== 'VCRUNTIME_OLD');
+  for (const code of codes) assert.ok(rows.includes(code), code + ' has no row in step 4');
+  for (const code of vc.CHECK_CODES) assert.match(step4, new RegExp('`' + code + '`'));
+  for (const word of ['not-needed', 'not-checked', 'declined', 'not-asked']) {
+    assert.ok(read('scripts/lib/vc-runtime.cjs').includes("'" + word + "'"), word);
+    assert.match(step4, new RegExp('`' + word + '`'));
+  }
+  assert.ok(step4.includes(vc.PROMPT.trim()), 'the question as Setup asks it');
+  assert.match(step4, /not tested\*\* \(a manual check on a clean PC\)/);
+  assert.match(checklist().split('## 5. Run Diagnose')[1], /Diagnose never asks and never installs/);
 });
 
 test('the success words it names are the ones the commands print', () => {
@@ -210,7 +227,7 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
   }
   // Opening: what it is not, and the stadium warning until the owner's off-air test.
   for (const not of [/not signed/, /not a release/, /not deployed/, /carries pinned CasparCG Server, Mesa's x64 OpenGL files and the NDI runtime DLL/, /THIRD-PARTY-NOTICES\.md/,
-    /recorded evaluation build predates them/, /app does not start them yet/, /Microsoft's VC\+\+ runtime installer Caspar needs \(`runtime\/vcredist\/VC_redist\.x64\.exe`, unchanged\)/, /Setup does not run that installer yet/,
+    /recorded evaluation build predates them/, /app does not start them yet/, /Microsoft's VC\+\+ runtime installer Caspar needs \(`runtime\/vcredist\/VC_redist\.x64\.exe`, unchanged\)/, /Setup asks "Install the Microsoft Visual C\+\+ Runtime now\? \(Y\/N\)" and runs the installer only on Y/, /untested on a PC without the runtime/,
     /Do not install on stadium equipment/, /owner approves an off-air test/])
     assert.match(opening, not, 'opening ' + not);
   // Extracted-app output is CI evidence from the named hosted-Windows check.
@@ -219,6 +236,6 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
   // The old wording is gone everywhere.
   for (const old of [/not the first user-testable release/, /output from this extracted artifact .* remain unverified/,
     /No manual testing is requested from the project owner until/, /extracted full application, reproducible legal/, /does not yet configure CI.s explicit software-Mesa/,
-    /Do not describe this ZIP as a user-testable build/, /CasparCG, Mesa and NDI binaries are not included/, /Actual output from the extracted application still requires/])
+    /Do not describe this ZIP as a user-testable build/, /Setup does not run that installer yet/, /CasparCG, Mesa and NDI binaries are not included/, /Actual output from the extracted application still requires/])
     assert.doesNotMatch(readme, old, String(old));
 });

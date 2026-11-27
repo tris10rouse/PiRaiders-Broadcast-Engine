@@ -46,6 +46,19 @@ Run `Setup-PiRaiders.cmd` from the extracted folder, with the application closed
 
 The same line ends with `"graphics"`: whether this PC's graphics driver gives OpenGL 4.5 (`GPU_OPENGL_45`, `GPU_OPENGL_TOO_OLD` or `GPU_OPENGL_UNKNOWN`), whether the check ran (`ran`; `missing`: the bundled check is not there, extract the whole ZIP again; `failed`: it gave no answer in 15 s, which counts as unknown), the machine file's `renderer` setting (`auto` unless you set `gpu` or `software`) and the renderer chosen: `gpu` only for `GPU_OPENGL_45` under `auto`, otherwise `software`. It is a report, never a refusal, and not yet used to start CasparCG (a later part). It is tested on a hosted Windows runner without a graphics card (too old or unknown, `software`); a PC with a graphics card is not tested.
 
+After `"graphics"` comes `"vcRuntime"`: whether this PC has the Microsoft x64 Visual C++ Runtime that CasparCG needs. `check` is `VCRUNTIME_PRESENT` (installed, this version or newer), `VCRUNTIME_OLD` (an older version), `VCRUNTIME_MISSING` or `VCRUNTIME_UNKNOWN` (the system files could not be read; nothing is asked). When it is missing or older, Setup asks **Install the Microsoft Visual C++ Runtime now? (Y/N)**. Type `Y` and Enter to run the bundled `runtime\vcredist\VC_redist.x64.exe`: Microsoft's own window shows its licence terms, and Windows asks for an administrator. Anything else, or no answer within 5 minutes, installs nothing and prints `VCRUNTIME_MISSING` with the next step. Nothing is downloaded. `install` says what happened: `not-needed`, `not-checked`, `declined`, `not-asked` (not an interactive console, or `--pin-offline`, which never asks), or one of the codes below; `after` is the check again once the installer ran. A report, never a refusal: Setup's exit code does not change. Hosted Windows runners have the runtime installed, so the question and the installer on a PC without it are **not tested** (a manual check on a clean PC).
+
+| Code | First thing to do |
+|---|---|
+| `VCRUNTIME_MISSING` | The runtime is not installed (or `VCRUNTIME_OLD`: older): run `Setup-PiRaiders.cmd` again from a console and answer `Y`; you need a Windows administrator's password for the prompt. |
+| `VCRUNTIME_UNKNOWN` | The system folder's runtime files could not be read: keep the line and report it; do not copy DLLs by hand. |
+| `VCRUNTIME_INSTALLED` | Installed: `after` should now be `VCRUNTIME_PRESENT`; nothing more to do. |
+| `VCRUNTIME_INSTALLED_RESTART` | Installed, Windows needs a restart: restart the PC, then run Setup again and check `VCRUNTIME_PRESENT`. |
+| `VCRUNTIME_NEWER_PRESENT` | A newer runtime is already installed: run Setup again; it should say `VCRUNTIME_PRESENT`. |
+| `VCRUNTIME_INSTALL_CANCELLED` | The installer or the administrator prompt was cancelled: run Setup again and answer `Y` when ready. |
+| `VCRUNTIME_INSTALL_FAILED` | The installer did not finish: restart the PC and run Setup again; if it repeats, keep the line and report it. |
+| `VCRUNTIME_INSTALLER_MISSING` | The bundled installer is not in `runtime\vcredist\`: extract the whole ZIP again (step 1). |
+
 | Code | First thing to do |
 |---|---|
 | `SETUP_USAGE` | Only when `app\scripts\piraiders-setup.cjs` is run directly with wrong arguments (exit 2); use `Setup-PiRaiders.cmd` instead. |
@@ -68,7 +81,7 @@ Run `Diagnose-PiRaiders.cmd`. It reads only; it never writes. It works with the 
 
 **Worked:** exit 0 and one line with `"ok":true` and six states. With the application closed, in source mode: `exchangeFolder` is `reachable`, `catalogSequence` is `read` with a number, `approvals` is `readable`; `prepared`, `renderer` and `ndiSender` are `unknown` with `APP_NOT_RUNNING`, and `app` is `not-running`. In local mode the three exchange states are `not-used`. `"ready":false` is always printed: Diagnose never says ready or on air.
 
-Beside the six states, `"graphics"` is the same OpenGL 4.5 check and renderer choice as Setup prints (step 4).
+Beside the six states, `"graphics"` is the same OpenGL 4.5 check and renderer choice as Setup prints (step 4), and `"vcRuntime"` the same Visual C++ Runtime check (`check` and `probe` only): Diagnose never asks and never installs.
 
 Diagnose refuses (exit 1) only with `MACHINE_CONFIG_INVALID` or `DIAGNOSE_FAILED`. Every other code below is one of the state codes inside an exit-0 line with `"ok":true`: read each state's `code`, not only the exit.
 

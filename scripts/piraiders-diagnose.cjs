@@ -12,10 +12,13 @@
 // 'unknown' with a code saying why (APP_NOT_RUNNING when nothing answers).
 // `graphics` (Q-019): the OpenGL 4.5 check code, whether the check ran, the
 // renderer setting and the renderer chosen; a check, not a render claim.
+// `vcRuntime` (Q-027): whether this PC has the Microsoft x64 VC++ runtime
+// Caspar needs ({check, probe}); Diagnose only reports, it never installs.
 // Nothing here is a source seen on a network, a receiver, the board or on air.
 // Exit 0 read, 1 refused, 2 wrong arguments.
 const path=require('node:path');
 const {graphicsFor}=require('./lib/graphics-check.cjs');
+const {vcRuntimeReport}=require('./lib/vc-runtime.cjs');
 const {loadGameDayMachineConfig}=require('./lib/game-day-catalog.cjs');
 const {diagnoseMachine}=require('./lib/game-day-diagnose.cjs');
 
@@ -23,7 +26,7 @@ function parsed(argv){
   if(argv.length!==2||argv[0]!=='--machine'||typeof argv[1]!=='string'||!path.isAbsolute(argv[1]))return null;
   return{file:path.resolve(argv[1])};
 }
-async function main(argv,{appRoot=path.resolve(__dirname,'..'),nodeExecutable=process.execPath,graphicsCheck={}}={}){
+async function main(argv,{appRoot=path.resolve(__dirname,'..'),nodeExecutable=process.execPath,graphicsCheck={},vcRuntime={}}={}){
   const args=parsed(argv);
   if(!args)return{exitCode:2,answer:{ok:false,code:'DIAGNOSE_USAGE'}};
   let machine;
@@ -31,7 +34,7 @@ async function main(argv,{appRoot=path.resolve(__dirname,'..'),nodeExecutable=pr
   catch{return{exitCode:1,answer:{ok:false,code:'MACHINE_CONFIG_INVALID'}};}
   const answer=await diagnoseMachine(machine);
   // Q-019: the OpenGL check and renderer choice, beside the six states.
-  return{exitCode:answer.ok?0:1,answer:{...answer,graphics:await graphicsFor(machine,graphicsCheck)}};
+  return{exitCode:answer.ok?0:1,answer:{...answer,graphics:await graphicsFor(machine,graphicsCheck),vcRuntime:await vcRuntimeReport(vcRuntime)}};
 }
 if(require.main===module){
   main(process.argv.slice(2)).then(({exitCode,answer})=>{
