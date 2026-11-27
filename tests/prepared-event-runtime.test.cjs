@@ -118,6 +118,19 @@ test('managed relative config is ASCII and directory-independent while other con
  assert.throws(()=>preparedCasparConfig(profile,'relative',{relativePaths:true}),/CONFIG_DIRECTORY/);
 });
 
+test('Q-021: the NDI DLL is copied into Caspar\'s start folder, which Caspar 2.5.1 reads before its narrow-text NDI_RUNTIME_DIR_V6',async t=>{
+ const f=await fixture(t);f.profile.caspar.runtimeDir=path.join(f.root,'owned runtime 鷹');
+ const ndiDirectory=path.join(f.root,'ndi 鷹');await fs.mkdir(ndiDirectory);await fs.writeFile(path.join(ndiDirectory,'Processing.NDI.Lib.x64.dll'),'synthetic NDI DLL bytes');f.profile.output={type:'ndi',name:'PiRaiders test',runtimeDirectory:ndiDirectory};
+ const runtime=await f.create();await runtime.start();await until(()=>runtime.snapshot().ready);
+ const caspar=f.state.spawned.find(value=>value.privateInput);
+ assert.equal(await fs.readFile(path.join(caspar.opts.cwd,'Processing.NDI.Lib.x64.dll'),'utf8'),'synthetic NDI DLL bytes');
+ assert.equal(caspar.opts.env.NDI_RUNTIME_DIR_V6,ndiDirectory);
+});
+test('Q-021: an event without NDI output gets no NDI DLL in Caspar\'s start folder',async t=>{
+ const f=await fixture(t);const runtime=await f.create();await runtime.start();await until(()=>runtime.snapshot().ready);
+ const caspar=f.state.spawned.find(value=>value.privateInput);
+ await assert.rejects(fs.stat(path.join(caspar.opts.cwd,'Processing.NDI.Lib.x64.dll')),{code:'ENOENT'});
+});
 test('managed Caspar launches its ASCII config in the newly owned Unicode directory without changing SPX, exe or NDI environment',async t=>{
  const f=await fixture(t);f.profile.caspar.runtimeDir=path.join(f.root,'owned runtime 鷹 ! &');
  // A foreign configuration in the configured component cwd must not be read or
