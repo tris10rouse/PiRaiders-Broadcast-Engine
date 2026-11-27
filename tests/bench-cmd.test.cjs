@@ -9,6 +9,8 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const bundle=require('../scripts/lib/windows-bundle.cjs');
 const bench=require('../scripts/lib/bench-test.cjs');
 const proof=require('../scripts/bench-cmd-proof.cjs');
+const {writeSummaryEvidence}=require('../scripts/smoke-windows-bench.cjs');
+const {auditEvidence}=require('../scripts/proof-evidence-privacy.cjs');
 const setupCommand=require('../scripts/piraiders-setup.cjs'),diagnoseCommand=require('../scripts/piraiders-diagnose.cjs'),verifyCommand=require('../scripts/piraiders-verify-bundle.cjs');
 
 const ROOT=path.join(__dirname,'..');
@@ -118,6 +120,14 @@ test('the proof passes a fresh extraction run twice, refuses the wrong argument 
   assert.equal(record.totalMs.length,2);
   const text=JSON.stringify(record);
   for(const p of [root,app,'鷹',os.hostname(),os.userInfo().username,'/','\\\\'])assert.ok(!text.includes(p),'record must not name '+p);
+  // The Windows job's evidence: the record and the summary's lines pass the evidence privacy check.
+  const evidence=path.join(path.dirname(path.dirname(root)),'evidence');await fs.mkdir(evidence);
+  await fs.writeFile(path.join(evidence,'windows-bench-test.json'),JSON.stringify(record,null,2)+'\n');
+  const kept=await writeSummaryEvidence(path.join(app,'bench-test','bench-summary.txt'),evidence);
+  assert.equal(path.basename(kept),'bench-summary.json');
+  assert.deepEqual(JSON.parse(await fs.readFile(kept,'utf8')).lines.slice(0,3),['PiRaiders bench test summary',bench.BENCH_NOT_PROVEN,'result PASS']);
+  assert.deepEqual((await auditEvidence(evidence,[root,app,path.join(app,'bench-test')])).violations,[]);
+  assert.equal(await writeSummaryEvidence(path.join(app,'no-such-summary.txt'),evidence),null);
 });
 
 test('a FAIL from the bench, a changed step list, a missing summary or a wrong refusal each fail the proof with a fixed code',async t=>{
