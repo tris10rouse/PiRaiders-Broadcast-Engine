@@ -77,7 +77,9 @@ if(require.main===module){
     const fixed=v=>typeof v==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(v)?v:null;
     console.error(JSON.stringify({event:'windows-bench-test-proof-failed',code:fixed(error.code)||'UNEXPECTED',failedStep:fixed(error.failedStep),failedCode:fixed(error.failedCode),
       exitCode:Number.isInteger(error.exitCode)?error.exitCode:null,stepIndex:Number.isInteger(error.stepIndex)?error.stepIndex:null,
-      stepCount:Number.isInteger(error.stepCount)?error.stepCount:null,violations:error.violations??null}));
+      stepCount:Number.isInteger(error.stepCount)?error.stepCount:null,run:Number.isInteger(error.run)?error.run:null,
+      extraIn:error.extraIn&&typeof error.extraIn==='object'?Object.fromEntries(['extraApp','extraSoftwareMirror','extraOther'].map(k=>[k,Number.isSafeInteger(error.extraIn[k])?error.extraIn[k]:null])):null,
+      violations:error.violations??null}));
     process.exitCode=1;
   });
 }

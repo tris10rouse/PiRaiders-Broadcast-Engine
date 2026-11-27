@@ -8,6 +8,11 @@
 // (app/config/piraiders-app.json), SPX config (app/config.json), stores or
 // exchange folder. A second run removes only that folder, and only when the
 // marker says it is the bench test's own.
+// One thing outside it is the app's, not the bench's (Q-035): on its first
+// start with the software renderer the app makes its copy of the bundled
+// Caspar in runtime-software\ beside app\ (scripts/lib/bundled-caspar.cjs)
+// and keeps it for later starts; the first line says so, and a later
+// VERIFY counts those files apart (extraSoftwareMirror).
 //
 // Steps, in order, each answering one fixed code:
 //   VERIFY         the ZIP check of Verify-PiRaiders.cmd (the operator's own
@@ -138,9 +143,12 @@ function steps({appRoot,bench,runCommand,randomUUID,ports,bounds,signal,appEntry
       if(!a)fail('VERIFY_ANSWER_UNREADABLE');
       if(r.exitCode===0&&a.code==='BUNDLE_VERIFIED'&&Number.isSafeInteger(a.files))return{code:'BUNDLE_VERIFIED',counts:{files:a.files,extra:0}};
       // After the operator's own setup their files are extra, and only extra.
-      const c=a.counts||{};
-      if(r.exitCode===1&&a.code==='BUNDLE_DIFFERS'&&JSON.stringify(a.differences)==='["extra"]'&&Number.isSafeInteger(c.extra))
-        return{code:'BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA',counts:{extra:c.extra}};
+      // Q-035: counted by place, so a summary says where they are: under app\,
+      // the app's own software copy of Caspar (runtime-software\), elsewhere.
+      const c=a.counts||{},e=a.extraIn||{},n=v=>Number.isSafeInteger(v)&&v>=0;
+      if(r.exitCode===1&&a.code==='BUNDLE_DIFFERS'&&JSON.stringify(a.differences)==='["extra"]'&&n(c.extra)&&
+        n(e.app)&&n(e.softwareMirror)&&n(e.other)&&e.app+e.softwareMirror+e.other===c.extra)
+        return{code:'BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA',counts:{extra:c.extra,extraApp:e.app,extraSoftwareMirror:e.softwareMirror,extraOther:e.other}};
       fail(fixedCode(a.code,'VERIFY_UNEXPECTED'));
     },
     async DEMO_EXCHANGE(){
@@ -256,7 +264,7 @@ async function runBenchTest({appRoot,runCommand,print=()=>{},now=Date.now,random
   if(typeof appRoot!=='string'||!path.isAbsolute(appRoot)||typeof runCommand!=='function'||typeof print!=='function'||
     (signal!==undefined&&!(signal instanceof AbortSignal))||!ports||!Number.isSafeInteger(ports.spx)||!Number.isSafeInteger(ports.rossTalk))fail('BENCH_OPTIONS_INVALID');
   const bench=path.join(appRoot,FOLDER),summaryFile=path.join(bench,SUMMARY);
-  print('Bench test: works only in its own folder app\\'+FOLDER+'\\ with demo data; your machine file, SPX config, stores and exchange folder are not touched.');
+  print('Bench test: works only in its own folder app\\'+FOLDER+'\\ with demo data; your machine file, SPX config, stores and exchange folder are not touched; with the software renderer the app keeps its own copy of CasparCG in runtime-software\\ beside app\\ for later starts.');
   const started=now(),result={result:'PASS',failed:null,steps:[],ms:0};
   let failure=null;
   try{await removePrevious(bench);}catch(error){failure={step:'START',code:fixedCode(error&&error.code,'BENCH_START_FAILED')};}

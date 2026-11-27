@@ -106,7 +106,24 @@ test('an operator who already set up the PC passes, and their files stay byte fo
   assert.equal(out.lines[1],'VERIFY BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA');
   assert.equal(await fs.readFile(path.join(app,'config','piraiders-app.json'),'utf8'),'{"operator":true}\n');
   assert.equal(await fs.readFile(path.join(app,'config.json'),'utf8'),'{"spx":true}\n');
-  assert.match(await fs.readFile(out.summaryFile,'utf8'),/step VERIFY BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA \d+ms extra=2\n/);
+  assert.match(await fs.readFile(out.summaryFile,'utf8'),/step VERIFY BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA \d+ms extra=2 extraApp=2 extraSoftwareMirror=0 extraOther=0\n/);
+});
+
+test('the app\'s software Caspar copy from an earlier start is counted apart at VERIFY, and the first line says the app keeps it (Q-035)',async t=>{
+  const {root,app}=await bundleShape(t);
+  // What the real app makes on its first start with the software renderer
+  // (scripts/lib/bundled-caspar.cjs); the stand-in app does not make it.
+  const mirror=path.join(root,'runtime-software','caspar');await fs.mkdir(mirror,{recursive:true});
+  for(const name of ['casparcg.exe','opengl32.dll','libgallium_wgl.dll'])await fs.writeFile(path.join(mirror,name),'x');
+  const out=await run(app);
+  assert.equal(out.exitCode,0,out.lines.join('\n'));
+  assert.equal(out.lines[1],'VERIFY BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA');
+  assert.match(out.lines[0],/the app keeps its own copy of CasparCG in runtime-software\\ beside app\\/);
+  assert.match(await fs.readFile(out.summaryFile,'utf8'),/\nstep VERIFY BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA \d+ms extra=3 extraApp=0 extraSoftwareMirror=3 extraOther=0\n/);
+  assert.equal(await fs.readFile(path.join(mirror,'casparcg.exe'),'utf8'),'x');
+  // A Verify answer without the places is not taken as only extra.
+  const old=await run(app,{override:{'piraiders-verify-bundle.cjs':()=>({exitCode:1,stdout:JSON.stringify({ok:false,code:'BUNDLE_DIFFERS',differences:['extra'],counts:{missing:0,changed:0,extra:3}})+'\n'})}});
+  assert.equal(old.lines.at(-1).split('  ')[0],'FAIL VERIFY BUNDLE_DIFFERS');
 });
 
 test('a bench-test folder without the marker, or a link, is refused and left alone',async t=>{

@@ -12,6 +12,10 @@
 //      summary path inside app\bench-test\; the summary file holds the
 //      not-proven line, `result PASS`, each step's code and timing.
 //   4. The same again: a second run starts clean and passes.
+//   5. (Q-035) Each run's VERIFY finds no extra file under app\ or anywhere
+//      else outside app\bench-test\; only the app's own software copy of
+//      Caspar (runtime-software\) may be there. Else BENCH_LEFT_FILES with
+//      the run and the counts by place.
 //
 // `runEntry(name, args)` runs one root entry and answers {exitCode, stdout}.
 // Only fixed words, codes, counts and timings are kept, never paths.
@@ -78,7 +82,11 @@ async function proveBenchCommand({root,runEntry,runs=2}){
     const r=await runEntry(ENTRY,[]);
     const codes=checkBenchConsole(r.stdout,r.exitCode);
     let text;try{text=await fs.readFile(summaryFile,'utf8');}catch{fail('BENCH_SUMMARY_MISSING');}
-    results.push(checkBenchSummary(text,codes));
+    const summary=checkBenchSummary(text,codes);
+    const verify=summary.steps[0].counts;
+    if(summary.steps[0].code==='BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA'&&(verify.extraApp!==0||verify.extraOther!==0))
+      fail('BENCH_LEFT_FILES',{run:i+1,extraIn:{extraApp:verify.extraApp??null,extraSoftwareMirror:verify.extraSoftwareMirror??null,extraOther:verify.extraOther??null}});
+    results.push(summary);
   }
   return{event:'windows-bench-test-proof',result:'PASS',runs:results.length,wrongArgumentExit:2,
     steps:results.at(-1).steps,totalMs:results.map(r=>r.totalMs),notProven:BENCH_NOT_PROVEN};

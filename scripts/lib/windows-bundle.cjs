@@ -192,8 +192,17 @@ function inspectBundle(root) {
     const stat = fs.lstatSync(absolute);
     if (!stat.isFile() || stat.size !== item.bytes || sha256(absolute) !== item.sha256) counts.changed++;
   }
-  for (const relative of entriesUnder(root)) if (relative !== MANIFEST && !listed.has(relative)) counts.extra++;
-  return { files: manifest.files.length, counts };
+  // Q-035: where the extra entries are, by fixed place only: under app/ (the
+  // operator's files, a bench run), the app's own software copy of the
+  // bundled Caspar (runtime-software/, scripts/lib/bundled-caspar.cjs), or
+  // anywhere else. Counts only, never a name.
+  const extraIn = { app: 0, softwareMirror: 0, other: 0 };
+  for (const relative of entriesUnder(root)) if (relative !== MANIFEST && !listed.has(relative)) {
+    counts.extra++;
+    const top = relative.split('/')[0];
+    extraIn[top === 'app' ? 'app' : top === 'runtime-software' ? 'softwareMirror' : 'other']++;
+  }
+  return { files: manifest.files.length, counts, extraIn };
 }
 
 // Q-018: copy the staged third-party runtime (scripts/bundle-runtime.cjs) into
