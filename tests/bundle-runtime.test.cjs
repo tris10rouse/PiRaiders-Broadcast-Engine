@@ -177,7 +177,7 @@ test('the build entry stages the runtime before the ZIP and the ZIP build demand
   assert.match(entry, /stageRuntime\(\)[\s\S]*buildWindowsBundle\(\{ runtimeStage \}\)/);
   const lib = fs.readFileSync(path.join(repo, 'scripts', 'lib', 'windows-bundle.cjs'), 'utf8');
   assert.match(lib, /if \(typeof runtimeStage !== 'string' \|\| !runtimeStage\) throw Error\('RUNTIME_STAGE_MISSING'\)/);
-  assert.match(lib, /copyRuntimeStage\(runtimeStage, bundle\);\n/);
+  assert.match(lib, /copyRuntimeStage\(runtimeStage, bundle\);\r?\n/);
   // The staging script and its downloader are build recipes, not packaged sources.
   assert.equal(bundle.selectSourceFiles(repo, ['scripts/bundle-runtime.cjs', 'scripts/prepare-caspar-proof.cjs']).length, 0);
 });
