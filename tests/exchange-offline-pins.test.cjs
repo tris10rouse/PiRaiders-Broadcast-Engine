@@ -95,11 +95,13 @@ test('the setup command pins a prepared confirmation; the same button then start
   const options={appRoot:m.appRoot,nodeExecutable:process.execPath};
   const pinned=await main(['--machine',m.file,'--pin-offline'],options);
   assert.equal(pinned.exitCode,0,JSON.stringify(pinned.answer));
-  const {graphics,...answer}=JSON.parse(JSON.stringify(pinned.answer));
+  const {graphics,vcRuntime,...answer}=JSON.parse(JSON.stringify(pinned.answer));
   assert.deepEqual(answer,{ok:true,step:'done',code:null,
     done:{machine:'checked',source:'direct',feed:'checked',journal:'present',approvals:'present',offline:{pinned:1,unchanged:0,notPrepared:0,ineligible:0}}});
   // Q-019: the OpenGL check is reported beside the steps (its own tests: graphics-check.test.cjs).
   assert.deepEqual(Object.keys(graphics),['check','probe','setting','renderer']);assert.equal(graphics.setting,'auto');
+  // Q-027: the VC++ runtime check; --pin-offline never asks (its own tests: vc-runtime.test.cjs).
+  assert.deepEqual(Object.keys(vcRuntime),['check','probe','install','after']);assert.equal(vcRuntime.install,'not-asked');
   const printed=JSON.stringify(pinned.answer);
   for(const secret of [m.parent,path.basename(snapshotDir),m.docs.playbackFingerprint,m.raw.source.approvalStoreId])assert.equal(printed.includes(secret),false,'no path or id printed');
 

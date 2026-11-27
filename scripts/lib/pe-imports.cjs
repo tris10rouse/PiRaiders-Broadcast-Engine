@@ -105,6 +105,24 @@ function peImports(bytes) {
   return { imports, delayImports };
 }
 
+// Q-027 (moved from bundle-runtime.cjs): PE machine and the VS_FIXEDFILEINFO file version (a.b.c.d), or null when the
+// file carries none. Throws RUNTIME_PE_INVALID on anything that is not a PE.
+function peInfo(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 64 || bytes.toString('ascii', 0, 2) !== 'MZ') invalid();
+  const offset = bytes.readUInt32LE(60);
+  if (offset < 64 || offset > bytes.length - 6 || bytes.readUInt32LE(offset) !== 0x00004550) invalid();
+  const machine = bytes.readUInt16LE(offset + 4);
+  const signature = Buffer.from([0xbd, 0x04, 0xef, 0xfe]);
+  // The first signature followed by structure version 1.0 (the same four bytes
+  // can occur by chance in code before the version resource).
+  for (let at = bytes.indexOf(signature); at >= 0 && at + 16 <= bytes.length; at = bytes.indexOf(signature, at + 1)) {
+    if (bytes.readUInt32LE(at + 4) !== 0x00010000) continue;
+    const ms = bytes.readUInt32LE(at + 8), ls = bytes.readUInt32LE(at + 12);
+    return { machine, version: [ms >>> 16, ms & 0xffff, ls >>> 16, ls & 0xffff].join('.') };
+  }
+  return { machine, version: null };
+}
+
 // Regular files under dir as forward-slash relative paths.
 function filesUnder(dir, prefix = '') {
   const out = [];
@@ -147,4 +165,4 @@ function checkRuntimeImports(runtimeDir, { skip = ['vcredist'] } = {}) {
   return missing.sort((a, b) => a.file < b.file ? -1 : a.file > b.file ? 1 : a.dll < b.dll ? -1 : 1);
 }
 
-module.exports = { VC_RUNTIME_DLLS, VC_REDIST_FILE, WINDOWS_DLLS, PeError, peImports, checkRuntimeImports };
+module.exports = { VC_RUNTIME_DLLS, VC_REDIST_FILE, WINDOWS_DLLS, PeError, peImports, peInfo, checkRuntimeImports };
