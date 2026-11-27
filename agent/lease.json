@@ -6,7 +6,7 @@
   "task": "Q-001",
   "workBranch": "feature/Q-001-receiver-start-timeout",
   "acquiredAt": "2026-11-27T14:50:09.816Z",
-  "lastHeartbeat": "2026-11-27T15:39:05.825Z",
-  "expiresAt": "2026-11-27T17:09:05.825Z",
+  "lastHeartbeat": "2026-11-27T15:39:40.804Z",
+  "expiresAt": "2026-11-27T17:09:40.804Z",
   "releasedAt": null
 }
