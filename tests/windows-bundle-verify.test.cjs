@@ -56,7 +56,7 @@ test('a changed file is refused as changed', t => {
   fs.writeFileSync(path.join(root, 'app', 'server.js'), 'console.log(2)\n'); // same size, other bytes
   const r = verify(root);
   assert.equal(r.exitCode, 1);
-  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['changed'], counts: { missing: 0, changed: 1, extra: 0 } });
+  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['changed'], counts: { missing: 0, changed: 1, extra: 0 }, extraIn: { app: 0, softwareMirror: 0, other: 0 } });
   noPaths(r.line, parent);
 });
 
@@ -66,7 +66,7 @@ test('a missing file is refused as missing, also when its whole folder is gone',
   fs.rmSync(path.join(root, 'app', 'node_modules'), { recursive: true });
   const r = verify(root);
   assert.equal(r.exitCode, 1);
-  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['missing'], counts: { missing: 2, changed: 0, extra: 0 } });
+  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['missing'], counts: { missing: 2, changed: 0, extra: 0 }, extraIn: { app: 0, softwareMirror: 0, other: 0 } });
   noPaths(r.line, parent);
 });
 
@@ -75,7 +75,7 @@ test('an extra file is refused as extra: an operator file written before the che
   fs.writeFileSync(path.join(root, 'app', 'config', 'piraiders-app.json'), '{"operator":true}\n');
   const r = verify(root);
   assert.equal(r.exitCode, 1);
-  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['extra'], counts: { missing: 0, changed: 0, extra: 1 } });
+  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['extra'], counts: { missing: 0, changed: 0, extra: 1 }, extraIn: { app: 1, softwareMirror: 0, other: 0 } });
   noPaths(r.line, parent);
 });
 
@@ -85,7 +85,21 @@ test('all three kinds at once are each counted, in a fixed order', t => {
   fs.rmSync(path.join(root, 'Launch-PiRaiders.cmd'));
   fs.mkdirSync(path.join(root, 'app', 'LOG')); fs.writeFileSync(path.join(root, 'app', 'LOG', 'a.log'), 'x');
   const r = verify(root);
-  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['missing', 'changed', 'extra'], counts: { missing: 1, changed: 1, extra: 1 } });
+  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['missing', 'changed', 'extra'], counts: { missing: 1, changed: 1, extra: 1 }, extraIn: { app: 1, softwareMirror: 0, other: 0 } });
+});
+
+test('extra files are counted by fixed place: app, the app\'s software Caspar copy, anything else (Q-035)', t => {
+  const { parent, root } = built(t);
+  // What the app makes on a first start with the software renderer (scripts/lib/bundled-caspar.cjs).
+  fs.mkdirSync(path.join(root, 'runtime-software', 'caspar'), { recursive: true });
+  for (const name of ['casparcg.exe', 'opengl32.dll', 'libgallium_wgl.dll', '.piraiders-software-layout.json']) fs.writeFileSync(path.join(root, 'runtime-software', 'caspar', name), 'x');
+  fs.writeFileSync(path.join(root, 'app', 'config', 'piraiders-app.json'), '{}\n');
+  fs.writeFileSync(path.join(root, 'runtime', 'left.txt'), 'x'); fs.writeFileSync(path.join(root, 'notes.txt'), 'x');
+  const r = verify(root);
+  assert.equal(r.exitCode, 1);
+  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['extra'], counts: { missing: 0, changed: 0, extra: 7 }, extraIn: { app: 1, softwareMirror: 4, other: 2 } });
+  noPaths(r.line, parent);
+  assert.doesNotMatch(r.line, /casparcg|opengl32|runtime-software|notes/);
 });
 
 test('a listed file replaced by a folder or a symbolic link is changed, and the link is never followed', t => {
@@ -94,7 +108,7 @@ test('a listed file replaced by a folder or a symbolic link is changed, and the 
   fs.rmSync(path.join(root, 'app', 'server.js')); fs.symlinkSync(target, path.join(root, 'app', 'server.js'));
   fs.rmSync(path.join(root, 'README-WINDOWS.md')); fs.mkdirSync(path.join(root, 'README-WINDOWS.md'));
   const r = verify(root);
-  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['changed'], counts: { missing: 0, changed: 2, extra: 0 } });
+  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['changed'], counts: { missing: 0, changed: 2, extra: 0 }, extraIn: { app: 0, softwareMirror: 0, other: 0 } });
 });
 
 test('an unlisted symbolic link or empty folder: the link is extra, the empty folder is nothing', t => {
@@ -102,7 +116,7 @@ test('an unlisted symbolic link or empty folder: the link is extra, the empty fo
   fs.symlinkSync(path.join(root, 'app'), path.join(root, 'app-link'));
   fs.mkdirSync(path.join(root, 'app', 'DATAROOT'));
   const r = verify(root);
-  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['extra'], counts: { missing: 0, changed: 0, extra: 1 } });
+  assert.deepEqual(r.answer, { ok: false, code: 'BUNDLE_DIFFERS', differences: ['extra'], counts: { missing: 0, changed: 0, extra: 1 }, extraIn: { app: 0, softwareMirror: 0, other: 1 } });
 });
 
 test('a missing, unreadable or invalid manifest is MANIFEST_INVALID, never verified', t => {
@@ -148,7 +162,7 @@ test('the command run as a process checks the bundle two folders above it and pr
   let out;
   try { execFileSync(process.execPath, [path.join(scripts, 'piraiders-verify-bundle.cjs')], { encoding: 'utf8' }); assert.fail('must refuse'); }
   catch (error) { assert.equal(error.status, 1); out = error.stdout; }
-  assert.deepEqual(JSON.parse(out), { ok: false, code: 'BUNDLE_DIFFERS', differences: ['extra'], counts: { missing: 0, changed: 0, extra: 2 } });
+  assert.deepEqual(JSON.parse(out), { ok: false, code: 'BUNDLE_DIFFERS', differences: ['extra'], counts: { missing: 0, changed: 0, extra: 2 }, extraIn: { app: 2, softwareMirror: 0, other: 0 } });
   assert.equal(out.split('\n').filter(Boolean).length, 1);
   fs.writeFileSync(path.join(root, 'BUILD-MANIFEST.json'), JSON.stringify(bundle.createManifest(root, METADATA), null, 2) + '\n');
   out = execFileSync(process.execPath, [path.join(scripts, 'piraiders-verify-bundle.cjs')], { encoding: 'utf8' });

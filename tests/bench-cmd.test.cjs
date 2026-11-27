@@ -60,6 +60,12 @@ test('OPERATOR-CHECKLIST.md and README-WINDOWS.md start with the quick test and 
   assert.equal(checklist.split(/\r?\n/).filter(l=>/^## \d+\. /.test(l)).length,11);
   // The first line the bench prints is the one the documents describe.
   assert.match(read('scripts/lib/bench-test.cjs'),/Bench test: works only in its own folder app\\\\'\+FOLDER\+'\\\\ with demo data/);
+  // Q-035: both say plainly which reusable files the app makes on a first start and keeps.
+  for(const relative of ['packaging/windows/OPERATOR-CHECKLIST.md','packaging/windows/README-WINDOWS.md']){
+    const text=read(relative),quick=text.slice(0,text.search(/^## (?!Quick test)/m));
+    assert.match(quick,/`runtime-software\\` beside `app\\`/,relative);
+    assert.match(quick,/keeps it/,relative);
+  }
 });
 
 test('the Windows job runs Test-PiRaiders.cmd from the extracted ZIP after the build and keeps its evidence',()=>{
@@ -128,6 +134,22 @@ test('the proof passes a fresh extraction run twice, refuses the wrong argument 
   assert.deepEqual(JSON.parse(await fs.readFile(kept,'utf8')).lines.slice(0,3),['PiRaiders bench test summary',bench.BENCH_NOT_PROVEN,'result PASS']);
   assert.deepEqual((await auditEvidence(evidence,[root,app,path.join(app,'bench-test')])).violations,[]);
   assert.equal(await writeSummaryEvidence(path.join(app,'no-such-summary.txt'),evidence),null);
+});
+
+test('the second run names where the first left files: the app\'s software Caspar copy passes, anything else outside app\\bench-test fails BENCH_LEFT_FILES (Q-035)',async t=>{
+  // After the first run, the files the real app would leave: its software copy of Caspar, or a stray file.
+  const leaving=(app,root,files)=>{const entry=standInEntry(app);let runs=0;
+    return async(name,args)=>{const r=await entry(name,args);if(!args.length&&++runs===1)for(const f of files){const p=path.join(root,...f.split('/'));await fs.mkdir(path.dirname(p),{recursive:true});await fs.writeFile(p,'x');}return r;};};
+  {
+    const {root,app}=await bundleShape(t);
+    const record=await proof.proveBenchCommand({root,runEntry:leaving(app,root,['runtime-software/caspar/casparcg.exe','runtime-software/caspar/opengl32.dll'])});
+    assert.equal(record.steps[0].code,'BUNDLE_VERIFIED_OPERATOR_FILES_EXTRA');
+    assert.deepEqual(record.steps[0].counts,{extra:2,extraApp:0,extraSoftwareMirror:2,extraOther:0});
+  }
+  for(const [file,where] of [['app/LOG/spx.log',{extraApp:1,extraSoftwareMirror:0,extraOther:0}],['runtime/caspar/log.txt',{extraApp:0,extraSoftwareMirror:0,extraOther:1}]]){
+    const {root,app}=await bundleShape(t);
+    await assert.rejects(proof.proveBenchCommand({root,runEntry:leaving(app,root,[file])}),e=>e.code==='BENCH_LEFT_FILES'&&e.run===2&&JSON.stringify(e.extraIn)===JSON.stringify(where));
+  }
 });
 
 test('a FAIL from the bench, a changed step list, a missing summary or a wrong refusal each fail the proof with a fixed code',async t=>{

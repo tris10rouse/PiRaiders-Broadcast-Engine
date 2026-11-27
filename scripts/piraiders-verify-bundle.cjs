@@ -9,8 +9,12 @@
 // The bundle root is fixed: two folders above this script (app/scripts).
 // Prints one JSON line of fixed codes and counts, never a path or a file name:
 //   {"ok":true,"code":"BUNDLE_VERIFIED","files":N}                    exit 0
-//   {"ok":false,"code":"BUNDLE_DIFFERS","differences":[...],"counts":{...}} exit 1
+//   {"ok":false,"code":"BUNDLE_DIFFERS","differences":[...],"counts":{...},"extraIn":{...}} exit 1
 //     differences: the kinds found, in this order: missing, changed, extra
+//     extraIn: where the extra files are, counts only (Q-035): app (under
+//       app\, such as the operator's own files), softwareMirror (the app's
+//       copy of the bundled Caspar in runtime-software\, made on its first
+//       start with the software renderer and kept), other (anywhere else)
 //   {"ok":false,"code":"MANIFEST_INVALID"}                             exit 1
 //   {"ok":false,"code":"VERIFY_USAGE"}                                 exit 2
 //   {"ok":false,"code":"VERIFY_FAILED"}                                exit 1
@@ -29,7 +33,7 @@ function main(argv,{root=path.resolve(__dirname,'..','..')}={}){
   catch(error){return{exitCode:1,answer:{ok:false,code:error&&error.manifestInvalid===true?'MANIFEST_INVALID':'VERIFY_FAILED'}};}
   const differences=KINDS.filter(kind=>found.counts[kind]>0);
   if(!differences.length)return{exitCode:0,answer:{ok:true,code:'BUNDLE_VERIFIED',files:found.files}};
-  return{exitCode:1,answer:{ok:false,code:'BUNDLE_DIFFERS',differences,counts:{...found.counts}}};
+  return{exitCode:1,answer:{ok:false,code:'BUNDLE_DIFFERS',differences,counts:{...found.counts},extraIn:{...found.extraIn}}};
 }
 if(require.main===module){
   let result;
