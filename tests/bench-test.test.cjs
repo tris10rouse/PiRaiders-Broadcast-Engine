@@ -264,6 +264,7 @@ c.once('message',()=>process.stdout.write(String(c.pid)+'\\n'));setInterval(()=>
   assert.equal(bindParentDisconnect(target,()=>{}),false);assert.equal(target.listenerCount('disconnect'),0);
   assert.throws(()=>bindParentDisconnect(target,null));
   // The real app entry binds it beside the shutdown signals.
-  const source=await fs.readFile(path.join(ROOT,'scripts','piraiders-app.cjs'),'utf8');
+  // A Windows checkout may turn line endings into CRLF.
+  const source=(await fs.readFile(path.join(ROOT,'scripts','piraiders-app.cjs'),'utf8')).replace(/\r\n/g,'\n');
   assert.match(source,/bindShutdownSignals\(process, shutdown\);\n {2}bindParentDisconnect\(process, shutdown\);/);
 });
