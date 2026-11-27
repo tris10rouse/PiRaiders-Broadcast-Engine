@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261127T222334Z-8a6310",
   "fence": 127,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "Q-035",
+  "workBranch": "feature/Q-035-bench-test-extra-files",
   "acquiredAt": "2026-11-27T22:23:34.475Z",
-  "lastHeartbeat": "2026-11-27T22:23:34.475Z",
-  "expiresAt": "2026-11-27T23:53:34.475Z",
+  "lastHeartbeat": "2026-11-27T22:23:49.068Z",
+  "expiresAt": "2026-11-27T23:53:49.068Z",
   "releasedAt": null
 }
