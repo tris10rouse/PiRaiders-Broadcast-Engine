@@ -63,6 +63,7 @@ const {checkConsolePixels}=require('./smoke-caspar-console-windows.cjs');
 const {processTable,observeTree,identityReason,identityCaptureDiagnostics}=require('./windows-process-evidence.cjs');
 const {sourceLocation}=require('./extracted-app-proof.cjs');
 const full=require('./smoke-full-app-windows.cjs');
+const {receiverEvidence}=require('./soak-windows-job.cjs');
 const {buildExchangeActivationFixture}=require('./exchange-activation-fixture.cjs');
 const setup=require('./exchange-activation-setup.cjs');
 const routes=require('./exchange-activation-routes.cjs');
@@ -208,7 +209,7 @@ async function scenario(location){
     const browserQuiet=await closeApplication('BROWSER_','graceful',{activeCaspar:false});
     const browserClose=closes.pop();assert.equal(browserClose.method,'graceful','BROWSER_APP_CLOSE_METHOD');
     assert.equal(await fs.readFile(configFile,'utf8'),configBytes,'SPX_CONFIG_UNCHANGED');
-    report={event:'exchange-activation-windows-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,casparProvenance:toolInfo.provenance,ndiProvenance:ndi.provenance,
+    report={event:'exchange-activation-windows-proof-passed',sourceCommit:process.env.PIRAIDERS_PROOF_SOURCE_SHA||null,receiverStartMs:probe.startMs,casparProvenance:toolInfo.provenance,ndiProvenance:ndi.provenance,
       runtimeVersion:probe.info.runtimeVersion,actualCLI:true,sourceMachine:true,syntheticExchangeFolder:true,approvalListSetUpBeforeStart:true,
       storesSetUpBySetupCommand:true,setupCommandRuns:setupRuns,
       routes:['source/refresh','source/events','source/selections','source/review','source/approve','events','prepare','activate','command'],
@@ -227,7 +228,7 @@ async function scenario(location){
       if(!routes.namesPrivatePath([allText,allText.toLowerCase()],privatePaths.flatMap(p=>[p,p.toLowerCase(),p.split(path.sep).join('/')])))await fs.writeFile(path.join(evidence,'failure-page.json'),JSON.stringify({phase,visibleText},null,2));}catch{}
     let evidenceViolations=null;try{const audit=await auditEvidence(evidence,privatePaths);evidenceViolations=audit.violations;if(audit.violations.length)await removeViolations(evidence,audit.violations);}catch{}
     let sourceStatus=null;if(page&&['APPROVE','PAGE_REFRESH','CACHED_PAGE_REFRESH','CACHED_START'].includes(phase))try{sourceStatus=routes.sourceStatusCodes((await client.get('/game-day/api/source/status')).value);}catch{}
-    console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,
+    console.error(JSON.stringify({event:'exchange-activation-proof-fixed-failure',phase,receiver:receiverEvidence(error,probe).receiver,
       routeStatus:error&&Number.isInteger(error.routeStatus)?error.routeStatus:null,setupExitCode:error&&Number.isInteger(error.exitCode)?error.exitCode:null,answerCode:error&&typeof error.answerCode==='string'?error.answerCode:null,sourceStatus,code:error&&typeof error.code==='string'&&/^[A-Z_]{1,64}$/.test(error.code)?error.code:full.fixedFailure(error),
       processIdentityReason:identityReason(error),processCaptureDiagnostics:identityCaptureDiagnostics(error),framesVerified:frames.map(x=>x.name),closes,closeAttempts,evidenceViolations,treeCounts:lastTreeCounts||null,
       appCategories:app?[...app.categories]:[],coldStart:coldStart||error?.coldStart||null,timingsMs:timings}));
