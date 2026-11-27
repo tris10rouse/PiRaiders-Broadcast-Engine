@@ -3,6 +3,7 @@
 // is to carry (owner's decision, 2026-11-27: he accepts their licences; bundle,
 // no proposal). One frozen list: what each one is, where it comes from, the
 // SHA-256 its download must have, its licence and the ZIP folder it goes in.
+// Q-026 adds Microsoft's VC++ runtime installer (owner's decision on Q-023).
 // The CI proofs keep their own pins; tests/bundled-components.test.cjs fails
 // if they ever disagree with this list. Design: docs/design/BUNDLED_RUNTIME.md.
 // Nothing here downloads, installs or runs anything.
@@ -38,6 +39,21 @@ const COMPONENTS = Object.freeze([
     files: Object.freeze(['Processing.NDI.Lib.x64.dll']),
     note: 'The SHA-256 is that of the vendor\'s runtime installer the DLL is taken from at build time. NDI Tools are not included. ' +
       'The licence terms are in licenses/NDI/. ' + NDI_TRADEMARK + ' More about NDI: ' + NDI_LINK
+  }),
+  // Q-026 (part 1 of Q-023), owner's decision 2026-11-27 (option C, "C anyway"):
+  // Microsoft's own installer of the x64 VC++ runtime Caspar imports, carried
+  // unchanged. Its licence says it may not be shared or transferred; no Visual
+  // Studio licence is claimed (CLAUDE_HANDOFF.md › Open risks).
+  Object.freeze({
+    id: 'vc-redist', name: 'Microsoft Visual C++ 2015-2022 Redistributable (x64)', version: '14.44.35211',
+    url: 'https://download.visualstudio.microsoft.com/download/pr/e9604e21-4b79-4096-a4b3-1b63d4b55b4d/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe',
+    sha256: 'cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b',
+    licence: 'Microsoft Visual C++ 2015 - 2022 Runtime licence terms (proprietary, shown by the installer)', folder: 'runtime/vcredist',
+    source: null,
+    files: Object.freeze(['VC_redist.x64.exe (Microsoft\'s installer, unchanged)']),
+    note: 'It installs the Microsoft runtime files CasparCG needs (MSVCP140.dll, VCRUNTIME140.dll, VCRUNTIME140_1.dll) into Windows. ' +
+      'Nothing in this ZIP runs it without the operator\'s consent, and Windows asks for an administrator when it runs. ' +
+      'No Visual Studio licence is claimed for passing it on: Microsoft\'s runtime licence terms, which the installer shows, govern it.'
   })
 ]);
 
@@ -83,6 +99,7 @@ function renderNotices(list = COMPONENTS) {
 // empty when the layout is right. Windows loads opengl32.dll from the
 // executable's own folder before the system's, so Mesa's copy there would
 // replace the graphics driver for Caspar: refused (Q-016 criterion 3).
+// Microsoft's VC++ runtime installer must be in runtime/vcredist/ (Q-026).
 // Only plain spellings are judged: an empty, "." or ".." part, a part ending in
 // a dot or a space (Windows drops those), a backslash or a control character
 // is LAYOUT_INVALID, so no other spelling of a folder can slip past the rule.
@@ -101,6 +118,7 @@ function checkRuntimeLayout(paths) {
   if (lower.some(p => name(p) === 'opengl32.dll' && casparDirs.has(dir(p)))) problems.push('MESA_BESIDE_CASPAR');
   if (!lower.includes('runtime/mesa/opengl32.dll')) problems.push('MESA_MISSING');
   if (!lower.includes('runtime/ndi/processing.ndi.lib.x64.dll')) problems.push('NDI_RUNTIME_MISSING');
+  if (!lower.includes('runtime/vcredist/vc_redist.x64.exe')) problems.push('VC_REDIST_MISSING');
   return problems;
 }
 

@@ -96,6 +96,12 @@ async function smokeWindowsBundle(archive) {
       'runtime/ndi/Processing.NDI.Lib.x64.dll']) assert.ok(listed.includes(file), 'bundled runtime file missing: ' + file);
     assert.deepEqual(listed.filter(file => file.startsWith('runtime/ndi/')), ['runtime/ndi/Processing.NDI.Lib.x64.dll']);
     assert.ok(!listed.some(file => /ndi tools|ndi studio monitor/i.test(file)), 'NDI Tools must not ship');
+    // Q-026: Microsoft's VC++ installer, the pinned bytes, unchanged; every
+    // runtime file's imports are provided by the bundle, Windows or it.
+    assert.deepEqual(listed.filter(file => file.startsWith('runtime/vcredist/')), ['runtime/vcredist/VC_redist.x64.exe']);
+    const vcPin = require('./lib/bundled-components.cjs').COMPONENTS.find(item => item.id === 'vc-redist').sha256;
+    assert.equal(require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(root, 'runtime', 'vcredist', 'VC_redist.x64.exe'))).digest('hex'), vcPin);
+    assert.deepEqual(require('./lib/pe-imports.cjs').checkRuntimeImports(path.join(root, 'runtime')), []);
     assert.ok(fs.existsSync(path.join(app, 'locales', 'english.json')));
     for (const dependency of ['nodemon', 'playwright', 'playwright-core']) {
       assert.equal(fs.existsSync(path.join(app, 'node_modules', dependency)), false, 'development dependencies must not ship');

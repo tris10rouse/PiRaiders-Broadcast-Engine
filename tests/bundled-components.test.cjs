@@ -11,8 +11,8 @@ const ndiProof = require('../scripts/prepare-ndi-proof.cjs');
 const { COMPONENTS, NDI_TRADEMARK, NDI_LINK, renderNotices, checkRuntimeLayout } = components;
 const byId = id => COMPONENTS.find(item => item.id === id);
 
-test('the list names CasparCG 2.5.1, Mesa 26.2.6 and the NDI 6 runtime, each pinned by SHA-256', () => {
-  assert.deepEqual(COMPONENTS.map(item => item.id), ['casparcg', 'mesa', 'ndi-runtime']);
+test('the list names CasparCG 2.5.1, Mesa 26.2.6, the NDI 6 runtime and the VC++ installer, each pinned by SHA-256', () => {
+  assert.deepEqual(COMPONENTS.map(item => item.id), ['casparcg', 'mesa', 'ndi-runtime', 'vc-redist']);
   for (const item of COMPONENTS) {
     assert.match(item.sha256, /^[a-f0-9]{64}$/);
     assert.match(item.url, /^https:\/\//);
@@ -24,6 +24,22 @@ test('the list names CasparCG 2.5.1, Mesa 26.2.6 and the NDI 6 runtime, each pin
   assert.equal(byId('ndi-runtime').version, '6.4.0.2');
   assert.equal(byId('ndi-runtime').files.join(), 'Processing.NDI.Lib.x64.dll');
   assert.ok(Object.isFrozen(COMPONENTS));
+});
+
+test('Q-026: Microsoft\'s VC++ installer, the versioned download, in runtime/vcredist/; no Visual Studio licence claimed', () => {
+  const vc = byId('vc-redist');
+  assert.equal(vc.version, '14.44.35211');
+  assert.equal(vc.sha256, 'cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b');
+  // The download URL carries the same SHA-256 (Microsoft's versioned link, not the moving aka.ms one).
+  assert.match(vc.url, /^https:\/\/download\.visualstudio\.microsoft\.com\/download\/pr\/[0-9a-f-]{36}\/[0-9A-F]{64}\/VC_redist\.x64\.exe$/);
+  assert.ok(vc.url.includes(vc.sha256.toUpperCase()));
+  assert.equal(vc.folder, 'runtime/vcredist');
+  assert.equal(vc.source, null);
+  assert.match(vc.licence, /Microsoft Visual C\+\+ 2015 - 2022 Runtime licence terms/);
+  const text = renderNotices();
+  for (const words of [/MSVCP140\.dll, VCRUNTIME140\.dll, VCRUNTIME140_1\.dll/, /Nothing in this ZIP runs it without the operator's consent/,
+    /Windows asks for an administrator/, /No Visual Studio licence is claimed/]) assert.match(text, words);
+  assert.doesNotMatch(text, /Distributable Code/);
 });
 
 test('the CI proofs download exactly the pins the ZIP will carry (they must agree)', () => {
@@ -77,7 +93,7 @@ test('notices refuse an empty or invalid component list', () => {
 });
 
 test('layout: Mesa opengl32.dll beside a casparcg.exe is refused, in any letter case', () => {
-  const rest = ['runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll'];
+  const rest = ['runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll', 'runtime/vcredist/VC_redist.x64.exe'];
   assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/caspar/libcef.dll',
     'runtime/mesa/libgallium_wgl.dll', ...rest]), []);
   assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/caspar/OpenGL32.DLL', ...rest]),
@@ -88,24 +104,32 @@ test('layout: Mesa opengl32.dll beside a casparcg.exe is refused, in any letter 
   assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/caspar/other/opengl32.dll', ...rest]), []);
 });
 
-test('layout: one Caspar executable, Mesa and the NDI runtime each in their own folder', () => {
-  assert.deepEqual(checkRuntimeLayout(['runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll']),
+test('layout: one Caspar executable, Mesa, the NDI runtime and the VC++ installer each in their own folder', () => {
+  const vc = 'runtime/vcredist/VC_redist.x64.exe';
+  assert.deepEqual(checkRuntimeLayout(['runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll', vc]),
     ['CASPAR_MISSING']);
   assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/caspar/b/casparcg.exe',
-    'runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll']), ['CASPAR_NOT_UNIQUE']);
-  assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/ndi/Processing.NDI.Lib.x64.dll']),
+    'runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll', vc]), ['CASPAR_NOT_UNIQUE']);
+  assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/ndi/Processing.NDI.Lib.x64.dll', vc]),
     ['MESA_MISSING']);
-  assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/mesa/opengl32.dll']),
+  assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/mesa/opengl32.dll', vc]),
     ['NDI_RUNTIME_MISSING']);
   // NDI's distribution page: keep the DLL in the application's folders, never the system path.
   assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/caspar/Processing.NDI.Lib.x64.dll',
-    'runtime/mesa/opengl32.dll']), ['NDI_RUNTIME_MISSING']);
+    'runtime/mesa/opengl32.dll', vc]), ['NDI_RUNTIME_MISSING']);
+  // Q-026: Microsoft's installer in runtime/vcredist/ and nowhere else.
+  assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll']),
+    ['VC_REDIST_MISSING']);
+  assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/caspar/VC_redist.x64.exe', 'runtime/mesa/opengl32.dll',
+    'runtime/ndi/Processing.NDI.Lib.x64.dll']), ['VC_REDIST_MISSING']);
+  assert.deepEqual(checkRuntimeLayout(['runtime/caspar/casparcg.exe', 'runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll',
+    'runtime/VCREDIST/vc_redist.X64.exe']), []);
   assert.throws(() => checkRuntimeLayout('runtime/caspar/casparcg.exe'), /LAYOUT_INVALID/);
   assert.throws(() => checkRuntimeLayout(['runtime\\caspar\\casparcg.exe']), /LAYOUT_INVALID/);
 });
 
 test('layout: other spellings of a folder or file name are refused, never judged', () => {
-  const rest = ['runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll'];
+  const rest = ['runtime/mesa/opengl32.dll', 'runtime/ndi/Processing.NDI.Lib.x64.dll', 'runtime/vcredist/VC_redist.x64.exe'];
   for (const odd of ['runtime/caspar//opengl32.dll', 'runtime/caspar/./opengl32.dll', 'runtime/caspar/opengl32.dll.',
     'runtime/caspar/opengl32.dll ', 'runtime/caspar/x/../opengl32.dll', '/runtime/caspar/opengl32.dll',
     './runtime/caspar/casparcg.exe', 'runtime/caspar/a:b', 'runtime/caspar/a\u0000b', '']) {
