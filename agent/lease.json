@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261127T050249Z-fce447",
   "fence": 109,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "Q-018",
+  "workBranch": "feature/Q-018-bundle-runtime",
   "acquiredAt": "2026-11-27T05:02:49.387Z",
-  "lastHeartbeat": "2026-11-27T05:02:49.387Z",
-  "expiresAt": "2026-11-27T06:32:49.387Z",
+  "lastHeartbeat": "2026-11-27T05:03:17.470Z",
+  "expiresAt": "2026-11-27T06:33:17.470Z",
   "releasedAt": null
 }
