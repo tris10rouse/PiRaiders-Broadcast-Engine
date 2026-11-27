@@ -25,7 +25,7 @@ test('the bundle packages Test-PiRaiders.cmd at its root and requires the bench 
 
 test('Test-PiRaiders.cmd refuses any argument with a plain sentence, runs only the bundled Node on the bench entry, needs no operator file',()=>{
   const text=read('packaging/windows/Test-PiRaiders.cmd');
-  assert.match(text,/^@echo off\n/);
+  assert.match(text,/^@echo off\r?\n/);
   assert.match(text,/if not "%~1"=="" \(\r?\n  echo Test-PiRaiders\.cmd takes no arguments\. Read OPERATOR-CHECKLIST\.md\.\r?\n  exit \/b 2\r?\n\)/);
   assert.ok(text.includes(proof.BENCH_USAGE));
   assert.match(text,/echo Bundled Node runtime is missing\./);
@@ -66,7 +66,7 @@ test('the Windows job runs Test-PiRaiders.cmd from the extracted ZIP after the b
   const build=ci.indexOf('run: npm run package:windows'),run=ci.indexOf('run: npm run smoke:windows-bench'),keep=ci.indexOf('name: windows-bench-test-evidence');
   assert.ok(build>0&&run>build&&keep>run,JSON.stringify({build,run,keep}));
   const step=ci.slice(ci.lastIndexOf('- name:',run),run);
-  assert.match(step,/if: runner\.os == 'Windows'\n/);
+  assert.match(step,/if: runner\.os == 'Windows'\r?\n/);
   assert.doesNotMatch(step,/continue-on-error/);
   const retain=ci.slice(ci.lastIndexOf('- name:',keep),keep);
   assert.match(retain,/if: always\(\) && runner\.os == 'Windows'/);
