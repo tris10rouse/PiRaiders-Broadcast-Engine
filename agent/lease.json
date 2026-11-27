@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T003643Z-842abb",
+  "status": "idle",
+  "owner": null,
   "fence": 103,
-  "task": "Q-014",
-  "workBranch": "feature/Q-014-catalog-race-test",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T00:36:43.979Z",
-  "lastHeartbeat": "2026-11-27T01:16:24.246Z",
-  "expiresAt": "2026-11-27T02:46:24.246Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T01:16:35.174Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T01:16:35.174Z"
 }
