@@ -107,3 +107,79 @@ test('default browser: a tree that cannot be read whole still closes its root, a
   const source = fs.readFileSync(path.join(root, 'scripts', 'smoke-exchange-activation-windows.cjs'), 'utf8');
   assert.ok(source.indexOf('browserTree=roots;') > 0 && source.indexOf('browserTree=roots;') < source.indexOf("'BROWSER_IMAGES_DIFFER'"));
 });
+
+// Q-034: PR #145's e6ac176 (job 140725654245) failed with phase BROWSER_CLOSE and
+// OWNED_PROCESS_CLOSE_TIMEOUT. That code comes only from the console host's 10 s
+// close wait (settledChild), which closeApplication('BROWSER_') also named
+// BROWSER_CLOSE (tag + 'CLOSE'): the failure line could not say which close it was.
+test('default browser: no phase of an application close has the name of another phase (Q-034)', () => {
+  const source = fs.readFileSync(path.join(root, 'scripts', 'smoke-exchange-activation-windows.cjs'), 'utf8');
+  const literals = new Set([...source.matchAll(/phase='([A-Z_]+)'/g)].map(m => m[1]));
+  const tags = [...source.matchAll(/closeApplication\('([A-Z_]*)'/g)].map(m => m[1]);
+  const suffixes = [...source.matchAll(/phase=tag\+'([A-Z_]+)'/g)].map(m => m[1]);
+  assert.ok(literals.has('BROWSER_CLOSE') && tags.length === 3 && suffixes.includes('CLOSE'));
+  const made = tags.flatMap(tag => suffixes.map(suffix => tag + suffix));
+  for (const name of made) assert.equal(literals.has(name), false, name);
+  assert.equal(new Set(made).size, made.length);
+});
+
+test('default browser: a browser close over its bound says how many processes stayed and how long it waited (Q-034)', async () => {
+  const row = (id, ticks) => ({ ProcessId: id, ParentProcessId: 1, CreationUtcTicks: String(ticks), ExecutablePath: 'C:\\b\\msedge.exe' });
+  const tree = [row(20, 300), row(21, 301), row(22, 302)];
+  const killed = [];
+  const table = () => [row(20, 300), { ...row(21, 301), CreationUtcTicks: null }];
+  const started = Date.now();
+  await assert.rejects(proof.closeBrowser(tree, { until: full.until, kill: pid => killed.push(pid), table, boundMs: 300 }), error => {
+    assert.equal(error.message, 'BROWSER_SURVIVED_CLOSE');
+    const wait = error.closeWait;
+    assert.equal(wait.step, 'browser');
+    assert.equal(wait.boundMs, 300);
+    assert.ok(Number.isInteger(wait.waitedMs) && wait.waitedMs >= 300 && wait.waitedMs <= Date.now() - started + 1);
+    assert.deepEqual({ tracked: wait.tree.tracked, surviving: wait.tree.surviving, gone: wait.tree.gone, unknown: wait.tree.unknown }, { tracked: 3, surviving: 1, gone: 1, unknown: 1 });
+    assert.doesNotMatch(JSON.stringify(wait), /msedge|C:\\\\|\b20\b|\b21\b/);
+    return true;
+  });
+  assert.deepEqual(killed, [20, 21, 22]);
+  // A table that cannot be read fails at once with its own code, and still answers the time waited.
+  let reads = 0;
+  await assert.rejects(proof.closeBrowser(tree, { until: full.until, kill: () => {}, table: () => { reads++; throw Error('PROCESS_IDENTITY_UNVERIFIED'); }, boundMs: 5000 }), error => {
+    assert.equal(error.message, 'PROCESS_IDENTITY_UNVERIFIED');
+    assert.equal(error.closeWait.tree, null);
+    assert.ok(Number.isInteger(error.closeWait.waitedMs) && error.closeWait.waitedMs < 5000);
+    return true;
+  });
+  assert.equal(reads, 1);
+});
+
+test('default browser: processes of the browser image started after the snapshot are counted, nothing more (Q-034)', () => {
+  const before = proof.processKeys([{ ProcessId: 10, CreationUtcTicks: '100' }]);
+  const rows = [
+    { ProcessId: 10, CreationUtcTicks: '100', ExecutablePath: 'C:\\b\\msedge.exe' }, // before the start
+    { ProcessId: 11, CreationUtcTicks: '200', ExecutablePath: 'C:\\B\\MSEDGE.EXE' },
+    { ProcessId: 12, CreationUtcTicks: '201', ExecutablePath: 'C:\\b\\msedge.exe' },
+    { ProcessId: 13, CreationUtcTicks: '202', ExecutablePath: 'C:\\b\\other.exe' },
+    { ProcessId: 14, CreationUtcTicks: null, ExecutablePath: 'C:\\b\\msedge.exe' }];
+  assert.deepEqual(proof.browserLeftovers(rows, 'C:\\b\\msedge.exe', before), { running: 2, unreadable: 1 });
+  assert.throws(() => proof.browserLeftovers('rows', 'C:\\b\\msedge.exe', before), /BROWSER_TABLE_INVALID/);
+  assert.throws(() => proof.browserLeftovers(rows, '', before), /BROWSER_TABLE_INVALID/);
+});
+
+test('default browser: an application close over its bound prints what still runs, fixed fields only (Q-034)', () => {
+  const close = require('../scripts/console-close-proof.cjs');
+  const tree = { tracked: 4, surviving: 0, reused: 0, gone: 4, unknown: 0, reasons: [] };
+  const record = close.closeWaitRecord({ waitedMs: 10012.6, hostExited: false, appProcess: { tracked: 1, surviving: 0, reused: 0, gone: 1, unknown: 0, reasons: [] }, appTree: tree, browserLeft: { running: 3, unreadable: 0 } });
+  assert.deepEqual(record, { step: 'application', waitedMs: 10013, boundMs: 10000, hostExited: false, hostStillWaitsForJobProcesses: true,
+    appProcess: 'gone', appTree: { tracked: 4, surviving: 0, gone: 4, unknown: 0 }, browserLeft: { running: 3, unreadable: 0 } });
+  assert.equal(close.closeWaitRecord({ waitedMs: 1, hostExited: true, appProcess: { tracked: 1, surviving: 1, gone: 0, unknown: 0 }, appTree: null, browserLeft: null }).appProcess, 'running');
+  const unread = close.closeWaitRecord({ waitedMs: 1, hostExited: false, appProcess: null, appTree: null, browserLeft: null });
+  assert.equal(unread.appProcess, 'unknown');
+  assert.equal(unread.hostStillWaitsForJobProcesses, null);
+  assert.throws(() => close.closeWaitRecord({ waitedMs: -1, hostExited: false }), /CLOSE_WAIT_INVALID/);
+  assert.throws(() => close.closeWaitRecord({ waitedMs: 1, hostExited: 'no' }), /CLOSE_WAIT_INVALID/);
+  assert.throws(() => close.closeWaitRecord({ waitedMs: 1, hostExited: false, browserLeft: { running: 'C:\\x' } }), /CLOSE_WAIT_INVALID/);
+  // The activation proof puts it on its failure line, and its cleanup line names each part's fixed code.
+  const source = fs.readFileSync(path.join(root, 'scripts', 'smoke-exchange-activation-windows.cjs'), 'utf8');
+  assert.match(source, /closeWait:error&&error\.closeWait\|\|null/);
+  assert.match(source, /consoleClose\.closeWaitRecord\(/);
+  assert.match(source, /exchange-activation-proof-cleanup-failed',parts:cleanup,codes:/);
+});

@@ -76,4 +76,32 @@ function closeRecord({ method, exitCode, signal, signalToExitMs, signalToGoneMs 
     exitBoundMs: CLOSE_EXIT_BOUND_MS, goneBoundMs: CLOSE_GONE_BOUND_MS, everyOwnedProcessGone: true, spxPortFree: true });
 }
 
-module.exports = { CONSOLE_PROOF, OUTLIVED_EXIT_CODE, START_FAILED_EXIT_CODE, CONTROL_C_EXIT_CODE, CLOSE_EXIT_BOUND_MS, CLOSE_GONE_BOUND_MS, CLOSE_METHODS, HELPER_FAILURES, helperArgs, startArgs, sendClose, portFree, closeRecord };
+// Q-034: the console host did not end within the close bound. What the failure
+// line can say, fixed fields only: how long the proof waited, whether the host's
+// own exit was seen (its stdio still open), whether the application process and
+// the tree it owned at the close still run, and how many browser processes
+// started after the snapshot still run (they belong to the host's job, and the
+// host waits for its job; ConsoleProof.cs). No ids, paths or names.
+const COUNTS = ['tracked', 'surviving', 'gone', 'unknown'];
+function counts(value) {
+  if (value === null || value === undefined) return null;
+  const out = {};
+  for (const key of COUNTS) { check(value && Number.isSafeInteger(value[key]) && value[key] >= 0, 'CLOSE_WAIT_INVALID'); out[key] = value[key]; }
+  return Object.freeze(out);
+}
+function closeWaitRecord({ waitedMs, hostExited, appProcess = null, appTree = null, browserLeft = null } = {}) {
+  check(Number.isFinite(waitedMs) && waitedMs >= 0, 'CLOSE_WAIT_INVALID');
+  check(typeof hostExited === 'boolean', 'CLOSE_WAIT_INVALID');
+  const app = counts(appProcess), tree = counts(appTree);
+  let left = null;
+  if (browserLeft !== null) {
+    check(browserLeft && Number.isSafeInteger(browserLeft.running) && browserLeft.running >= 0 && Number.isSafeInteger(browserLeft.unreadable) && browserLeft.unreadable >= 0, 'CLOSE_WAIT_INVALID');
+    left = Object.freeze({ running: browserLeft.running, unreadable: browserLeft.unreadable });
+  }
+  const appState = !app ? 'unknown' : app.surviving > 0 ? 'running' : app.unknown > 0 ? 'unknown' : 'gone';
+  return Object.freeze({ step: 'application', waitedMs: Math.round(waitedMs), boundMs: CLOSE_EXIT_BOUND_MS, hostExited,
+    // The host outlives the application only while something in its job still runs.
+    hostStillWaitsForJobProcesses: appState === 'unknown' || hostExited ? null : appState === 'gone',
+    appProcess: appState, appTree: tree, browserLeft: left });
+}
+module.exports = { CONSOLE_PROOF, OUTLIVED_EXIT_CODE, START_FAILED_EXIT_CODE, CONTROL_C_EXIT_CODE, CLOSE_EXIT_BOUND_MS, CLOSE_GONE_BOUND_MS, CLOSE_METHODS, HELPER_FAILURES, helperArgs, startArgs, sendClose, portFree, closeRecord, closeWaitRecord };
