@@ -7,6 +7,8 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os');
 const {proveBundleEntries,sourceMachineFromExample,checkDiagnose}=require('../scripts/bundle-entries-proof.cjs');
 const bundle=require('../scripts/lib/windows-bundle.cjs');
+const LINUX_GRAPHICS=process.platform==='win32'?{check:'GPU_OPENGL_UNKNOWN',probe:'missing',setting:'auto',renderer:'software'}:{check:'GPU_OPENGL_UNKNOWN',probe:'not-windows',setting:'auto',renderer:'software'};
+const {checkGraphics}=require('../scripts/bundle-entries-proof.cjs');
 const setupCommand=require('../scripts/piraiders-setup.cjs'),diagnoseCommand=require('../scripts/piraiders-diagnose.cjs'),verifyCommand=require('../scripts/piraiders-verify-bundle.cjs');
 const METADATA={commitSHA:'b'.repeat(40),spxVersion:'1.3.0',node:{version:'v22.0.0',platform:'win32',arch:'x64'}};
 const ROOT=path.join(__dirname,'..');
@@ -58,7 +60,9 @@ test('setup twice, a wrong argument and diagnose pass over the shipped examples 
   assert.deepEqual(evidence.verify.fresh,{exitCode:0,code:'BUNDLE_VERIFIED',files:bundle.TEMPLATES.length,differences:null});
   assert.deepEqual(evidence.verify.afterSetup,{exitCode:1,code:'BUNDLE_DIFFERS',files:null,differences:['extra']});
   assert.deepEqual(evidence.setup,{first:{journal:'initialized',approvals:'initialized'},second:{journal:'present',approvals:'present'},
-    firstCode:null,secondCode:null,storeFiles:evidence.setup.storeFiles,secondRunWroteNothing:true,wrongArgumentExit:2});
+    firstCode:null,secondCode:null,storeFiles:evidence.setup.storeFiles,secondRunWroteNothing:true,wrongArgumentExit:2,graphics:LINUX_GRAPHICS});
+  // Q-019: off Windows the check is not run; unknown means software.
+  assert.deepEqual(evidence.diagnose.graphics,LINUX_GRAPHICS);
   assert.ok(evidence.setup.storeFiles>=2);
   assert.equal(evidence.diagnose.app,'not-running');assert.equal(evidence.diagnose.mode,'source');
   assert.deepEqual(evidence.diagnose.states.exchangeFolder,{state:'reachable',code:null,from:'stores'});
@@ -156,4 +160,27 @@ test('a fresh extraction that differs from its manifest, or extra-only not holdi
     const unreadable=async(name,args)=>name==='Verify-PiRaiders.cmd'?{exitCode:0,stdout:'not json'}:inProcessEntries(app)(name,args);
     await assert.rejects(proveBundleEntries({root,work,runEntry:unreadable}),{code:'VERIFY_ANSWER_UNREADABLE'});
   }
+});
+
+test('Q-019: the graphics answer must be fixed words, the software choice with no GPU, and the check run where required',async t=>{
+  const line=g=>JSON.stringify({ok:true,graphics:g});
+  const ran={check:'GPU_OPENGL_TOO_OLD',probe:'ran',setting:'auto',renderer:'software'};
+  assert.deepEqual(checkGraphics(line(ran),{ranRequired:true}),ran);
+  assert.deepEqual(checkGraphics(line({...ran,check:'GPU_OPENGL_UNKNOWN'}),{ranRequired:true}),{...ran,check:'GPU_OPENGL_UNKNOWN'});
+  assert.deepEqual(checkGraphics(line({check:'GPU_OPENGL_UNKNOWN',probe:'missing',setting:'auto',renderer:'software'})).probe,'missing');
+  for(const [g,options] of [
+    [{check:'GPU_OPENGL_UNKNOWN',probe:'missing',setting:'auto',renderer:'software'},{ranRequired:true}],
+    [{check:'GPU_OPENGL_UNKNOWN',probe:'not-windows',setting:'auto',renderer:'software'},{ranRequired:true}],
+    [{check:'GPU_OPENGL_TOO_OLD',probe:'failed',setting:'auto',renderer:'software'},{}],
+    [{check:'GPU_OPENGL_45',probe:'ran',setting:'auto',renderer:'gpu'},{}],
+    [{...ran,renderer:'gpu'},{}],[{...ran,setting:'software'},{}],[{...ran,check:'NVIDIA'},{}],[{...ran,probe:'yes'},{}],
+    [{...ran,name:'GPU'},{}],[{check:ran.check,probe:ran.probe,setting:ran.setting},{}],[undefined,{}],['software',{}]]){
+    assert.throws(()=>checkGraphics(line(g),options),e=>e.code==='GRAPHICS_UNEXPECTED'&&!JSON.stringify(e.graphics??null).includes('NVIDIA'),JSON.stringify(g));
+  }
+  assert.throws(()=>checkGraphics('not json'),{code:'GRAPHICS_UNEXPECTED'});
+  // A setup run whose answer lacks the graphics answer fails the proof.
+  const {root,app,work}=await bundleShape(t),entries=inProcessEntries(app);
+  const without=async(name,args)=>{const r=await entries(name,args);if(name!=='Setup-PiRaiders.cmd'||args.length)return r;
+    const v=JSON.parse(r.stdout);delete v.graphics;return{...r,stdout:JSON.stringify(v)+'\n'};};
+  await assert.rejects(proveBundleEntries({root,work,runEntry:without}),{code:'GRAPHICS_UNEXPECTED'});
 });

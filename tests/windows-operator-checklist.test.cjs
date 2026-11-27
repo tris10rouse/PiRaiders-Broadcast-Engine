@@ -18,8 +18,8 @@ const union = (...sets) => new Set(sets.flatMap(set => [...set]));
 
 // What each command prints: the command file, the library it answers from and
 // the store codes the setup step forwards as they are.
-const SETUP_FILES = ['scripts/piraiders-setup.cjs', 'scripts/lib/exchange-setup.cjs'];
-const DIAGNOSE_FILES = ['scripts/piraiders-diagnose.cjs', 'scripts/lib/game-day-diagnose.cjs'];
+const SETUP_FILES = ['scripts/piraiders-setup.cjs', 'scripts/lib/exchange-setup.cjs', 'scripts/lib/graphics-check.cjs'];
+const DIAGNOSE_FILES = ['scripts/piraiders-diagnose.cjs', 'scripts/lib/game-day-diagnose.cjs', 'scripts/lib/graphics-check.cjs'];
 const LAUNCH_FILES = ['scripts/piraiders-app.cjs'];
 const VERIFY_FILES = ['scripts/piraiders-verify-bundle.cjs'];
 const FORWARDED_FILES = ['scripts/lib/game-day-catalog.cjs', 'scripts/lib/exchange-journal.cjs',

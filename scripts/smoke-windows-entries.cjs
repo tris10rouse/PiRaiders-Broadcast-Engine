@@ -55,7 +55,7 @@ async function smokeWindowsEntries(archive,evidence){
       'Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:PIRAIDERS_SMOKE_ARCHIVE, $env:PIRAIDERS_SMOKE_EXTRACT)'],{
       env:{...process.env,PIRAIDERS_SMOKE_ARCHIVE:path.resolve(archive),PIRAIDERS_SMOKE_EXTRACT:extraction},stdio:'inherit',windowsHide:true,timeout:900000});
     const manifest=verifyManifest(root);
-    const result=await proveBundleEntries({root,work:proofWork,runEntry:entryRunner(root,powershell,work)});
+    const result=await proveBundleEntries({root,work:proofWork,runEntry:entryRunner(root,powershell,work),graphicsRanRequired:true});
     const record={...result,sourceCommit:/^[0-9a-f]{40}$/.test(manifest.commitSHA)?manifest.commitSHA:null,manifestVerified:true,
       pathSpacesUnicodeBang:true,bundledNodeOnly:true,claims:'hosted Windows CI only; no stadium PC, Caspar, NDI or board'};
     await fsp.mkdir(evidence,{recursive:true});
