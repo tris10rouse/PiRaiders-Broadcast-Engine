@@ -11,8 +11,12 @@
 // send back (fixed codes, counts and timings only). Exit 0 PASS, 1 FAIL,
 // 2 wrong arguments. A bench check of this PC with demo data: not the
 // stadium, not the board, not on air.
+//
+// Q-032: Ctrl+C (or the window closed) ends the running step as INTERRUPTED;
+// the app it started is closed and the summary is still written.
 const path=require('node:path'),{execFile}=require('node:child_process');
 const {runBenchTest}=require('./lib/bench-test.cjs');
+const {SHUTDOWN_SIGNALS}=require('./lib/shutdown-signals.cjs');
 
 const APP_ROOT=path.resolve(__dirname,'..');
 // One of the app's own command scripts, as its own process from app/, the
@@ -24,9 +28,12 @@ function runCommand(script,args,{appRoot=APP_ROOT,timeoutMs=180000}={}){
     });
   });
 }
-async function main(argv,{appRoot=APP_ROOT,print=line=>process.stdout.write(line+'\n'),run=runCommand}={}){
+async function main(argv,{appRoot=APP_ROOT,print=line=>process.stdout.write(line+'\n'),run=runCommand,signals=process}={}){
   if(argv.length){print('The bench test takes no arguments. Read OPERATOR-CHECKLIST.md.');return 2;}
-  return(await runBenchTest({appRoot,print,runCommand:(script,args)=>run(script,args,{appRoot})})).exitCode;
+  const controller=new AbortController(),stop=()=>controller.abort();
+  for(const name of SHUTDOWN_SIGNALS)signals.on(name,stop);
+  try{return(await runBenchTest({appRoot,print,signal:controller.signal,runCommand:(script,args)=>run(script,args,{appRoot})})).exitCode;}
+  finally{for(const name of SHUTDOWN_SIGNALS)signals.removeListener(name,stop);}
 }
 if(require.main===module){
   main(process.argv.slice(2)).then(code=>{process.exitCode=code;},()=>{process.stdout.write('FAIL START BENCH_FAILED  (no summary file written)\n');process.exitCode=1;});

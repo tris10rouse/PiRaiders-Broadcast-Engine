@@ -12,7 +12,7 @@ const { performance } = require('node:perf_hooks');
 const { ProcessSupervisor } = require('./lib/process-supervisor.cjs');
 const { loadGameDayMachineConfig } = require('./lib/game-day-catalog.cjs');
 const { assertJobHostAvailable, spawnSupervisedProcess } = require('./lib/windows-job-process.cjs');
-const { bindShutdownSignals } = require('./lib/shutdown-signals.cjs');
+const { bindShutdownSignals, bindParentDisconnect } = require('./lib/shutdown-signals.cjs');
 const loaded = new WeakSet();
 const HEX64 = /^[a-f0-9]{64}$/, HEX32 = /^[a-f0-9]{32}$/;
 function failure(code) { return Object.assign(Error(code), { code }); }
@@ -226,6 +226,7 @@ async function main() {
   const shutdown = () => { if (!stopping) stopping = (async () => { for (let attempt = 0; attempt < 3; attempt++) { try { await app.close(); return; } catch { if (attempt === 2) throw failure('APP_CLOSE_FAILED'); await delay(1000); } } })().catch(() => { console.error('APP_CLOSE_FAILED'); process.exitCode = 1; }).finally(() => { stopping = null; }); return stopping; };
   app.on('fault',value=>{console.error(value.code);process.exitCode=1;void shutdown();});
   bindShutdownSignals(process, shutdown);
+  bindParentDisconnect(process, shutdown);
   const status=await app.start({ browser: !noBrowser });
   console.log(JSON.stringify({component:'piraiders-app',event:'controller-available',url:app.settings.url,browserOpened:status.browserOpened}));
 }
