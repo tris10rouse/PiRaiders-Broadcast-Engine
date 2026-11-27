@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "status": "active",
-  "owner": "claude-20261127T034238Z-79b717",
+  "status": "idle",
+  "owner": null,
   "fence": 107,
-  "task": "Q-015",
-  "workBranch": "feature/Q-015-readme-windows-eval",
+  "task": null,
+  "workBranch": null,
   "acquiredAt": "2026-11-27T03:42:38.180Z",
-  "lastHeartbeat": "2026-11-27T04:21:07.221Z",
-  "expiresAt": "2026-11-27T05:51:07.221Z",
-  "releasedAt": null
+  "lastHeartbeat": "2026-11-27T04:21:28.958Z",
+  "expiresAt": null,
+  "releasedAt": "2026-11-27T04:21:28.958Z"
 }
