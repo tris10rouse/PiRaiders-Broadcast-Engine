@@ -1,6 +1,6 @@
 # Claude handoff
 
-Last updated 2026-11-27 (builder run, lock fence 109; Q-018 landed: the Windows ZIP carries the pinned CasparCG, Mesa and NDI runtime; Q-023 added for the VC++ runtime Caspar needs). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
+Last updated 2026-11-27 (builder run, lock fence 111; Q-023 waits for the owner: Microsoft's runtime licence forbids passing it on). Keep this to one screen. History lives in `CODEX_CHECKPOINT.md` and `docs/planning/IMPLEMENTATION_BACKLOG.md`; do not read those whole.
 
 ## Road to the evaluation build
 
@@ -49,7 +49,7 @@ Size: S = fits one run, M = about 2 runs, L = about 3+ runs. Parts in `docs/plan
 | Q-016 Bundle CasparCG, Mesa and the NDI runtime; OpenGL check picks GPU or software renderer | M | Owner's decision (2026-11-27): accepts the licences, bundle instead of a proposal | Split on 2026-11-27 (fence 108) into Q-017..Q-022 (the queue takes only `Q-nnn` ids); design note `BUNDLED_RUNTIME.md` |
 | Q-017 Component list, third-party notices and the opengl32 layout rule | S | One module, one note, Linux tests; the ZIP does not change | landed by #127 on 2026-11-27 (fence 108): `scripts/lib/bundled-components.cjs` (pins agree with the CI proofs', test-checked), `renderNotices()`, `checkRuntimeLayout()` codes; NDI's distribution and licensing pages quoted in `BUNDLED_RUNTIME.md` |
 | Q-018 The Windows ZIP carries the pinned CasparCG, Mesa and NDI runtime | S | Packaging and notices; Windows-only failures show up only in CI; VC++ runtime need found there | landed by #128 on 2026-11-27 (fence 109): `scripts/bundle-runtime.cjs` stages the pins (NDI DLL read from the installer by a pinned build-only innoextract, never run; DLL and licence files SHA-256 pinned), the ZIP build demands the stage; VC++ runtime not in Caspar's archive (import tables read): split off as Q-023 |
-| Q-023 Ship the Microsoft x64 VC++ runtime the bundled Caspar needs | S | Found by Q-018; app-local DLLs or the redistributable with consent; CI cannot show its absence | queued |
+| Q-023 Ship the Microsoft x64 VC++ runtime the bundled Caspar needs | S | Found by Q-018; app-local DLLs or the redistributable with consent; CI cannot show its absence | needs you (fence 111, 2026-11-27): the licence inside Microsoft's VC_redist.x64.exe 14.44.35211 forbids sharing or transferring it; proposal doc, the owner chooses (install once from Microsoft, or ship under a confirmed Visual Studio licence) |
 | Q-019 OpenGL 4.5 check: GPU or software renderer | S | One check, one choice, Setup and Diagnose; Linux tests with a stand-in | queued |
 | Q-020 App runs the bundled Caspar with the chosen renderer; defaults use the bundle | S | Start path, Diagnostics panel line and NDI link, three documents; one browser test | queued |
 | Q-021 Extracted-ZIP Windows proof from the bundled components only | S | Changes one Windows job; Windows-only failures show up only in CI | queued |
@@ -67,12 +67,13 @@ Closed (fence 64): the console proof's START failure, the Linux browser-suite ha
 
 **Estimate:** 6 parts left (Q-019..Q-023, S each, from Q-016's split on 2026-11-27, which added 4 lines: M = 2 sized runs became 6 S parts, two landed; Q-018's VC++ finding added Q-023, one more line; Q-024 M, owner's request 2026-11-27, added = 2 sized runs); the evaluation build is recorded (5f-4) and Q-022 records a new one. Pace from every merged part so far: 43 runs for 40 sized runs = 1.08. 2 open failing checks (full-app receiver start, Caspar CEF), both parked = **about 8 runs** (7 sized runs x 1.08 rounded up), plus about 2 if either recurs.
 
-Parts left · runs left: 6 parts (Q-019..Q-023 S, Q-024 M) + 2 parked fix rows · about 8 runs, plus 2 if the parked rows recur.
+Parts left · runs left: 6 parts (Q-019..Q-023 S, Q-024 M; Q-023 waits for the owner's marks) + 2 parked fix rows · about 8 runs, plus 2 if the parked rows recur.
 
 ## Run log
 
 | Date (UTC) | Fence | Outcome | Part |
 |---|---|---|---|
+| 2026-11-27 | 111 | proposal (needs you) | Q-023: downloaded the pinned VC_redist.x64.exe (SHA-256 `cc0ff0eb…713b`, 14.44.35211) and read its licence: "share, publish, rent or lease" and transfer to third parties are not allowed, so shipping it is the owner's licence decision; proposal doc linked from `queue/needs-you/Q-023.md`; no code changed; master's checks still running at the run's start (none red); no open pull requests |
 | 2026-11-27 | 109 | merged (#128) | Q-018: the ZIP build downloads, checks and stages CasparCG 2.5.1, Mesa's x64 OpenGL files and the NDI 6.4.0.2 DLL with licences and THIRD-PARTY-NOTICES.md; staged on Linux from the real pinned downloads (306 runtime files, layout clean); 9 Linux tests, 3 fail on the old bundle code; review round: none confirmed (two notes taken: cleanup retries, longer ZIP extraction bounds); first push red on Windows `static-contracts` (job 140329566924): this change's own test matched `\n` against a CRLF checkout, fixed; npm test 1117 pass, 0 fail, 27 skipped; VC++ runtime missing from Caspar's archive: Q-023 first; master's checks still running at the run's start (none red) |
 | 2026-11-27 | 108 | merged (#127) | Q-016 split into Q-017..Q-022; Q-017: `bundled-components.cjs` (list, notices, layout rule), `BUNDLED_RUNTIME.md` with NDI's distribution requirements; 8 Linux tests fail without the module; review round: 2 confirmed (other spellings of a path slipped past the layout rule; the notices accepted multi-line or non-text fields and duplicates), each fixed with a test; npm test 1108 pass, 0 fail, 27 skipped; master's checks were still running at the run's start (none red) |
 | 2026-11-27 | 107 | merged (#126) | Q-015: README-WINDOWS.md opening, extract lead and evidence paragraph match the evaluation build; 1 Linux test fails on the old text; npm test 1100 pass, 0 fail, 27 skipped; docs and test only |
