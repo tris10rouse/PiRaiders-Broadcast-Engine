@@ -79,6 +79,15 @@ function setupWith(t,{files=all(),answer,exitCode=0,fills=true,installer=true}={
     notice:line=>state.notices.push(line)}};
 }
 
+test('the real runner starts the installer with /install /norestart and answers its exit code',{skip:process.platform==='win32'&&'stand-in is a POSIX script'},async t=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'PiRaiders vc runner '));t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+  const exe=path.join(dir,'VC_redist.x64.exe'),seen=path.join(dir,'args');
+  await fs.writeFile(exe,'#!/bin/sh\nprintf "%s|" "$@" > "'+seen+'"\nexit 42\n',{mode:0o755});
+  assert.deepEqual(await vc.defaultRunInstaller(exe),{exitCode:42},"POSIX exit codes stop at 255; Windows codes such as 3010 are the mapping test above");
+  assert.equal(await fs.readFile(seen,'utf8'),'/install|/norestart|');
+  assert.deepEqual(await vc.defaultRunInstaller(path.join(dir,'none.exe')),{exitCode:null},'a missing file is no exit code');
+});
+
 test('Setup: present asks nothing and runs nothing',async t=>{
   const {state,options}=setupWith(t,{answer:true});
   assert.deepEqual(await vc.vcRuntimeSetup(options),{check:'VCRUNTIME_PRESENT',probe:'read',install:'not-needed',after:null});

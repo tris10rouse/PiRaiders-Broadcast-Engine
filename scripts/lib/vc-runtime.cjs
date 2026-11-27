@@ -25,7 +25,7 @@ const INSTALL_CODES=Object.freeze(['VCRUNTIME_INSTALLED','VCRUNTIME_INSTALLED_RE
 const PROMPT='Install the Microsoft Visual C++ Runtime now? (Y/N) ';
 const NEXT_STEP='VCRUNTIME_MISSING: CasparCG needs the Microsoft Visual C++ Runtime. Run Setup-PiRaiders.cmd again and answer Y (Windows asks for an administrator).';
 const RESTART_STEP='VCRUNTIME_INSTALLED_RESTART: restart Windows, then run Setup-PiRaiders.cmd again.';
-const ANSWER_TIMEOUT_MS=5*60*1000,INSTALL_TIMEOUT_MS=30*60*1000,DLL_MAX_BYTES=16*1024*1024;
+const ANSWER_TIMEOUT_MS=5*60*1000,DLL_MAX_BYTES=16*1024*1024;
 const X64=0x8664;
 function fail(code){throw Object.assign(Error(code),{code});}
 
@@ -77,11 +77,13 @@ function defaultAsk({input=process.stdin,output=process.stderr,timeoutMs=ANSWER_
 }
 
 // Runs Microsoft's installer as it is (its own window and licence terms;
-// Windows' administrator prompt), waits for it, answers its exit code.
-function defaultRunInstaller(executable,{timeoutMs=INSTALL_TIMEOUT_MS}={}){
+// Windows' administrator prompt), waits for it to close, answers its exit
+// code. No deadline: an installer is never killed part-way; the operator who
+// said Y closes its window.
+function defaultRunInstaller(executable){
   return new Promise(resolve=>{
     let child;
-    try{child=spawn(executable,['/install','/norestart'],{cwd:path.dirname(executable),stdio:'ignore',windowsHide:false,shell:false,timeout:timeoutMs,killSignal:'SIGKILL'});}
+    try{child=spawn(executable,['/install','/norestart'],{cwd:path.dirname(executable),stdio:'ignore',windowsHide:false,shell:false});}
     catch{resolve({exitCode:null});return;}
     child.on('error',()=>resolve({exitCode:null}));
     child.on('exit',code=>resolve({exitCode:Number.isInteger(code)?code:null}));
@@ -123,4 +125,4 @@ async function vcRuntimeSetup({appRoot,ask=defaultAsk,runInstaller=defaultRunIns
   return answer(install,after);
 }
 
-module.exports={BUNDLED_VERSION,CHECK_CODES,INSTALL_CODES,PROMPT,NEXT_STEP,RESTART_STEP,installerPath,checkVcRuntime,installCode,vcRuntimeReport,vcRuntimeSetup,defaultAsk};
+module.exports={BUNDLED_VERSION,CHECK_CODES,INSTALL_CODES,PROMPT,NEXT_STEP,RESTART_STEP,installerPath,checkVcRuntime,installCode,vcRuntimeReport,vcRuntimeSetup,defaultAsk,defaultRunInstaller};
