@@ -3,10 +3,10 @@
   "status": "active",
   "owner": "claude-20261127T100424Z-28178b",
   "fence": 116,
-  "task": "builder run",
-  "workBranch": null,
+  "task": "Q-028",
+  "workBranch": "feature/Q-028-ndi-prep-step-codes",
   "acquiredAt": "2026-11-27T10:04:24.583Z",
-  "lastHeartbeat": "2026-11-27T10:04:24.583Z",
-  "expiresAt": "2026-11-27T11:34:24.583Z",
+  "lastHeartbeat": "2026-11-27T10:04:44.551Z",
+  "expiresAt": "2026-11-27T11:34:44.551Z",
   "releasedAt": null
 }
