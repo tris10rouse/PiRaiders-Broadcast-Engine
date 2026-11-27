@@ -232,16 +232,19 @@ internal static class NdiProbe
         }
         return matches;
     }
+    // Q-001: one fixed word per start step on stderr (no path, no runtime text),
+    // so a start that never reaches the ready line names the last step reached.
+    private static void Step(string name) { try { Console.Error.WriteLine("NDI_PROBE_STEP_" + name); } catch { } }
     private static string Initialize(string dllPath)
     {
         AssertAbi();
         Library = LoadLibraryEx(dllPath, IntPtr.Zero, 0x1100);
-        Require(Library != IntPtr.Zero, "RUNTIME_LOAD");
+        Require(Library != IntPtr.Zero, "RUNTIME_LOAD"); Step("RUNTIME_LOADED");
         BoolVoid cpu = Symbol<BoolVoid>("NDIlib_is_supported_CPU");
         Require(cpu(), "CPU_UNSUPPORTED");
         BoolVoid init = Symbol<BoolVoid>("NDIlib_initialize");
         NdiDestroy = Symbol<VoidVoid>("NDIlib_destroy");
-        Require(init(), "RUNTIME_INITIALIZE"); Initialized = true;
+        Require(init(), "RUNTIME_INITIALIZE"); Initialized = true; Step("RUNTIME_INITIALIZED");
         string version = ReadUtf8(Symbol<PtrVoid>("NDIlib_version")(), 256);
         Require(version.Length > 0 && version.Length <= 255 && !Regex.IsMatch(version, @"[\x00-\x1f\x7f]"), "RUNTIME_VERSION_FORMAT");
         FindNew createFinder = Symbol<FindNew>("NDIlib_find_create_v2");
@@ -255,7 +258,7 @@ internal static class NdiProbe
         ReleaseVideo = Symbol<FreeVideo>("NDIlib_recv_free_video_v2");
         GetConnections = Symbol<Connections>("NDIlib_recv_get_no_connections");
         FindCreate settings = new FindCreate { ShowLocal = true };
-        Finder = createFinder(ref settings); Require(Finder != IntPtr.Zero, "FINDER_CREATE");
+        Finder = createFinder(ref settings); Require(Finder != IntPtr.Zero, "FINDER_CREATE"); Step("FINDER_CREATED");
         return version;
     }
     private static Dictionary<string, object> Stats()
@@ -515,7 +518,7 @@ internal static class NdiProbe
         TcpListener listener = null; int exit = 0;
         try
         {
-            Console.OutputEncoding = Utf8;
+            Console.OutputEncoding = Utf8; Step("MAIN");
             Require(args.Length == 3 || args.Length == 4, "INVALID_ARGS"); string dll = LocalPath(args[0]); TargetLabel = args[1]; EvidenceDirectory = LocalPath(args[2]);
             if (args.Length == 4)
             {
