@@ -83,6 +83,19 @@ Evidence: Linux tests with stand-in checks (stub runner, and stand-in executable
 
 Evidence: Linux tests with a synthetic bundle (`tests/bundled-caspar.test.cjs`: paths, choice, own Caspar unchanged, mirror made, reused, rebuilt, copied without links, refused without leftovers, Diagnose, the web route) and the browser test at 1440 and 390 px. **Not shown:** the bundled Caspar actually starting from the extracted ZIP on Windows, whether Mesa's two files are enough for Caspar's software path, and hard links on NTFS (Q-021 runs it on hosted Windows); the `gpu` path on a PC with a graphics card (manual gate). The README's stadium warning names CasparCG's AMCP listener on every interface.
 
+## Extracted-ZIP proof from the bundle only (Q-021, fence 118)
+
+The CI check `actual-extracted-full-app-private-ndi` (`.github/workflows/full-app-proof.yml`) no longer runs `prepare-caspar-proof.cjs` or `prepare-ndi-proof.cjs`: no CI-only Caspar, no CI Mesa copied beside it, no NDI runtime installer. `scripts/extracted-bundle-proof.cjs` (proof tooling, not shipped in the ZIP) gives the extracted run of `scripts/smoke-full-app-windows.cjs` its inputs:
+
+- The machine file names no `caspar`, no `output.runtimeDirectory` and no `renderer`, as the shipped examples do, so the app's loader runs the ZIP's OpenGL check and takes the bundle.
+- The expected Caspar is the software mirror `runtime-software/caspar/casparcg.exe` (resolved through the real path, the extraction folder sits under a short-name temp path); the log scan reads that folder.
+- The test-bench receiver loads the ZIP's `runtime/ndi/Processing.NDI.Lib.x64.dll`, the same pinned 6.4.0.2 DLL the app hands Caspar.
+- The proof refuses to start with an `NDI_RUNTIME_DIR_Vn` or Mesa variable in its environment (`SEPARATE_NDI_RUNTIME_PRESENT`, `SEPARATE_MESA_ENVIRONMENT_PRESENT`).
+- Before the first event it reads the app's Diagnostics `caspar` (must be bundle, software, layout ready: `BUNDLED_SOFTWARE_CASPAR_EXPECTED`) and runs the ZIP's `PiRaiders.GraphicsCheck.exe` once; `result.json` keeps `bundledRuntime: {caspar, graphics: {check, probe, renderer}}` in fixed words. A `GPU_OPENGL_45` answer on a hosted runner fails the proof (`HOSTED_RUNNER_CHOSE_GPU`): that would be a finding, not a pass.
+- Provenance in `result.json` is the bundle's pins (`bundled-components.cjs`), not a CI download record.
+
+The source-tree job `actual-full-app-private-ndi` keeps its CI-prepared tools. The ASCII/Unicode Caspar config-argv diagnostic step after a failed extracted run was removed with the CI tools it read (the script and its Linux test stay). **Not shown by it:** the GPU renderer (manual gate on a real PC, date and equipment when done), a PC without the VC++ runtime (hosted Windows has it), Windows 10, the stadium PC, NDI over a network, the board.
+
 ## Parts
 
 Q-017 list, notices, rule (this note) · Q-018 the ZIP carries them · Q-023 the VC++ runtime Caspar needs (split: Q-026 the ZIP carries the installer and the import check, Q-027 Setup runs it with consent) · Q-019 OpenGL 4.5 check · Q-020 the app runs the bundled Caspar with the chosen renderer, defaults point at the bundle · Q-021 extracted-ZIP Windows proof from bundled components only · Q-022 new evaluation build recorded.
