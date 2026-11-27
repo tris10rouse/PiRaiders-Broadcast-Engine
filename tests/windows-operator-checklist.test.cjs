@@ -227,7 +227,7 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
   }
   // Opening: what it is not, and the stadium warning until the owner's off-air test.
   for (const not of [/not signed/, /not a release/, /not deployed/, /carries pinned CasparCG Server, Mesa's x64 OpenGL files and the NDI runtime DLL/, /THIRD-PARTY-NOTICES\.md/,
-    /recorded evaluation build predates them/, /the app starts that bundled Caspar by default/, /nothing else to install/, /Microsoft's VC\+\+ runtime installer Caspar needs \(`runtime\/vcredist\/VC_redist\.x64\.exe`, unchanged\)/, /Setup asks "Install the Microsoft Visual C\+\+ Runtime now\? \(Y\/N\)" and runs the installer only on Y/, /untested on a PC without the runtime/,
+    /the evaluation build recorded since Q-022 carries them/, /the app starts that bundled Caspar by default/, /nothing else to install/, /Microsoft's VC\+\+ runtime installer Caspar needs \(`runtime\/vcredist\/VC_redist\.x64\.exe`, unchanged\)/, /Setup asks "Install the Microsoft Visual C\+\+ Runtime now\? \(Y\/N\)" and runs the installer only on Y/, /untested on a PC without the runtime/,
     /Do not install on stadium equipment/, /owner approves an off-air test/])
     assert.match(opening, not, 'opening ' + not);
   // Extracted-app output is CI evidence from the named hosted-Windows check.
@@ -236,7 +236,8 @@ test('README-WINDOWS.md opening, extract lead and evidence paragraph match the e
   // The old wording is gone everywhere.
   for (const old of [/not the first user-testable release/, /output from this extracted artifact .* remain unverified/,
     /No manual testing is requested from the project owner until/, /extracted full application, reproducible legal/, /does not yet configure CI.s explicit software-Mesa/,
-    /Do not describe this ZIP as a user-testable build/, /Setup does not run that installer yet/, /CasparCG, Mesa and NDI binaries are not included/, /app does not start them yet/, /the app does not use them yet/, /Caspar\/Mesa\/NDI binaries are not bundled here/, /separately prepare verified\/legal CasparCG\/Mesa\/NDI components/, /Actual output from the extracted application still requires/])
+    /Do not describe this ZIP as a user-testable build/, /Setup does not run that installer yet/, /CasparCG, Mesa and NDI binaries are not included/, /app does not start them yet/, /the app does not use them yet/, /Caspar\/Mesa\/NDI binaries are not bundled here/, /separately prepare verified\/legal CasparCG\/Mesa\/NDI components/, /Actual output from the extracted application still requires/,
+    /recorded evaluation build predates them/, /Not shown by any test yet: the bundled Caspar starting from the extracted ZIP/])
     assert.doesNotMatch(readme, old, String(old));
 });
 
